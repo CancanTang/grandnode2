@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 
@@ -10,10 +10,10 @@ namespace Grand.Web.Common.Validators;
 public class CaptchaValidator : BaseGrandValidator<ICaptchaValidModel>
 {
     private readonly IHttpContextAccessor _contextAccessor;
-    private readonly IGoogleReCaptchaValidator _googleReCaptchaValidator;
+    private readonly GoogleReCaptchaValidator _googleReCaptchaValidator;
 
     public CaptchaValidator(IEnumerable<IValidatorConsumer<ICaptchaValidModel>> validators,
-        IHttpContextAccessor contextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator
     ) : base(validators)
     {
         _contextAccessor = contextAccessor;

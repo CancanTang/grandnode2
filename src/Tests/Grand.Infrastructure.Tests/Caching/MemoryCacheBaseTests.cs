@@ -29,38 +29,39 @@ public class MemoryCacheBaseTests
         _mediatorMock = new Mock<IMediator>();
         _service = new MemoryCacheBase(_memoryCache, _mediatorMock.Object, _config);
     }
-    [TestMethod]
-    public void GetTest()
-    {
-        var result = _service.Get("key", () => { return "test"; });
-        Assert.AreEqual("test", result);
-    }
-
-    [TestMethod]
-    public void GetTest_CacheTimeMinutes()
-    {
-        var result = _service.Get("key", () => { return "test"; }, 1);
-        Assert.AreEqual("test", result);
-    }
 
     [TestMethod]
     public async Task GetAsyncTest()
     {
         var result = await _service.GetAsync("key", () => { return Task.FromResult("test"); });
-        Assert.AreEqual("test", result);
+        Assert.AreEqual(result, "test");
     }
 
     [TestMethod]
     public async Task GetAsyncTest_CacheTimeMinutes()
     {
         var result = await _service.GetAsync("key", () => { return Task.FromResult("test"); }, 1);
-        Assert.AreEqual("test", result);
+        Assert.AreEqual(result, "test");
+    }
+
+    [TestMethod]
+    public void GetTest()
+    {
+        var result = _service.Get("key", () => { return "test"; });
+        Assert.AreEqual(result, "test");
+    }
+
+    [TestMethod]
+    public void GetTest_CacheTimeMinutes()
+    {
+        var result = _service.Get("key", () => { return "test"; }, 1);
+        Assert.AreEqual(result, "test");
     }
 
     [TestMethod]
     public async Task RemoveAsyncTest_IsNull()
     {
-        await _service.GetAsync("key", () => { return Task.FromResult("test"); }, 1);
+        _service.Get("key", () => { return "test"; }, 1);
         await _service.RemoveAsync("key");
         var result = _memoryCache.Get("key");
         Assert.IsNull(result);
@@ -69,7 +70,7 @@ public class MemoryCacheBaseTests
     [TestMethod]
     public async Task RemoveAsyncTest_NotNull()
     {
-        await _service.GetAsync("key", () => { return Task.FromResult("test"); }, 1);
+        _service.Get("key", () => { return "test"; }, 1);
         await _service.RemoveAsync("key1");
         var result = _memoryCache.Get("key");
         Assert.IsNotNull(result);
@@ -78,9 +79,9 @@ public class MemoryCacheBaseTests
     [TestMethod]
     public async Task RemoveByPrefixTest()
     {
-        await _service.GetAsync("key1", () => { return Task.FromResult("test"); }, 1);
-        await _service.GetAsync("key2", () => { return Task.FromResult("test"); }, 1);
-        await _service.GetAsync("test", () => { return Task.FromResult("test"); }, 1);
+        _service.Get("key1", () => { return "test"; }, 1);
+        _service.Get("key2", () => { return "test"; }, 1);
+        _service.Get("test", () => { return "test"; }, 1);
         await _service.RemoveByPrefix("key");
         var result = _memoryCache.Get("key1");
         Assert.IsNull(result);
@@ -89,9 +90,9 @@ public class MemoryCacheBaseTests
     [TestMethod]
     public async Task ClearTest()
     {
-        await _service.GetAsync("key1", () => { return Task.FromResult("test"); }, 1);
-        await _service.GetAsync("key2", () => { return Task.FromResult("test"); }, 1);
-        await _service.GetAsync("test", () => { return Task.FromResult("test"); }, 1);
+        _service.Get("key1", () => { return "test"; }, 1);
+        _service.Get("key2", () => { return "test"; }, 1);
+        _service.Get("test", () => { return "test"; }, 1);
         await _service.Clear();
         var result = _memoryCache.Get("key1");
         Assert.IsNull(result);
@@ -128,7 +129,7 @@ public class MemoryCacheBaseTests
 
         var acquireMock = new Mock<Func<Task<string>>>();
         acquireMock.Setup(a => a.Invoke()).ReturnsAsync(cacheEntry);
-        await _service.GetAsync(key, () => { return Task.FromResult("fakeValue"); }, 1);
+        _service.Get(key, () => { return "fakeValue"; }, 1);
 
         // Act
         var result = await _service.SetAsync(key, acquireMock.Object, cacheTime);

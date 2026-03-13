@@ -1,4 +1,5 @@
-﻿using Grand.Business.Core.Interfaces.Common.Directory;
+﻿using Grand.Business.Core.Extensions;
+using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Seo;
 using Grand.Business.Core.Interfaces.Customers;
@@ -7,9 +8,9 @@ using Grand.Business.Core.Interfaces.Storage;
 using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Localization;
+using Grand.Domain.Seo;
 using Grand.Domain.Vendors;
 using Grand.Infrastructure;
-using Grand.SharedKernel.Attributes;
 using Grand.SharedKernel.Extensions;
 using Grand.Web.Commands.Models.Vendors;
 using Grand.Web.Common.Controllers;
@@ -21,16 +22,16 @@ using Grand.Web.Features.Models.Common;
 using Grand.Web.Models.Vendors;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Grand.Web.Controllers;
 
-[ApiGroup(ApiConstants.ApiGroupNameV2)]
 public class VendorController : BasePublicController
 {
     #region Constructors
 
     public VendorController(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ITranslationService translationService,
         ICustomerService customerService,
         IMessageProviderService messageProviderService,
@@ -44,7 +45,7 @@ public class VendorController : BasePublicController
         CaptchaSettings captchaSettings,
         CommonSettings commonSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _translationService = translationService;
         _customerService = customerService;
         _messageProviderService = messageProviderService;
@@ -74,7 +75,7 @@ public class VendorController : BasePublicController
 
     #region Fields
 
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly ITranslationService _translationService;
     private readonly ICustomerService _customerService;
     private readonly IMessageProviderService _messageProviderService;
@@ -100,7 +101,7 @@ public class VendorController : BasePublicController
             return RedirectToRoute("HomePage");
 
         var model = new ApplyVendorModel();
-        if (!string.IsNullOrEmpty(_contextAccessor.WorkContext.CurrentCustomer.VendorId))
+        if (!string.IsNullOrEmpty(_workContext.CurrentCustomer.VendorId))
         {
             //already applied for vendor account
             model.DisableFormInput = true;
@@ -109,17 +110,17 @@ public class VendorController : BasePublicController
         }
 
         model.DisplayCaptcha = _captchaSettings.Enabled && _captchaSettings.ShowOnApplyVendorPage;
-        model.Email = _contextAccessor.WorkContext.CurrentCustomer.Email;
+        model.Email = _workContext.CurrentCustomer.Email;
         model.TermsOfServiceEnabled = _vendorSettings.TermsOfServiceEnabled;
         model.TermsOfServicePopup = _commonSettings.PopupForTermsOfServiceLinks;
         var countries =
-            await _countryService.GetAllCountries(_contextAccessor.WorkContext.WorkingLanguage.Id, _contextAccessor.StoreContext.CurrentStore.Id);
+            await _countryService.GetAllCountries(_workContext.WorkingLanguage.Id, _workContext.CurrentStore.Id);
         model.Address = await _mediator.Send(new GetVendorAddress {
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Language = _workContext.WorkingLanguage,
             Address = null,
             ExcludeProperties = false,
             PrePopulateWithCustomerFields = true,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
+            Customer = _workContext.CurrentCustomer,
             LoadCountries = () => countries
         });
 
@@ -131,7 +132,7 @@ public class VendorController : BasePublicController
     [AutoValidateAntiforgeryToken]
     [DenySystemAccount]
     [CustomerGroupAuthorize(SystemCustomerGroupNames.Registered)]
-    public virtual async Task<IActionResult> ApplyVendorSubmit(ApplyVendorModel model, [FromServices] ISeNameService seNameService)
+    public virtual async Task<IActionResult> ApplyVendorSubmit(ApplyVendorModel model)
     {
         if (!_vendorSettings.AllowCustomersToApplyForVendorAccount)
             return RedirectToRoute("HomePage");
@@ -154,7 +155,10 @@ public class VendorController : BasePublicController
             await _vendorService.InsertVendor(vendor);
 
             //search engine name (the same as vendor name)                
-            var seName = await seNameService.ValidateSeName(vendor, vendor.Name, vendor.Name, true);
+            var seName = await vendor.ValidateSeName(vendor.Name, vendor.Name, true,
+                HttpContext.RequestServices.GetRequiredService<SeoSettings>(),
+                HttpContext.RequestServices.GetRequiredService<ISlugService>(),
+                HttpContext.RequestServices.GetRequiredService<ILanguageService>());
             await _slugService.SaveSlug(vendor, seName, "");
 
             vendor.SeName = seName;
@@ -163,13 +167,13 @@ public class VendorController : BasePublicController
             //associate to the current customer
             //but a store owner will have to manually activate this vendor
             //if he wants to grant access to admin area
-            _contextAccessor.WorkContext.CurrentCustomer.VendorId = vendor.Id;
-            await _customerService.UpdateCustomerField(_contextAccessor.WorkContext.CurrentCustomer.Id, x => x.VendorId,
-                _contextAccessor.WorkContext.CurrentCustomer.VendorId);
+            _workContext.CurrentCustomer.VendorId = vendor.Id;
+            await _customerService.UpdateCustomerField(_workContext.CurrentCustomer.Id, x => x.VendorId,
+                _workContext.CurrentCustomer.VendorId);
 
             //notify store owner here (email)
-            await _messageProviderService.SendNewVendorAccountApplyStoreOwnerMessage(_contextAccessor.WorkContext.CurrentCustomer,
-                vendor, _contextAccessor.StoreContext.CurrentStore, _languageSettings.DefaultAdminLanguageId);
+            await _messageProviderService.SendNewVendorAccountApplyStoreOwnerMessage(_workContext.CurrentCustomer,
+                vendor, _workContext.CurrentStore, _languageSettings.DefaultAdminLanguageId);
 
             model.DisableFormInput = true;
             model.Result = _translationService.GetResource("Vendors.ApplyAccount.Submitted");
@@ -181,14 +185,14 @@ public class VendorController : BasePublicController
         model.TermsOfServiceEnabled = _vendorSettings.TermsOfServiceEnabled;
         model.TermsOfServicePopup = _commonSettings.PopupForTermsOfServiceLinks;
         var countries =
-            await _countryService.GetAllCountries(_contextAccessor.WorkContext.WorkingLanguage.Id, _contextAccessor.StoreContext.CurrentStore.Id);
+            await _countryService.GetAllCountries(_workContext.WorkingLanguage.Id, _workContext.CurrentStore.Id);
         model.Address = await _mediator.Send(new GetVendorAddress {
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Language = _workContext.WorkingLanguage,
             Address = null,
             Model = model.Address,
             ExcludeProperties = false,
             PrePopulateWithCustomerFields = true,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
+            Customer = _workContext.CurrentCustomer,
             LoadCountries = () => countries
         });
         return View(model);
@@ -209,9 +213,7 @@ public class VendorController : BasePublicController
         if (ModelState.IsValid)
         {
             model = await _mediator.Send(new ContactVendorSendCommand {
-                Model = model,
-                Vendor = vendor,
-                Store = _contextAccessor.StoreContext.CurrentStore,
+                Model = model, Vendor = vendor, Store = _workContext.CurrentStore,
                 IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
             });
             return Json(model);

@@ -145,7 +145,9 @@ public class GroupService : IGroupService
         bool? isSystem = null)
     {
         ArgumentNullException.ThrowIfNull(customer);
-        ArgumentException.ThrowIfNullOrEmpty(customerGroupSystemName);
+
+        if (string.IsNullOrEmpty(customerGroupSystemName))
+            throw new ArgumentNullException(nameof(customerGroupSystemName));
 
         var customerGroup = await GetCustomerGroupBySystemName(customerGroupSystemName);
         if (customerGroup == null)
@@ -160,9 +162,9 @@ public class GroupService : IGroupService
         return result;
     }
 
-    public Task<bool> IsStoreManager(Customer customer)
+    public Task<bool> IsStaff(Customer customer)
     {
-        return IsInCustomerGroup(customer, SystemCustomerGroupNames.StoreManager, true, true);
+        return IsInCustomerGroup(customer, SystemCustomerGroupNames.Staff, true, true);
     }
 
     public Task<bool> IsAdmin(Customer customer)

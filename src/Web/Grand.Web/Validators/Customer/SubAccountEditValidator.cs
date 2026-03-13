@@ -16,7 +16,7 @@ public class SubAccountEditValidator : BaseGrandValidator<SubAccountEditModel>
         IEnumerable<IValidatorConsumer<SubAccountEditModel>> validators,
         ICustomerService customerService, IGroupService groupService,
         ITranslationService translationService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         CustomerSettings customerSettings)
         : base(validators)
     {
@@ -54,7 +54,7 @@ public class SubAccountEditValidator : BaseGrandValidator<SubAccountEditModel>
                     break;
             }
 
-            if (customer != null && customer.OwnerId != contextAccessor.WorkContext.CurrentCustomer.Id)
+            if (customer != null && customer.OwnerId != workContext.CurrentCustomer.Id)
                 context.AddFailure("You are not owner of this account");
 
             if (customer != null && customer.Email != x.Email.ToLower() && customerSettings.AllowUsersToChangeEmail)

@@ -1,11 +1,14 @@
 ﻿using Grand.Business.Catalog.Extensions;
 using Grand.Business.Core.Dto;
+using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Brands;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Seo;
 using Grand.Business.Core.Interfaces.ExportImport;
 using Grand.Business.Core.Interfaces.Storage;
 using Grand.Domain.Catalog;
 using Grand.Domain.Media;
+using Grand.Domain.Seo;
 using Grand.Infrastructure.Mapper;
 
 namespace Grand.Business.Catalog.Services.ExportImport;
@@ -14,22 +17,27 @@ public class BrandImportDataObject : IImportDataObject<BrandDto>
 {
     private readonly IBrandLayoutService _brandLayoutService;
     private readonly IBrandService _brandService;
+    private readonly ILanguageService _languageService;
     private readonly IPictureService _pictureService;
+
+    private readonly SeoSettings _seoSetting;
     private readonly ISlugService _slugService;
-    private readonly ISeNameService _seNameService;
-    
+
     public BrandImportDataObject(
         IBrandService brandService,
         IPictureService pictureService,
         IBrandLayoutService brandLayoutService,
         ISlugService slugService,
-        ISeNameService seNameService)
+        ILanguageService languageService,
+        SeoSettings seoSetting)
     {
         _brandService = brandService;
         _pictureService = pictureService;
         _brandLayoutService = brandLayoutService;
         _slugService = slugService;
-        _seNameService = seNameService;
+        _languageService = languageService;
+
+        _seoSetting = seoSetting;
     }
 
     public async Task Execute(IEnumerable<BrandDto> data)
@@ -73,15 +81,15 @@ public class BrandImportDataObject : IImportDataObject<BrandDto>
                 brand.PictureId = picture.Id;
         }
 
-        var seName = brand.SeName ?? brand.Name;
-        seName = await _seNameService.ValidateSeName(brand, seName, brand.Name, true);
-        brand.SeName = seName;
+        var sename = brand.SeName ?? brand.Name;
+        sename = await brand.ValidateSeName(sename, brand.Name, true, _seoSetting, _slugService, _languageService);
+        brand.SeName = sename;
 
         await _brandService.UpdateBrand(brand);
-        await _slugService.SaveSlug(brand, seName, "");
+        await _slugService.SaveSlug(brand, sename, "");
     }
 
-    private static bool ValidBrand(Brand brand)
+    private bool ValidBrand(Brand brand)
     {
         return !string.IsNullOrEmpty(brand.Name);
     }

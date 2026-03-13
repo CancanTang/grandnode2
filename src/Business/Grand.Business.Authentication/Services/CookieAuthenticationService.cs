@@ -31,14 +31,12 @@ public class CookieAuthenticationService : IGrandAuthenticationService
         ICustomerService customerService,
         IGroupService groupService,
         IHttpContextAccessor httpContextAccessor,
-        ICookieOptionsFactory cookieOptionsFactory,
         SecurityConfig securityConfig)
     {
         _customerSettings = customerSettings;
         _customerService = customerService;
         _groupService = groupService;
         _httpContextAccessor = httpContextAccessor;
-        _cookieOptionsFactory = cookieOptionsFactory;
         _securityConfig = securityConfig;
     }
 
@@ -56,9 +54,8 @@ public class CookieAuthenticationService : IGrandAuthenticationService
     private readonly ICustomerService _customerService;
     private readonly IGroupService _groupService;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly ICookieOptionsFactory _cookieOptionsFactory;
-
     private readonly SecurityConfig _securityConfig;
+    private Customer _cachedCustomer;
 
     #endregion
 
@@ -115,8 +112,12 @@ public class CookieAuthenticationService : IGrandAuthenticationService
         {
             _httpContextAccessor.HttpContext.Response.Cookies.Delete(CustomerCookieName);
 
-            await _httpContextAccessor.HttpContext.SignInAsync(GrandCookieAuthenticationDefaults.AuthenticationScheme, userPrincipal, authenticationProperties);
+            await _httpContextAccessor.HttpContext.SignInAsync(
+                GrandCookieAuthenticationDefaults.AuthenticationScheme, userPrincipal, authenticationProperties);
         }
+
+        //cache authenticated customer
+        _cachedCustomer = customer;
     }
 
     /// <summary>
@@ -124,6 +125,9 @@ public class CookieAuthenticationService : IGrandAuthenticationService
     /// </summary>
     public virtual async Task SignOut()
     {
+        //Firstly reset cached customer
+        _cachedCustomer = null;
+
         //and then sign out customer from the present scheme of authentication
         if (_httpContextAccessor.HttpContext != null)
         {
@@ -141,62 +145,62 @@ public class CookieAuthenticationService : IGrandAuthenticationService
     /// <returns>Customer</returns>
     public virtual async Task<Customer> GetAuthenticatedCustomer()
     {
-        var authenticateResult = await _httpContextAccessor.HttpContext.AuthenticateAsync(GrandCookieAuthenticationDefaults.AuthenticationScheme);
+        //check if there is a cached customer
+        if (_cachedCustomer != null)
+            return _cachedCustomer;
+
+        //get the authenticated user identity
+        if (_httpContextAccessor.HttpContext == null) return _cachedCustomer;
+        var authenticateResult =
+            await _httpContextAccessor.HttpContext.AuthenticateAsync(GrandCookieAuthenticationDefaults
+                .AuthenticationScheme);
         if (!authenticateResult.Succeeded)
             return null;
 
-        var customer = await RetrieveCustomer(authenticateResult.Principal);
-        if (customer == null || !await IsValidCustomer(customer, authenticateResult.Principal))
-            return null;
-
-        return customer;
-    }
-
-    private async Task<Customer> RetrieveCustomer(ClaimsPrincipal principal)
-    {
+        Customer customer = null;
         if (_customerSettings.UsernamesEnabled)
         {
-            var username = principal.FindFirst(claim =>
-                claim.Type == ClaimTypes.Name &&
-                claim.Issuer.Equals(_securityConfig.CookieClaimsIssuer, StringComparison.InvariantCultureIgnoreCase))
-                ?.Value;
-
-            if (!string.IsNullOrEmpty(username))
-                return await _customerService.GetCustomerByUsername(username);
+            //get customer by username if exists
+            var usernameClaim = authenticateResult.Principal.FindFirst(claim => claim.Type == ClaimTypes.Name
+                && claim.Issuer.Equals(_securityConfig.CookieClaimsIssuer,
+                    StringComparison.InvariantCultureIgnoreCase));
+            if (usernameClaim != null)
+                customer = await _customerService.GetCustomerByUsername(usernameClaim.Value);
         }
         else
         {
-            var email = principal.FindFirst(claim =>
-                claim.Type == ClaimTypes.Email &&
-                claim.Issuer.Equals(_securityConfig.CookieClaimsIssuer, StringComparison.InvariantCultureIgnoreCase))
-                ?.Value;
-
-            if (!string.IsNullOrEmpty(email))
-                return await _customerService.GetCustomerByEmail(email);
+            //get customer by email
+            var emailClaim = authenticateResult.Principal.FindFirst(claim => claim.Type == ClaimTypes.Email
+                                                                             && claim.Issuer.Equals(
+                                                                                 _securityConfig.CookieClaimsIssuer,
+                                                                                 StringComparison
+                                                                                     .InvariantCultureIgnoreCase));
+            if (emailClaim != null)
+                customer = await _customerService.GetCustomerByEmail(emailClaim.Value);
         }
 
-        return null;
-    }
-
-    private async Task<bool> IsValidCustomer(Customer customer, ClaimsPrincipal principal)
-    {
-        var passwordToken = customer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.PasswordToken);
-        if (!string.IsNullOrEmpty(passwordToken))
+        if (customer != null)
         {
-            var tokenClaim = principal
-                .FindFirst(claim =>
-                    claim.Type == ClaimTypes.UserData &&
-                    claim.Issuer.Equals(_securityConfig.CookieClaimsIssuer, StringComparison.InvariantCultureIgnoreCase));
-
-            if (tokenClaim == null || tokenClaim.Value != passwordToken)
-                return false;
+            var passwordToken = customer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.PasswordToken);
+            if (!string.IsNullOrEmpty(passwordToken))
+            {
+                var tokenClaim = authenticateResult.Principal.FindFirst(claim => claim.Type == ClaimTypes.UserData
+                    && claim.Issuer.Equals(_securityConfig.CookieClaimsIssuer,
+                        StringComparison.InvariantCultureIgnoreCase));
+                if (tokenClaim == null || tokenClaim.Value != passwordToken) customer = null;
+            }
         }
 
-        if (!customer.Active || customer.Deleted || !await _groupService.IsRegistered(customer))
-            return false;
+        //Check if the found customer is available
+        if (customer is not { Active: true } || customer.Deleted || !await _groupService.IsRegistered(customer))
+            return null;
 
-        return true;
+        //Cache the authenticated customer
+        _cachedCustomer = customer;
+
+        return _cachedCustomer;
     }
+
     /// <summary>
     ///     Get customer cookie
     /// </summary>
@@ -228,7 +232,10 @@ public class CookieAuthenticationService : IGrandAuthenticationService
             return Task.CompletedTask;
 
         //set new cookie value
-        var options = _cookieOptionsFactory.Create(cookieExpiresDate);
+        var options = new CookieOptions {
+            HttpOnly = true,
+            Expires = cookieExpiresDate
+        };
         _httpContextAccessor.HttpContext.Response.Cookies.Append(CustomerCookieName, customerGuid.ToString(), options);
 
         return Task.CompletedTask;

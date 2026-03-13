@@ -1,12 +1,12 @@
 ﻿@using Grand.Domain.Localization
 @using Constants = Grand.SharedUIResources.Constants
 @inject LanguageSettings languageSettings
-@inject IContextAccessor contextAccessor
+@inject IWorkContext workContext
 <script>
     const wwwrootpath = '@(Constants.WwwRoot)';
 </script>
 @{
-    var supportRtl = contextAccessor.WorkContext.WorkingLanguage.Rtl &&
+    var supportRtl = workContext.WorkingLanguage.Rtl &&
                      !languageSettings.IgnoreRtlPropertyForAdminArea;
     var kendoVersion = "2021.3.914";
 

@@ -1,4 +1,5 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Security;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Customers;
 using Grand.Domain.Permissions;
 
@@ -8,10 +9,9 @@ public class PermissionProvider : IPermissionProvider
 {
     public virtual IEnumerable<Permission> GetPermissions()
     {
-        return [
+        return new[] {
             StandardPermission.ManageAccessAdminPanel,
             StandardPermission.ManageAccessVendorPanel,
-            StandardPermission.ManageAccessStoreManagerPanel,
             StandardPermission.AllowCustomerImpersonation,
             StandardPermission.ManageProducts,
             StandardPermission.ManageCategories,
@@ -81,15 +81,15 @@ public class PermissionProvider : IPermissionProvider
             StandardPermission.ManageOrderTags,
             StandardPermission.ManageOrderStatus,
             StandardPermission.AllowUseApi
-        ];
+        };
     }
 
     public virtual IEnumerable<DefaultPermission> GetDefaultPermissions()
     {
-        return [
+        return new[] {
             new DefaultPermission {
                 CustomerGroupSystemName = SystemCustomerGroupNames.Administrators,
-                Permissions = [
+                Permissions = new[] {
                     StandardPermission.ManageAccessAdminPanel,
                     StandardPermission.AllowCustomerImpersonation,
                     StandardPermission.ManageProducts,
@@ -160,30 +160,30 @@ public class PermissionProvider : IPermissionProvider
                     StandardPermission.PublicStoreAllowNavigation,
                     StandardPermission.AccessClosedStore,
                     StandardPermission.AllowUseApi
-                ]
+                }
             },
             new DefaultPermission {
                 CustomerGroupSystemName = SystemCustomerGroupNames.Guests,
-                Permissions = [
+                Permissions = new[] {
                     StandardPermission.DisplayPrices,
                     StandardPermission.EnableShoppingCart,
                     StandardPermission.EnableWishlist,
                     StandardPermission.PublicStoreAllowNavigation
-                ]
+                }
             },
             new DefaultPermission {
                 CustomerGroupSystemName = SystemCustomerGroupNames.Registered,
-                Permissions = [
+                Permissions = new[] {
                     StandardPermission.DisplayPrices,
                     StandardPermission.EnableShoppingCart,
                     StandardPermission.EnableWishlist,
                     StandardPermission.PublicStoreAllowNavigation,
                     StandardPermission.AllowUseApi
-                ]
+                }
             },
             new DefaultPermission {
                 CustomerGroupSystemName = SystemCustomerGroupNames.Vendors,
-                Permissions = [
+                Permissions = new[] {
                     StandardPermission.ManageAccessVendorPanel,
                     StandardPermission.ManageProducts,
                     StandardPermission.ManageFiles,
@@ -193,12 +193,12 @@ public class PermissionProvider : IPermissionProvider
                     StandardPermission.ManageShipments,
                     StandardPermission.ManageMerchandiseReturns,
                     StandardPermission.ManageReports
-                ]
+                }
             },
             new DefaultPermission {
-                CustomerGroupSystemName = SystemCustomerGroupNames.StoreManager,
-                Permissions = [
-                    StandardPermission.ManageAccessStoreManagerPanel,
+                CustomerGroupSystemName = SystemCustomerGroupNames.Staff,
+                Permissions = new[] {
+                    StandardPermission.ManageAccessAdminPanel,
                     StandardPermission.ManageProducts,
                     StandardPermission.ManageFiles,
                     StandardPermission.ManagePictures,
@@ -210,17 +210,17 @@ public class PermissionProvider : IPermissionProvider
                     StandardPermission.ManageShipments,
                     StandardPermission.ManageMerchandiseReturns,
                     StandardPermission.ManageReports
-                ]
+                }
             },
 
             new DefaultPermission {
                 CustomerGroupSystemName = SystemCustomerGroupNames.SalesManager,
-                Permissions = [
+                Permissions = new[] {
                     StandardPermission.ManageAccessAdminPanel,
                     StandardPermission.ManageOrders,
                     StandardPermission.ManageCustomers
-                ]
+                }
             }
-        ];
+        };
     }
 }

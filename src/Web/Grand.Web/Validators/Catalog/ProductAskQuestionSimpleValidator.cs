@@ -2,12 +2,12 @@
 using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Domain.Catalog;
-using Grand.Domain.Common;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.Catalog;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.Catalog;
 
@@ -18,7 +18,7 @@ public class ProductAskQuestionSimpleValidator : BaseGrandValidator<ProductAskQu
         IEnumerable<IValidatorConsumer<ICaptchaValidModel>> validatorsCaptcha,
         CaptchaSettings captchaSettings, CatalogSettings catalogSettings,
         IProductService productService,
-        IHttpContextAccessor contextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         ITranslationService translationService)
         : base(validators)
     {

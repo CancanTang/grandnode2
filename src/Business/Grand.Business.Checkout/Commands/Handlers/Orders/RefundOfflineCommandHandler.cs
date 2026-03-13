@@ -36,7 +36,8 @@ public class RefundOfflineCommandHandler : IRequestHandler<RefundOfflineCommand,
     public async Task<bool> Handle(RefundOfflineCommand request, CancellationToken cancellationToken)
     {
         var paymentTransaction = request.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(request.PaymentTransaction));
 
         var canRefundOffline =
             await _mediator.Send(new CanRefundOfflineQuery { PaymentTransaction = paymentTransaction },
@@ -52,7 +53,8 @@ public class RefundOfflineCommandHandler : IRequestHandler<RefundOfflineCommand,
 
 
         var order = await _orderService.GetOrderByGuid(paymentTransaction.OrderGuid);
-        ArgumentNullException.ThrowIfNull(order);
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
 
         //amount to refund
         var amountToRefund = order.OrderTotal;

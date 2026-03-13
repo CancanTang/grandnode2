@@ -1,9 +1,9 @@
 ﻿using AutoMapper;
 using Grand.Data;
+using Grand.Infrastructure.Caching.RabbitMq;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Extensions;
 using Grand.Infrastructure.Mapper;
-using Grand.Infrastructure.Modules;
 using Grand.Infrastructure.Plugins;
 using Grand.Infrastructure.Roslyn;
 using Grand.Infrastructure.TypeConverters;
@@ -11,6 +11,7 @@ using Grand.Infrastructure.TypeSearch;
 using Grand.Infrastructure.Validators;
 using Grand.SharedKernel;
 using Grand.SharedKernel.Extensions;
+using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -18,7 +19,6 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.FeatureManagement;
 
 namespace Grand.Infrastructure;
 
@@ -34,18 +34,11 @@ public static class StartupBase
     /// </summary>
     private static void InitDatabase(IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration[SettingsConstants.ConnectionStrings];
-        var providerString = configuration[SettingsConstants.ConnectionStringsProvider];
-        var providerInt = 0;
-        if (!string.IsNullOrEmpty(providerString))
-        {
-            _ = int.TryParse(providerString, out providerInt);
-        }
-
-        if (!string.IsNullOrEmpty(connectionString))
-            DataSettingsManager.Instance.LoadDataSettings(new DataSettings {
-                ConnectionString = connectionString,
-                DbProvider = (DbProvider)providerInt,
+        var dbConfig = services.StartupConfig<DatabaseConfig>(configuration.GetSection("Database"));
+        if (!string.IsNullOrEmpty(dbConfig.ConnectionString))
+            DataSettingsManager.LoadDataSettings(new DataSettings {
+                ConnectionString = dbConfig.ConnectionString,
+                DbProvider = (DbProvider)dbConfig.DbProvider
             });
     }
 
@@ -123,7 +116,8 @@ public static class StartupBase
     /// <param name="services">Collection of service descriptors</param>
     private static void AddHttpContextAccessor(this IServiceCollection services)
     {
-        services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();        
+        services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+        services.AddSingleton<IActionContextAccessor, ActionContextAccessor>();
     }
 
     /// <summary>
@@ -131,16 +125,13 @@ public static class StartupBase
     /// </summary>
     /// <param name="mvcCoreBuilder"></param>
     /// <param name="configuration"></param>
-    private static void RegisterExtensions(IMvcCoreBuilder mvcCoreBuilder, IConfiguration configuration, IWebHostEnvironment hostEnvironment)
+    private static void RegisterExtensions(IMvcCoreBuilder mvcCoreBuilder, IConfiguration configuration)
     {
-        //Load Modules
-        ModuleLoader.LoadModules(mvcCoreBuilder, configuration, hostEnvironment);
-
-        //Load plugins        
-        PluginManager.Load(mvcCoreBuilder, configuration, hostEnvironment);
+        //Load plugins
+        PluginManager.Load(mvcCoreBuilder, configuration);
 
         //Load CTX scripts
-        RoslynCompiler.Load(mvcCoreBuilder.PartManager, configuration, hostEnvironment);
+        RoslynCompiler.Load(mvcCoreBuilder.PartManager, configuration);
     }
 
     /// <summary>
@@ -160,28 +151,65 @@ public static class StartupBase
             });
         }
     }
-   
+
+    /// <summary>
+    ///     Add Mass Transit rabbitmq message broker
+    /// </summary>
+    /// <param name="services"></param>
+    /// <param name="configuration"></param>
+    /// <param name="typeSearcher"></param>
+    private static void AddMassTransitRabbitMq(IServiceCollection services, IConfiguration configuration,
+        ITypeSearcher typeSearcher)
+    {
+        var config = new RabbitConfig();
+        configuration.GetSection("Rabbit").Bind(config);
+
+        if (!config.RabbitEnabled) return;
+        services.AddMassTransit(x =>
+        {
+            x.AddConsumers(q => q != typeof(CacheMessageEventConsumer), typeSearcher.GetAssemblies().ToArray());
+
+            if (config.RabbitCachePubSubEnabled)
+                x.AddConsumer<CacheMessageEventConsumer>()
+                    .Endpoint(t => t.Name = config.RabbitCacheReceiveEndpoint);
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(config.RabbitHostName, config.RabbitVirtualHost, h =>
+                {
+                    h.Password(config.RabbitPassword);
+                    h.Username(config.RabbitUsername);
+                });
+                cfg.ConfigureEndpoints(context);
+            });
+        });
+    }
+
     /// <summary>
     ///     Register application
     /// </summary>
     /// <param name="services">Collection of service descriptors</param>
     /// <param name="configuration">Configuration</param>
     /// <param name="typeSearcher">Type searcher</param>
-    private static IMvcCoreBuilder RegisterApplication(IServiceCollection services, IConfiguration configuration, IWebHostEnvironment hostingEnvironment, ITypeSearcher typeSearcher)
+    private static IMvcCoreBuilder RegisterApplication(IServiceCollection services, IConfiguration configuration,
+        ITypeSearcher typeSearcher)
     {
         //add accessor to HttpContext
         services.AddHttpContextAccessor();
 
         RegisterConfigurations(services, configuration);
-       
-        var settingsPath = Path.Combine(hostingEnvironment.ContentRootPath, CommonPath.AppData, configuration["Directory"] ?? "", CommonPath.SettingsFile);
-        DataSettingsManager.Initialize(settingsPath);
-        
-        var pluginPaths= Path.Combine(hostingEnvironment.ContentRootPath, CommonPath.AppData, configuration["Directory"] ?? "", CommonPath.InstalledPluginsFile);
-        PluginPaths.Initialize(pluginPaths);
 
         InitDatabase(services, configuration);
 
+        //set base application path
+        var provider = services.BuildServiceProvider();
+        var hostingEnvironment = provider.GetRequiredService<IWebHostEnvironment>();
+        var param = configuration["Directory"];
+        if (!string.IsNullOrEmpty(param))
+            CommonPath.Param = param;
+
+        CommonPath.WebHostEnvironment = hostingEnvironment.WebRootPath;
+        CommonPath.BaseDirectory = hostingEnvironment.ContentRootPath;
         services.AddTransient<ValidationFilter>();
         var mvcCoreBuilder = services.AddMvcCore(options =>
         {
@@ -221,11 +249,13 @@ public static class StartupBase
         services.StartupConfig<AccessControlConfig>(configuration.GetSection("AccessControl"));
         services.StartupConfig<UrlRewriteConfig>(configuration.GetSection("UrlRewrite"));
         services.StartupConfig<RedisConfig>(configuration.GetSection("Redis"));
+        services.StartupConfig<RabbitConfig>(configuration.GetSection("Rabbit"));
         services.StartupConfig<BackendAPIConfig>(configuration.GetSection("BackendAPI"));
         services.StartupConfig<FrontendAPIConfig>(configuration.GetSection("FrontendAPI"));
         services.StartupConfig<DatabaseConfig>(configuration.GetSection("Database"));
         services.StartupConfig<AmazonConfig>(configuration.GetSection("Amazon"));
         services.StartupConfig<AzureConfig>(configuration.GetSection("Azure"));
+        services.StartupConfig<ApplicationInsightsConfig>(configuration.GetSection("ApplicationInsights"));
     }
 
     #endregion
@@ -239,20 +269,15 @@ public static class StartupBase
     /// <param name="configuration">Configuration root of the application</param>
     public static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddFeatureManagement();
-
         //find startup configurations provided by other assemblies
         var typeSearcher = new TypeSearcher();
         services.AddSingleton<ITypeSearcher>(typeSearcher);
 
-        var provider = services.BuildServiceProvider();
-        var hostingEnvironment = provider.GetRequiredService<IWebHostEnvironment>();
-
         //register application
-        var mvcBuilder = RegisterApplication(services, configuration, hostingEnvironment, typeSearcher);
+        var mvcBuilder = RegisterApplication(services, configuration, typeSearcher);
 
         //register extensions 
-        RegisterExtensions(mvcBuilder, configuration, hostingEnvironment);
+        RegisterExtensions(mvcBuilder, configuration);
 
         var startupConfigurations = typeSearcher.ClassesOfType<IStartupApplication>();
 
@@ -279,6 +304,9 @@ public static class StartupBase
         //add mediator
         AddMediator(services, typeSearcher);
 
+        //Add MassTransit
+        AddMassTransitRabbitMq(services, configuration, typeSearcher);
+
         //Register startup
         var instancesAfter = startupConfigurations
             .Where(PluginExtensions.OnlyInstalledPlugins)
@@ -299,7 +327,7 @@ public static class StartupBase
     /// </summary>
     /// <param name="application">Builder for configuring an application's request pipeline</param>
     /// <param name="webHostEnvironment">WebHostEnvironment</param>
-    public static void ConfigureRequestPipeline(WebApplication application,
+    public static void ConfigureRequestPipeline(IApplicationBuilder application,
         IWebHostEnvironment webHostEnvironment)
     {
         //find startup configurations provided by other assemblies

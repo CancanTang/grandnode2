@@ -1,4 +1,6 @@
-﻿namespace Grand.Infrastructure.Migrations;
+﻿using Grand.Data;
+
+namespace Grand.Infrastructure.Migrations;
 
 public interface IMigration : IBaseMigration
 {
@@ -13,5 +15,5 @@ public interface IMigration : IBaseMigration
     /// <param name="database"></param>
     /// <param name="serviceProvider"></param>
     /// <returns></returns>
-    bool UpgradeProcess(IServiceProvider serviceProvider);
+    bool UpgradeProcess(IDatabaseContext database, IServiceProvider serviceProvider);
 }

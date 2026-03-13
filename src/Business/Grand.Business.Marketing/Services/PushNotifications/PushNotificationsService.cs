@@ -6,6 +6,7 @@ using Grand.Domain.PushNotifications;
 using Grand.Infrastructure.Extensions;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
 using System.Text.Json;
 
 namespace Grand.Business.Marketing.Services.PushNotifications;
@@ -79,7 +80,7 @@ public class PushNotificationsService : IPushNotificationsService
     /// <summary>
     ///     Gets all push receivers
     /// </summary>
-    public virtual async Task<List<PushRegistration>> GetAllowedPushReceivers()
+    public virtual async Task<List<PushRegistration>> GetPushReceivers()
     {
         return await Task.FromResult(_pushRegistrationRepository.Table.Where(x => x.Allowed).ToList());
     }
@@ -149,7 +150,7 @@ public class PushNotificationsService : IPushNotificationsService
         }
         else
         {
-            var receivers = await GetAllowedPushReceivers();
+            var receivers = await GetPushReceivers();
             if (!receivers.Any()) return (false, "Admin.PushNotifications.Error.NoReceivers");
 
             const int batchSize = 1000;

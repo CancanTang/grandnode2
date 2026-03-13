@@ -1,66 +1,44 @@
-﻿using System.Text.Json;
+﻿using Grand.SharedKernel.Extensions;
+using System.Text.Json;
 
 namespace Grand.Data;
 
 /// <summary>
 ///     Manager of data settings (connection string)
 /// </summary>
-public sealed class DataSettingsManager
+public static class DataSettingsManager
 {
-    private static DataSettingsManager _instance;
-    private static readonly Lock _lock = new();
+    private static DataSettings _dataSettings;
 
-    public static DataSettingsManager Instance => _instance ?? throw new InvalidOperationException("DataSettingsManager has not been initialized. Call Initialize first.");
-
-    private readonly string _settingsPath;
-
-    private DataSettings _dataSettings;
-
-    private bool? _databaseIsInstalled;
-
-    
-    public static void Initialize(string settingsPath)
-    {
-        if (_instance == null)
-        {
-            lock (_lock)
-            {
-                _instance ??= new DataSettingsManager(settingsPath);
-            }
-        }
-    }
-    private DataSettingsManager(string settingsPath)
-    {
-        _settingsPath = settingsPath;
-    }
+    private static bool? _databaseIsInstalled;
 
     /// <summary>
     ///     Load settings
     /// </summary>
-    public DataSettings LoadSettings(bool reloadSettings = false)
+    public static DataSettings LoadSettings(bool reloadSettings = false)
     {
         if (!reloadSettings && _dataSettings != null)
             return _dataSettings;
 
-        if (!File.Exists(_settingsPath))
+        if (!File.Exists(CommonPath.SettingsPath))
             return new DataSettings();
 
         try
         {
-            var text = File.ReadAllText(_settingsPath);
+            var text = File.ReadAllText(CommonPath.SettingsPath);
             _dataSettings = JsonSerializer.Deserialize<DataSettings>(text);
         }
         catch
         {
             //Try to read file
-            var connectionString = File.ReadLines(_settingsPath).FirstOrDefault();
+            var connectionString = File.ReadLines(CommonPath.SettingsPath).FirstOrDefault();
             _dataSettings = new DataSettings { ConnectionString = connectionString, DbProvider = DbProvider.MongoDB };
         }
 
         return _dataSettings;
     }
 
-    public DataSettings LoadDataSettings(DataSettings dataSettings)
+    public static DataSettings LoadDataSettings(DataSettings dataSettings)
     {
         _dataSettings = dataSettings;
         return _dataSettings;
@@ -73,19 +51,16 @@ public sealed class DataSettingsManager
     /// <returns></returns>
     public static bool DatabaseIsInstalled()
     {
-        if (_instance == null)
-            throw new InvalidOperationException("DataSettingsManager has not been initialized. Call Initialize first.");
-
-        if (!_instance._databaseIsInstalled.HasValue)
+        if (!_databaseIsInstalled.HasValue)
         {
-            var settings = _instance._dataSettings ?? _instance.LoadSettings();
-            _instance._databaseIsInstalled = settings != null && !string.IsNullOrEmpty(settings.ConnectionString);
+            var settings = _dataSettings ?? LoadSettings();
+            _databaseIsInstalled = settings != null && !string.IsNullOrEmpty(settings.ConnectionString);
         }
 
-        return _instance._databaseIsInstalled.Value;
+        return _databaseIsInstalled.Value;
     }
 
-    public void ResetCache()
+    public static void ResetCache()
     {
         _databaseIsInstalled = false;
     }
@@ -94,14 +69,15 @@ public sealed class DataSettingsManager
     ///     Save settings to a file
     /// </summary>
     /// <param name="settings"></param>
-    public async Task SaveSettings(DataSettings settings)
+    public static async Task SaveSettings(DataSettings settings)
     {
-        if (!File.Exists(_settingsPath))
+        var filePath = CommonPath.SettingsPath;
+        if (!File.Exists(filePath))
         {
-            await using var fs = File.Create(_settingsPath);
+            await using var fs = File.Create(filePath);
         }
 
         var data = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(_settingsPath, data);
+        await File.WriteAllTextAsync(filePath, data);
     }
 }

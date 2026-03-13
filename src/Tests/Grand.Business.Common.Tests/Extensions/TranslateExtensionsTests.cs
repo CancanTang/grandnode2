@@ -2,6 +2,7 @@
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Domain.Catalog;
 using Grand.Domain.Localization;
+using Grand.Domain.Permissions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -20,24 +21,24 @@ public class TranslateExtensionsTests
         product.Locales.Add(new TranslationEntity { LanguageId = "PL", LocaleKey = "Name", LocaleValue = "PLName" });
         product.Locales.Add(new TranslationEntity { LanguageId = "UK", LocaleKey = "Name", LocaleValue = "UKName" });
 
-        Assert.AreEqual("PLName", product.GetTranslation(c => c.Name, "PL"));
-        Assert.AreEqual("UKName", product.GetTranslation(c => c.Name, "UK"));
+        Assert.AreEqual(product.GetTranslation(c => c.Name, "PL"), "PLName");
+        Assert.AreEqual(product.GetTranslation(c => c.Name, "UK"), "UKName");
         //if language dont exist return property value
-        Assert.AreEqual("stname", product.GetTranslation(c => c.Name, "US"));
+        Assert.AreEqual(product.GetTranslation(c => c.Name, "US"), "stname");
     }
 
     [TestMethod]
     public void GetTranslation_NullArgument_ThrowException()
     {
         Product product = null;
-        Assert.ThrowsExactly<ArgumentNullException>(() => product.GetTranslation(c => c.Name, "PL"));
+        Assert.ThrowsException<ArgumentNullException>(() => product.GetTranslation(c => c.Name, "PL"));
     }
 
     [TestMethod]
     public void GetTranslation_ExpressionUseMethod_ThrowException()
     {
         var product = new Product();
-        Assert.ThrowsExactly<ArgumentException>(() =>
+        Assert.ThrowsException<ArgumentException>(() =>
             product.GetTranslation(c => c.ParseRequiredProductIds().First(), "PL"));
     }
 
@@ -52,7 +53,7 @@ public class TranslateExtensionsTests
             ManageInventoryMethodId = ManageInventoryMethod.ManageStock
         };
         var result = product.ManageInventoryMethodId.GetTranslationEnum(translationServiceMock.Object, "PL");
-        Assert.AreEqual("PLenum", result);
+        Assert.AreEqual(result, "PLenum");
     }
 
     [TestMethod]
@@ -60,8 +61,38 @@ public class TranslateExtensionsTests
     {
         var translationServiceMock = new Mock<ITranslationService>();
         var fake = new FakeStruct();
-        Assert.ThrowsExactly<ArgumentException>(() => fake.GetTranslationEnum(translationServiceMock.Object, "PL"));
+        Assert.ThrowsException<ArgumentException>(() => fake.GetTranslationEnum(translationServiceMock.Object, "PL"));
     }
-    
-    private struct FakeStruct;
+
+    [TestMethod]
+    public void GetTranslationPermissionName_ReturnExpectedValue()
+    {
+        var expectedValue = "PLpermision";
+        var translationServiceMock = new Mock<ITranslationService>();
+        translationServiceMock
+            .Setup(c => c.GetResource(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
+            .Returns(expectedValue);
+        var record = new Permission {
+            SystemName = "sysname"
+        };
+        var result = record.GetTranslationPermissionName(translationServiceMock.Object, "PL");
+        Assert.AreEqual(result, expectedValue);
+    }
+
+    [TestMethod]
+    public void GetTranslationPermissionName_NullArgument_ThrowException()
+    {
+        var expectedValue = "PLpermision";
+        var translationServiceMock = new Mock<ITranslationService>();
+        translationServiceMock
+            .Setup(c => c.GetResource(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
+            .Returns(expectedValue);
+        Permission record = null;
+        Assert.ThrowsException<ArgumentNullException>(() =>
+            record.GetTranslationPermissionName(translationServiceMock.Object, "PL"));
+    }
+
+    private struct FakeStruct
+    {
+    }
 }

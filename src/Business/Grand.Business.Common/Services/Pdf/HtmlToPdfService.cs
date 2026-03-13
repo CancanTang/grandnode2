@@ -5,7 +5,6 @@ using Grand.Domain.Media;
 using Grand.Domain.Orders;
 using Grand.Domain.Shipping;
 using Grand.SharedKernel.Extensions;
-using Microsoft.AspNetCore.Hosting;
 using Scryber;
 using Scryber.Components;
 using Path = System.IO.Path;
@@ -22,17 +21,16 @@ public class HtmlToPdfService : IPdfService
     private readonly IRepository<Download> _downloadRepository;
     private readonly ILanguageService _languageService;
     private readonly IStoreFilesContext _storeFilesContext;
+
     private readonly IViewRenderService _viewRenderService;
-    private readonly IWebHostEnvironment _webHostEnvironment;
 
     public HtmlToPdfService(IViewRenderService viewRenderService, IRepository<Download> downloadRepository,
-        ILanguageService languageService, IStoreFilesContext storeFilesContext, IWebHostEnvironment webHostEnvironment)
+        ILanguageService languageService, IStoreFilesContext storeFilesContext)
     {
         _viewRenderService = viewRenderService;
         _languageService = languageService;
         _downloadRepository = downloadRepository;
         _storeFilesContext = storeFilesContext;
-        _webHostEnvironment = webHostEnvironment;
     }
 
     public async Task PrintOrdersToPdf(Stream stream, IList<Order> orders, string languageId = "",
@@ -54,8 +52,9 @@ public class HtmlToPdfService : IPdfService
 
         var fileName = $"order_{order.OrderGuid}_{CommonHelper.GenerateRandomDigitCode(4)}.pdf";
 
-        var dir = Path.Combine(_webHostEnvironment.WebRootPath, "assets/files/exportimport");
-        ArgumentNullException.ThrowIfNull(dir);
+        var dir = CommonPath.WebMapPath("assets/files/exportimport");
+        if (dir == null)
+            throw new ArgumentNullException(nameof(dir));
 
         if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
 

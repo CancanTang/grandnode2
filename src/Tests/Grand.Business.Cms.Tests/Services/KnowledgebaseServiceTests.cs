@@ -25,7 +25,7 @@ public class KnowledgebaseServiceTests
     private IRepository<KnowledgebaseArticleComment> _repositoryKnowledgebaseArticleComment;
 
     private IRepository<KnowledgebaseCategory> _repositoryKnowledgebaseCategory;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
@@ -35,10 +35,10 @@ public class KnowledgebaseServiceTests
         _repositoryKnowledgebaseArticleComment = new MongoDBRepositoryTest<KnowledgebaseArticleComment>();
 
         _mediatorMock = new Mock<IMediator>();
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
 
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
 
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
             new CacheConfig { DefaultCacheTimeMinutes = 1 });
@@ -69,9 +69,9 @@ public class KnowledgebaseServiceTests
         knowledgebaseCategory.Name = "test";
         await _knowledgebaseService.UpdateKnowledgebaseCategory(knowledgebaseCategory);
         //Assert
-        Assert.AreEqual(
-            "test",
-            _repositoryKnowledgebaseCategory.Table.FirstOrDefault(x => x.Id == knowledgebaseCategory.Id).Name);
+        Assert.IsTrue(
+            _repositoryKnowledgebaseCategory.Table.FirstOrDefault(x => x.Id == knowledgebaseCategory.Id).Name ==
+            "test");
     }
 
     [TestMethod]
@@ -167,7 +167,8 @@ public class KnowledgebaseServiceTests
         knowledgebaseArticle.Name = "test";
         await _knowledgebaseService.UpdateKnowledgebaseArticle(knowledgebaseArticle);
         //Assert
-        Assert.AreEqual("test", _repositoryKnowledgebaseArticle.Table.FirstOrDefault(x => x.Id == knowledgebaseArticle.Id).Name);
+        Assert.IsTrue(_repositoryKnowledgebaseArticle.Table.FirstOrDefault(x => x.Id == knowledgebaseArticle.Id).Name ==
+                      "test");
     }
 
     [TestMethod]

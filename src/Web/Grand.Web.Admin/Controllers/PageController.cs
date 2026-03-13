@@ -2,11 +2,11 @@
 using Grand.Business.Core.Interfaces.Cms;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Infrastructure;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Pages;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Pages;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
@@ -24,14 +24,14 @@ public class PageController : BaseAdminController
         IPageService pageService,
         ILanguageService languageService,
         ITranslationService translationService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IDateTimeService dateTimeService)
     {
         _pageViewModelService = pageViewModelService;
         _pageService = pageService;
         _languageService = languageService;
         _translationService = translationService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _dateTimeService = dateTimeService;
     }
 
@@ -43,7 +43,7 @@ public class PageController : BaseAdminController
     private readonly IPageService _pageService;
     private readonly ILanguageService _languageService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IDateTimeService _dateTimeService;
 
     #endregion Fields
@@ -128,7 +128,7 @@ public class PageController : BaseAdminController
             return RedirectToAction("List");
 
         var model = page.ToModel(_dateTimeService);
-        model.Url = Url.RouteUrl("Page", new { SeName = page.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id) }, "http");
+        model.Url = Url.RouteUrl("Page", new { SeName = page.GetSeName(_workContext.WorkingLanguage.Id) }, "http");
         //layouts
         await _pageViewModelService.PrepareLayoutsModel(model);
         //locales
@@ -169,7 +169,7 @@ public class PageController : BaseAdminController
         }
 
         //If we got this far, something failed, redisplay form
-        model.Url = Url.RouteUrl("Page", new { SeName = page.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id) }, "http");
+        model.Url = Url.RouteUrl("Page", new { SeName = page.GetSeName(_workContext.WorkingLanguage.Id) }, "http");
         //layouts
         await _pageViewModelService.PrepareLayoutsModel(model);
         return View(model);

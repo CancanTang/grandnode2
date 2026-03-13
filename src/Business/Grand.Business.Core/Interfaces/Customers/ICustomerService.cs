@@ -128,7 +128,7 @@ public interface ICustomerService
     ///     Insert a guest customer
     /// </summary>
     /// <returns>Customer</returns>
-    Task<Customer> InsertGuestCustomer(Customer customer);
+    Task<Customer> InsertGuestCustomer(Customer customer = null);
 
     /// <summary>
     ///     Insert a customer

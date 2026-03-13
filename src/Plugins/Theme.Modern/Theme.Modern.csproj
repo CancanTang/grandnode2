@@ -2,8 +2,7 @@
     <Import Project="..\..\Build\Grand.Common.props" />
     <PropertyGroup>
         <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
-		<StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
-	</PropertyGroup>
+    </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
         <OutputPath>..\..\Web\Grand.Web\Plugins\Theme.Modern\</OutputPath>

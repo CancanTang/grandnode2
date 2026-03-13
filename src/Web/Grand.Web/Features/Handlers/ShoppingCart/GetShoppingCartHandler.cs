@@ -13,19 +13,19 @@ using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.Storage;
 using Grand.Business.Core.Utilities.Checkout;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
 using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Media;
 using Grand.Domain.Orders;
-using Grand.Web.Common.Localization;
 using Grand.Web.Extensions;
 using Grand.Web.Features.Models.ShoppingCart;
 using Grand.Web.Models.Media;
 using Grand.Web.Models.ShoppingCart;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Routing;
 
 namespace Grand.Web.Features.Handlers.ShoppingCart;
 
@@ -58,7 +58,7 @@ public class GetShoppingCartHandler : IRequestHandler<GetShoppingCart, ShoppingC
     private readonly ITranslationService _translationService;
     private readonly IVendorService _vendorService;
     private readonly IWarehouseService _warehouseService;
-    private readonly IEnumTranslationService _enumTranslationService;
+
     public GetShoppingCartHandler(
         IProductService productService,
         IPictureService pictureService,
@@ -86,8 +86,7 @@ public class GetShoppingCartHandler : IRequestHandler<GetShoppingCart, ShoppingC
         OrderSettings orderSettings,
         ShoppingCartSettings shoppingCartSettings,
         CatalogSettings catalogSettings,
-        CommonSettings commonSettings,
-        IEnumTranslationService enumTranslationService)
+        CommonSettings commonSettings)
     {
         _productService = productService;
         _pictureService = pictureService;
@@ -116,7 +115,6 @@ public class GetShoppingCartHandler : IRequestHandler<GetShoppingCart, ShoppingC
         _shoppingCartSettings = shoppingCartSettings;
         _catalogSettings = catalogSettings;
         _commonSettings = commonSettings;
-        _enumTranslationService = enumTranslationService;
     }
 
     public async Task<ShoppingCartModel> Handle(GetShoppingCart request, CancellationToken cancellationToken)
@@ -221,7 +219,7 @@ public class GetShoppingCartHandler : IRequestHandler<GetShoppingCart, ShoppingC
             };
             if (!string.IsNullOrEmpty(attribute.ValidationFileAllowedExtensions))
                 attributeModel.AllowedFileExtensions = attribute.ValidationFileAllowedExtensions
-                    .Split([','], StringSplitOptions.RemoveEmptyEntries)
+                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                     .ToList();
 
             if (attribute.ShouldHaveValues())
@@ -267,55 +265,55 @@ public class GetShoppingCartHandler : IRequestHandler<GetShoppingCart, ShoppingC
                 case AttributeControlType.Checkboxes:
                 case AttributeControlType.ColorSquares:
                 case AttributeControlType.ImageSquares:
+                {
+                    if (selectedCheckoutAttributes != null && selectedCheckoutAttributes.Any())
                     {
-                        if (selectedCheckoutAttributes != null && selectedCheckoutAttributes.Any())
-                        {
-                            //clear default selection
-                            foreach (var item in attributeModel.Values)
-                                item.IsPreSelected = false;
+                        //clear default selection
+                        foreach (var item in attributeModel.Values)
+                            item.IsPreSelected = false;
 
-                            //select new values
-                            var selectedValues =
-                                await _checkoutAttributeParser.ParseCheckoutAttributeValues(selectedCheckoutAttributes);
-                            foreach (var attributeValue in selectedValues)
-                                if (attributeModel.Id == attributeValue.CheckoutAttributeId)
-                                    foreach (var item in attributeModel.Values)
-                                        if (attributeValue.Id == item.Id)
-                                            item.IsPreSelected = true;
-                        }
+                        //select new values
+                        var selectedValues =
+                            await _checkoutAttributeParser.ParseCheckoutAttributeValues(selectedCheckoutAttributes);
+                        foreach (var attributeValue in selectedValues)
+                            if (attributeModel.Id == attributeValue.CheckoutAttributeId)
+                                foreach (var item in attributeModel.Values)
+                                    if (attributeValue.Id == item.Id)
+                                        item.IsPreSelected = true;
                     }
+                }
                     break;
                 case AttributeControlType.ReadonlyCheckboxes:
-                    {
-                        //do nothing
-                        //values are already pre-set
-                    }
+                {
+                    //do nothing
+                    //values are already pre-set
+                }
                     break;
                 case AttributeControlType.TextBox:
                 case AttributeControlType.MultilineTextbox:
                 case AttributeControlType.Datepicker:
+                {
+                    if (selectedCheckoutAttributes != null && selectedCheckoutAttributes.Any())
                     {
-                        if (selectedCheckoutAttributes != null && selectedCheckoutAttributes.Any())
-                        {
-                            var enteredText = selectedCheckoutAttributes.Where(x => x.Key == attribute.Id)
-                                .Select(x => x.Value).ToList();
-                            if (enteredText.Any())
-                                attributeModel.DefaultValue = enteredText[0];
-                        }
+                        var enteredText = selectedCheckoutAttributes.Where(x => x.Key == attribute.Id)
+                            .Select(x => x.Value).ToList();
+                        if (enteredText.Any())
+                            attributeModel.DefaultValue = enteredText[0];
                     }
+                }
                     break;
                 case AttributeControlType.FileUpload:
+                {
+                    if (selectedCheckoutAttributes != null && selectedCheckoutAttributes.Any())
                     {
-                        if (selectedCheckoutAttributes != null && selectedCheckoutAttributes.Any())
-                        {
-                            var downloadGuidStr = selectedCheckoutAttributes.Where(x => x.Key == attribute.Id)
-                                .Select(x => x.Value).FirstOrDefault();
-                            Guid.TryParse(downloadGuidStr, out var downloadGuid);
-                            var download = await _downloadService.GetDownloadByGuid(downloadGuid);
-                            if (download != null)
-                                attributeModel.DefaultValue = download.DownloadGuid.ToString();
-                        }
+                        var downloadGuidStr = selectedCheckoutAttributes.Where(x => x.Key == attribute.Id)
+                            .Select(x => x.Value).FirstOrDefault();
+                        Guid.TryParse(downloadGuidStr, out var downloadGuid);
+                        var download = await _downloadService.GetDownloadByGuid(downloadGuid);
+                        if (download != null)
+                            attributeModel.DefaultValue = download.DownloadGuid.ToString();
                     }
+                }
                     break;
             }
 
@@ -387,7 +385,7 @@ public class GetShoppingCartHandler : IRequestHandler<GetShoppingCart, ShoppingC
                 cartItemModel.RecurringInfo = string.Format(
                     _translationService.GetResource("ShoppingCart.RecurringPeriod"),
                     product.RecurringCycleLength,
-                    _enumTranslationService.GetTranslationEnum(product.RecurringCyclePeriodId),
+                    product.RecurringCyclePeriodId.GetTranslationEnum(_translationService, request.Language.Id),
                     product.RecurringTotalCycles);
 
             //reservation info
@@ -448,12 +446,12 @@ public class GetShoppingCartHandler : IRequestHandler<GetShoppingCart, ShoppingC
                     _priceFormatter.FormatPrice(cartItemModel.UnitPriceWithoutDiscountValue);
                 cartItemModel.UnitPriceValue = productprices.productprice;
                 cartItemModel.UnitPrice = _priceFormatter.FormatPrice(productprices.productprice);
-                if (appliedDiscounts.Any())
+                if (appliedDiscounts != null && appliedDiscounts.Any())
                 {
-                    if (appliedDiscounts.Any(x => x.MaximumDiscountedQuantity.HasValue))
-                    {
-                        cartItemModel.DiscountedQty = appliedDiscounts.Where(x => x.MaximumDiscountedQuantity.HasValue).Max(x => x.MaximumDiscountedQuantity.Value);
-                    }
+                    var discount = await _discountService.GetDiscountById(appliedDiscounts.FirstOrDefault().DiscountId);
+                    if (discount is { MaximumDiscountedQuantity: not null })
+                        cartItemModel.DiscountedQty = discount.MaximumDiscountedQuantity.Value;
+
                     appliedDiscounts.ForEach(x => cartItemModel.Discounts.Add(x.DiscountId));
                 }
 

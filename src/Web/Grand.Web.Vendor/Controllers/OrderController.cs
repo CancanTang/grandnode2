@@ -2,7 +2,7 @@
 using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Pdf;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Orders;
 using Grand.Infrastructure;
 using Grand.Web.Common.DataSource;
@@ -23,13 +23,13 @@ public class OrderController : BaseVendorController
         IOrderViewModelService orderViewModelService,
         IOrderService orderService,
         ITranslationService translationService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IPdfService pdfService)
     {
         _orderViewModelService = orderViewModelService;
         _orderService = orderService;
         _translationService = translationService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _pdfService = pdfService;
     }
 
@@ -40,7 +40,7 @@ public class OrderController : BaseVendorController
     private readonly IOrderViewModelService _orderViewModelService;
     private readonly IOrderService _orderService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IPdfService _pdfService;
 
     #endregion
@@ -71,7 +71,7 @@ public class OrderController : BaseVendorController
         //products
         const int productNumber = 15;
         var products = (await productService.SearchProducts(
-            vendorId: _contextAccessor.WorkContext.CurrentVendor.Id,
+            vendorId: _workContext.CurrentVendor.Id,
             keywords: term,
             pageSize: productNumber,
             showHidden: true)).products;
@@ -133,7 +133,7 @@ public class OrderController : BaseVendorController
     public async Task<IActionResult> Edit(string id)
     {
         var order = await _orderService.GetOrderById(id);
-        if (order == null || order.Deleted || !_contextAccessor.WorkContext.HasAccessToOrder(order))
+        if (order == null || order.Deleted || !_workContext.HasAccessToOrder(order))
             //No order found with the specified id
             return RedirectToAction("List");
 
@@ -147,7 +147,7 @@ public class OrderController : BaseVendorController
     {
         var order = await _orderService.GetOrderById(orderId);
         //No order found with the specified id
-        if (order == null || order.Deleted || !_contextAccessor.WorkContext.HasAccessToOrder(order)) return RedirectToAction("List");
+        if (order == null || order.Deleted || !_workContext.HasAccessToOrder(order)) return RedirectToAction("List");
 
         var orders = new List<Order> {
             order
@@ -155,8 +155,8 @@ public class OrderController : BaseVendorController
         byte[] bytes;
         using (var stream = new MemoryStream())
         {
-            await _pdfService.PrintOrdersToPdf(stream, orders, _contextAccessor.WorkContext.WorkingLanguage.Id,
-                _contextAccessor.WorkContext.CurrentVendor.Id);
+            await _pdfService.PrintOrdersToPdf(stream, orders, _workContext.WorkingLanguage.Id,
+                _workContext.CurrentVendor.Id);
             bytes = stream.ToArray();
         }
 
@@ -172,8 +172,8 @@ public class OrderController : BaseVendorController
         byte[] bytes;
         using (var stream = new MemoryStream())
         {
-            await _pdfService.PrintOrdersToPdf(stream, orders, _contextAccessor.WorkContext.WorkingLanguage.Id,
-                _contextAccessor.WorkContext.CurrentVendor.Id);
+            await _pdfService.PrintOrdersToPdf(stream, orders, _workContext.WorkingLanguage.Id,
+                _workContext.CurrentVendor.Id);
             bytes = stream.ToArray();
         }
 
@@ -188,14 +188,14 @@ public class OrderController : BaseVendorController
         if (selectedIds != null)
         {
             var ids = selectedIds
-                .Split([','], StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => x)
                 .ToArray();
             orders.AddRange(await _orderService.GetOrdersByIds(ids));
         }
 
         //a vendor should have access only to his products
-        orders = orders.Where(_contextAccessor.WorkContext.HasAccessToOrder).ToList();
+        orders = orders.Where(_workContext.HasAccessToOrder).ToList();
 
         //ensure that we at least one order selected
         if (orders.Count == 0)
@@ -207,8 +207,8 @@ public class OrderController : BaseVendorController
         byte[] bytes;
         using (var stream = new MemoryStream())
         {
-            await _pdfService.PrintOrdersToPdf(stream, orders, _contextAccessor.WorkContext.WorkingLanguage.Id,
-                _contextAccessor.WorkContext.CurrentVendor.Id);
+            await _pdfService.PrintOrdersToPdf(stream, orders, _workContext.WorkingLanguage.Id,
+                _workContext.CurrentVendor.Id);
             bytes = stream.ToArray();
         }
 

@@ -45,42 +45,54 @@ public class TypeSearcher : ITypeSearcher
 
     #region Methods
 
-    public IEnumerable<Type> ClassesOfType<T>()
+    public IEnumerable<Type> ClassesOfType<T>(bool onlyConcreteClasses = true)
     {
-        return ClassesOfType(typeof(T));
+        return ClassesOfType(typeof(T), onlyConcreteClasses);
     }
 
-    public IEnumerable<Type> ClassesOfType(Type assignTypeFrom)
+    public IEnumerable<Type> ClassesOfType(Type assignTypeFrom, bool onlyConcreteClasses = true)
     {
-        return ClassesOfType(assignTypeFrom, GetAssemblies());
+        return ClassesOfType(assignTypeFrom, GetAssemblies(), onlyConcreteClasses);
     }
 
-    public IEnumerable<Type> ClassesOfType(Type assignTypeFrom, IEnumerable<Assembly> assemblies)
+    public IEnumerable<Type> ClassesOfType(Type assignTypeFrom, IEnumerable<Assembly> assemblies,
+        bool onlyConcreteClasses = true)
     {
         var result = new List<Type>();
         try
         {
-            foreach (var assembly in assemblies)
+            foreach (var a in assemblies)
             {
-                var types = assembly.GetTypes()
-                    .Where(type =>
-                        (assignTypeFrom.IsAssignableFrom(type) ||
-                         (assignTypeFrom.IsGenericTypeDefinition && DoesTypeImplementOpenGeneric(type, assignTypeFrom))) &&
-                        !type.IsInterface &&
-                        type.IsClass &&
-                        !type.IsAbstract);
+                var types = a.GetTypes();
+                foreach (var t in types)
+                {
+                    if (!assignTypeFrom.IsAssignableFrom(t) && (!assignTypeFrom.IsGenericTypeDefinition ||
+                                                                !DoesTypeImplementOpenGeneric(t, assignTypeFrom)))
+                        continue;
 
-                result.AddRange(types);
+                    if (t.IsInterface)
+                        continue;
+
+                    if (onlyConcreteClasses)
+                    {
+                        if (t.IsClass && !t.IsAbstract) result.Add(t);
+                    }
+                    else
+                    {
+                        result.Add(t);
+                    }
+                }
             }
         }
         catch (ReflectionTypeLoadException ex)
         {
-            var errorMessage = ex.LoaderExceptions
-                .Aggregate(string.Empty, (current, e) => current + e!.Message + Environment.NewLine);
+            var msg = ex.LoaderExceptions.Aggregate(string.Empty,
+                (current, e) => current + e!.Message + Environment.NewLine);
 
-            var exception = new Exception(errorMessage, ex);
-            Debug.WriteLine(exception.Message, exception);
-            throw exception;
+            var fail = new Exception(msg, ex);
+            Debug.WriteLine(fail.Message, fail);
+
+            throw fail;
         }
 
         return result;

@@ -38,33 +38,33 @@ public class PaymentServiceTests
         _paymentProviderMock.Setup(c => c.SystemName).Returns("systemName");
         var systemName = "systemName";
         var result = _paymentService.LoadPaymentMethodBySystemName(systemName);
-        Assert.AreEqual(_paymentProviderMock.Object, result);
+        Assert.AreEqual(result, _paymentProviderMock.Object);
     }
 
     [TestMethod]
-    public async Task GetRestrictedCountryIds()
+    public void GetRestrictedCountryIds()
     {
         _paymentProviderMock.Setup(c => c.SystemName).Returns("systemName");
         var expectedResult = new List<string> { "1", "2", "3", "4" };
         var expectedKey = "PaymentMethodRestictions.systemName";
         _settingService.Setup(s => s.GetSettingByKey<PaymentRestrictedSettings>(It.IsAny<string>(), null, ""))
-            .Returns(() => Task.FromResult(new PaymentRestrictedSettings { Ids = expectedResult }));
+            .Returns(() => new PaymentRestrictedSettings { Ids = expectedResult });
 
-        var result = await _paymentService.GetRestrictedCountryIds(_paymentProviderMock.Object);
+        var result = _paymentService.GetRestrictedCountryIds(_paymentProviderMock.Object);
         Assert.IsTrue(expectedResult.SequenceEqual(result));
         _settingService.Verify(s => s.GetSettingByKey<PaymentRestrictedSettings>(expectedKey, null, ""), Times.Once);
     }
 
     [TestMethod]
-    public async Task GetRestrictedCountryIds_ReturnEmptyList()
+    public void GetRestrictedCountryIds_ReturnEmptyList()
     {
         _paymentProviderMock.Setup(c => c.SystemName).Returns("systemName");
         var expectedKey = "PaymentMethodRestictions.systemName";
         _settingService.Setup(s => s.GetSettingByKey<PaymentRestrictedSettings>(It.IsAny<string>(), null, ""))
-            .Returns(() => Task.FromResult((PaymentRestrictedSettings)null));
+            .Returns(() => null);
 
-        var result = await _paymentService.GetRestrictedCountryIds(_paymentProviderMock.Object);
-        Assert.IsEmpty(result);
+        var result = _paymentService.GetRestrictedCountryIds(_paymentProviderMock.Object);
+        Assert.IsTrue(result.Count == 0);
         _settingService.Verify(s => s.GetSettingByKey<PaymentRestrictedSettings>(expectedKey, null, ""), Times.Once);
     }
 
@@ -77,7 +77,7 @@ public class PaymentServiceTests
 
         await _paymentService.SaveRestrictedCountryIds(_paymentProviderMock.Object, countryIds);
         _settingService.Verify(
-            s => s.SetSetting(expectedKey, It.IsAny<PaymentRestrictedSettings>(), It.IsAny<string>()),
+            s => s.SetSetting(expectedKey, It.IsAny<PaymentRestrictedSettings>(), It.IsAny<string>(), It.IsAny<bool>()),
             Times.Once);
     }
 
@@ -88,7 +88,7 @@ public class PaymentServiceTests
             TransactionAmount = 0
         };
         var response = await _paymentService.ProcessPayment(request);
-        Assert.AreEqual(TransactionStatus.Paid, response.NewPaymentTransactionStatus);
+        Assert.IsTrue(response.NewPaymentTransactionStatus == TransactionStatus.Paid);
     }
 
     [TestMethod]
@@ -107,7 +107,7 @@ public class PaymentServiceTests
     {
         _paymentProviderMock.Setup(c => c.SystemName).Returns("systemName2");
         var request = new PaymentTransaction { PaymentMethodSystemName = "systemName", TransactionAmount = 500 };
-        Assert.ThrowsExactlyAsync<GrandException>(async () => await _paymentService.ProcessPayment(request));
+        Assert.ThrowsExceptionAsync<GrandException>(async () => await _paymentService.ProcessPayment(request));
     }
 
     [TestMethod]
@@ -130,7 +130,7 @@ public class PaymentServiceTests
             PaymentMethodSystemName = "systemName2", TransactionAmount = 500,
             TransactionStatus = TransactionStatus.Authorized
         };
-        Assert.ThrowsExactlyAsync<GrandException>(async () => await _paymentService.PostProcessPayment(request),
+        Assert.ThrowsExceptionAsync<GrandException>(async () => await _paymentService.PostProcessPayment(request),
             "Payment method couldn't be loaded");
     }
 

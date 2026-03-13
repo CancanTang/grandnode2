@@ -73,7 +73,7 @@ public class CustomerProductServiceTests
         await _customerProductService.InsertCustomerProductPrice(customerProductPrice);
 
         //Assert
-        Assert.IsNotEmpty(_repositoryCustomerProductPrice.Table);
+        Assert.IsTrue(_repositoryCustomerProductPrice.Table.Any());
     }
 
     [TestMethod]
@@ -122,7 +122,7 @@ public class CustomerProductServiceTests
         var result = await _customerProductService.GetProductsPriceByCustomer("1");
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]
@@ -165,7 +165,7 @@ public class CustomerProductServiceTests
         await _customerProductService.InsertCustomerProduct(customerProduct);
 
         //Assert
-        Assert.IsNotEmpty(_repositoryCustomerProduct.Table);
+        Assert.IsTrue(_repositoryCustomerProduct.Table.Any());
     }
 
     [TestMethod]
@@ -214,6 +214,6 @@ public class CustomerProductServiceTests
         var result = await _customerProductService.GetProductsByCustomer("1");
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 }

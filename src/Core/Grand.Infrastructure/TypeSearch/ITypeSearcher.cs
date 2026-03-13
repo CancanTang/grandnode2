@@ -8,7 +8,11 @@ namespace Grand.Infrastructure.TypeSearch;
 public interface ITypeSearcher
 {
     IList<Assembly> GetAssemblies();
-    IEnumerable<Type> ClassesOfType<T>();
-    IEnumerable<Type> ClassesOfType(Type assignTypeFrom);
-    IEnumerable<Type> ClassesOfType(Type assignTypeFrom, IEnumerable<Assembly> assemblies);
+
+    IEnumerable<Type> ClassesOfType(Type assignTypeFrom, bool onlyConcreteClasses = true);
+
+    IEnumerable<Type> ClassesOfType(Type assignTypeFrom, IEnumerable<Assembly> assemblies,
+        bool onlyConcreteClasses = true);
+
+    IEnumerable<Type> ClassesOfType<T>(bool onlyConcreteClasses = true);
 }

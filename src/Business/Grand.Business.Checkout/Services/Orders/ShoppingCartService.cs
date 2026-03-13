@@ -22,14 +22,14 @@ public class ShoppingCartService : IShoppingCartService
     #region Ctor
 
     public ShoppingCartService(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IProductService productService,
         ICustomerService customerService,
         IMediator mediator,
         IShoppingCartValidator shoppingCartValidator,
         ShoppingCartSettings shoppingCartSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _productService = productService;
         _customerService = customerService;
         _mediator = mediator;
@@ -41,7 +41,7 @@ public class ShoppingCartService : IShoppingCartService
 
     #region Fields
 
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IProductService _productService;
     private readonly ICustomerService _customerService;
     private readonly IMediator _mediator;
@@ -62,7 +62,7 @@ public class ShoppingCartService : IShoppingCartService
         params ShoppingCartType[] shoppingCartType)
     {
         var model = new List<ShoppingCartItem>();
-        var cart = _contextAccessor.WorkContext.CurrentCustomer.ShoppingCartItems.ToList();
+        var cart = _workContext.CurrentCustomer.ShoppingCartItems.ToList();
 
         if (!string.IsNullOrEmpty(storeId))
             cart = cart.LimitPerStore(_shoppingCartSettings.SharedCartBetweenStores, storeId).ToList();
@@ -198,7 +198,8 @@ public class ShoppingCartService : IShoppingCartService
         validator ??= new ShoppingCartValidatorOptions();
 
         var product = await _productService.GetProductById(productId);
-        ArgumentNullException.ThrowIfNull(product);
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
 
         var cart = customer.ShoppingCartItems
             .Where(sci => sci.ShoppingCartTypeId == shoppingCartType)
@@ -313,7 +314,7 @@ public class ShoppingCartService : IShoppingCartService
     /// <returns>Warnings</returns>
     public virtual async Task<IList<string>> UpdateShoppingCartItem(Customer customer,
         string shoppingCartItemId, string warehouseId, IList<CustomAttribute> attributes,
-        double? customerEnteredPrice = null,
+        double? customerEnteredPrice,
         DateTime? rentalStartDate = null, DateTime? rentalEndDate = null,
         int quantity = 1, bool resetCheckoutData = true, string reservationId = "", string sciId = "")
     {
@@ -430,9 +431,9 @@ public class ShoppingCartService : IShoppingCartService
         }
 
         //move selected checkout attributes
-        var checkoutAttributes = fromCustomer.GetUserFieldFromEntity<List<CustomAttribute>>(SystemCustomerFieldNames.CheckoutAttributes, _contextAccessor.StoreContext.CurrentStore.Id);
+        var checkoutAttributes = fromCustomer.GetUserFieldFromEntity<List<CustomAttribute>>(SystemCustomerFieldNames.CheckoutAttributes, _workContext.CurrentStore.Id);
         await _customerService.UpdateUserField(toCustomer, SystemCustomerFieldNames.CheckoutAttributes, checkoutAttributes,
-            _contextAccessor.StoreContext.CurrentStore.Id);
+            _workContext.CurrentStore.Id);
     }
 
     #endregion

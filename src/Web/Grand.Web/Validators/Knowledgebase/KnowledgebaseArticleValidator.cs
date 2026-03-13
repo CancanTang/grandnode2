@@ -2,14 +2,14 @@
 using Grand.Business.Core.Interfaces.Cms;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Common;
 using Grand.Domain.Knowledgebase;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.Knowledgebase;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.Knowledgebase;
 
@@ -18,10 +18,10 @@ public class KnowledgebaseArticleValidator : BaseGrandValidator<KnowledgebaseArt
     public KnowledgebaseArticleValidator(
         IEnumerable<IValidatorConsumer<KnowledgebaseArticleModel>> validators,
         IEnumerable<IValidatorConsumer<ICaptchaValidModel>> validatorsCaptcha,
-        IContextAccessor contextAccessor, IGroupService groupService,
+        IWorkContext workContext, IGroupService groupService,
         IKnowledgebaseService knowledgebaseService, KnowledgebaseSettings knowledgebaseSettings,
         CaptchaSettings captchaSettings,
-        IHttpContextAccessor httpcontextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         ITranslationService translationService)
         : base(validators)
     {
@@ -31,7 +31,7 @@ public class KnowledgebaseArticleValidator : BaseGrandValidator<KnowledgebaseArt
 
         RuleFor(x => x).CustomAsync(async (x, context, _) =>
         {
-            if (await groupService.IsGuest(contextAccessor.WorkContext.CurrentCustomer) &&
+            if (await groupService.IsGuest(workContext.CurrentCustomer) &&
                 !knowledgebaseSettings.AllowNotRegisteredUsersToLeaveComments)
                 context.AddFailure(
                     translationService.GetResource("Knowledgebase.Article.Comments.OnlyRegisteredUsersLeaveComments"));
@@ -45,7 +45,7 @@ public class KnowledgebaseArticleValidator : BaseGrandValidator<KnowledgebaseArt
             RuleFor(x => x.Captcha).NotNull()
                 .WithMessage(translationService.GetResource("Account.Captcha.Required"));
             RuleFor(x => x.Captcha)
-                .SetValidator(new CaptchaValidator(validatorsCaptcha, httpcontextAccessor, googleReCaptchaValidator));
+                .SetValidator(new CaptchaValidator(validatorsCaptcha, contextAccessor, googleReCaptchaValidator));
         }
     }
 }

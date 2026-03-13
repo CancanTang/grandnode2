@@ -2,7 +2,9 @@
 
 namespace Grand.Web.Common.Models;
 
-public interface ILocalizedModel;
+public interface ILocalizedModel
+{
+}
 
 public interface ILocalizedModel<TLocalizedModel> : ILocalizedModel
 {

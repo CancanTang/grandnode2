@@ -38,7 +38,7 @@ public class ProductReviewServiceTests
         var result = await _productReviewService.GetAllProductReviews("1", null);
 
         //Assert
-        Assert.HasCount(2, result);
+        Assert.AreEqual(2, result.Count);
     }
 
     [TestMethod]

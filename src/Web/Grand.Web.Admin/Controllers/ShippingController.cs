@@ -4,16 +4,16 @@ using Grand.Business.Core.Interfaces.Common.Configuration;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Stores;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain;
 using Grand.Domain.Customers;
 using Grand.Domain.Directory;
 using Grand.Domain.Shipping;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Extensions.Mapping.Settings;
-using Grand.Web.AdminShared.Models.Common;
-using Grand.Web.AdminShared.Models.Directory;
-using Grand.Web.AdminShared.Models.Shipping;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Extensions.Mapping.Settings;
+using Grand.Web.Admin.Models.Common;
+using Grand.Web.Admin.Models.Directory;
+using Grand.Web.Admin.Models.Shipping;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Models;
@@ -155,7 +155,7 @@ public class ShippingController : BaseAdminController
     {
         var storeScope = await GetActiveStore();
 
-        var _shippingProviderSettings = await _settingService.LoadSetting<ShippingProviderSettings>(storeScope);
+        var _shippingProviderSettings = _settingService.LoadSetting<ShippingProviderSettings>(storeScope);
         var shippingProvidersModel = new List<ShippingRateComputationMethodModel>();
         var shippingProviders = _shippingService.LoadAllShippingRateCalculationProviders();
         foreach (var shippingProvider in shippingProviders)
@@ -179,7 +179,7 @@ public class ShippingController : BaseAdminController
     {
         var storeScope = await GetActiveStore();
 
-        var _shippingProviderSettings = await _settingService.LoadSetting<ShippingProviderSettings>(storeScope);
+        var _shippingProviderSettings = _settingService.LoadSetting<ShippingProviderSettings>(storeScope);
 
         var srcm = _shippingService.LoadShippingRateCalculationProviderBySystemName(model.SystemName);
         if (srcm.IsShippingRateMethodActive(_shippingProviderSettings))
@@ -315,7 +315,7 @@ public class ShippingController : BaseAdminController
     {
         //load settings for a chosen store scope
         var storeScope = await GetActiveStore();
-        var shippingSettings = await _settingService.LoadSetting<ShippingSettings>(storeScope);
+        var shippingSettings = _settingService.LoadSetting<ShippingSettings>(storeScope);
         var model = shippingSettings.ToModel();
         model.ActiveStore = storeScope;
 
@@ -338,7 +338,7 @@ public class ShippingController : BaseAdminController
         if (states?.Count > 0)
             foreach (var s in states)
                 model.ShippingOriginAddress.AvailableStates.Add(new SelectListItem
-                    { Text = s.Name, Value = s.Id, Selected = s.Id == originAddress.StateProvinceId });
+                    { Text = s.Name, Value = s.Id, Selected = s.Id == originAddress?.StateProvinceId });
 
         model.ShippingOriginAddress.CountryEnabled = true;
         model.ShippingOriginAddress.StateProvinceEnabled = true;
@@ -356,7 +356,7 @@ public class ShippingController : BaseAdminController
     {
         //load settings for a chosen store scope
         var storeScope = await GetActiveStore();
-        var shippingSettings = await _settingService.LoadSetting<ShippingSettings>(storeScope);
+        var shippingSettings = _settingService.LoadSetting<ShippingSettings>(storeScope);
         shippingSettings = model.ToEntity(shippingSettings);
 
         await _settingService.SaveSetting(shippingSettings, storeScope);

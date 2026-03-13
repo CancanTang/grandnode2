@@ -20,7 +20,8 @@ public class UpdateProductReviewTotalsCommandHandler : IRequestHandler<UpdatePro
 
     public async Task<bool> Handle(UpdateProductReviewTotalsCommand request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Product);
+        if (request.Product == null)
+            throw new ArgumentNullException(nameof(request.Product));
 
         var approvedRatingSum = 0;
         var notApprovedRatingSum = 0;

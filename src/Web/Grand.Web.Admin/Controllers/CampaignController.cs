@@ -3,13 +3,13 @@ using Grand.Business.Core.Interfaces.Common.Stores;
 using Grand.Business.Core.Interfaces.Marketing.Campaigns;
 using Grand.Business.Core.Interfaces.Marketing.Newsletters;
 using Grand.Business.Core.Interfaces.Messages;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Messages;
 using Grand.Infrastructure;
 using Grand.SharedKernel;
 using Grand.SharedKernel.Extensions;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Messages;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Messages;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
@@ -27,13 +27,13 @@ public class CampaignController : BaseAdminController
     private readonly INewsLetterSubscriptionService _newsLetterSubscriptionService;
     private readonly IStoreService _storeService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public CampaignController(ICampaignService campaignService, ICampaignViewModelService campaignViewModelService,
         IEmailAccountService emailAccountService,
         INewsLetterSubscriptionService newsLetterSubscriptionService,
         ITranslationService translationService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IStoreService storeService,
         EmailAccountSettings emailAccountSettings)
     {
@@ -43,7 +43,7 @@ public class CampaignController : BaseAdminController
         _emailAccountSettings = emailAccountSettings;
         _newsLetterSubscriptionService = newsLetterSubscriptionService;
         _translationService = translationService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _storeService = storeService;
     }
 
@@ -206,7 +206,7 @@ public class CampaignController : BaseAdminController
 
             var subscription =
                 await _newsLetterSubscriptionService.GetNewsLetterSubscriptionByEmailAndStoreId(model.TestEmail,
-                    _contextAccessor.StoreContext.CurrentStore.Id);
+                    _workContext.CurrentStore.Id);
             if (subscription != null)
             {
                 //there's a subscription. use it

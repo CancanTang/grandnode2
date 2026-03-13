@@ -25,12 +25,12 @@ public class CheckoutAttributeService : ICheckoutAttributeService
         ICacheBase cacheBase,
         IRepository<CheckoutAttribute> checkoutAttributeRepository,
         IMediator mediator,
-        IContextAccessor contextAccessor, AccessControlConfig accessControlConfig)
+        IWorkContext workContext, AccessControlConfig accessControlConfig)
     {
         _cacheBase = cacheBase;
         _checkoutAttributeRepository = checkoutAttributeRepository;
         _mediator = mediator;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _accessControlConfig = accessControlConfig;
     }
 
@@ -41,7 +41,7 @@ public class CheckoutAttributeService : ICheckoutAttributeService
     private readonly IRepository<CheckoutAttribute> _checkoutAttributeRepository;
     private readonly IMediator _mediator;
     private readonly ICacheBase _cacheBase;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly AccessControlConfig _accessControlConfig;
 
     #endregion
@@ -71,7 +71,7 @@ public class CheckoutAttributeService : ICheckoutAttributeService
             {
                 if (!ignoreAcl && !_accessControlConfig.IgnoreAcl)
                 {
-                    var allowedCustomerGroupsIds = _contextAccessor.WorkContext.CurrentCustomer.GetCustomerGroupIds();
+                    var allowedCustomerGroupsIds = _workContext.CurrentCustomer.GetCustomerGroupIds();
                     query = from p in query
                         where !p.LimitedToGroups || allowedCustomerGroupsIds.Any(x => p.CustomerGroups.Contains(x))
                         select p;

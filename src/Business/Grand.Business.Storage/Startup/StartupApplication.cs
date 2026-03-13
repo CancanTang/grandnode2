@@ -40,14 +40,12 @@ public class StartupApplication : IStartupApplication
 
         services.AddScoped<IMediaFileStore>(serviceProvider =>
         {
-            var webHostEnvironment = serviceProvider.GetRequiredService<IWebHostEnvironment>();
-            var param = configuration[CommonPath.DirectoryParam];
-            var fileStore = new FileSystemStore(Path.Combine(webHostEnvironment.WebRootPath, param ?? ""));
+            var fileStore = new FileSystemStore(CommonPath.WebRootPath);
             return new DefaultMediaFileStore(fileStore);
         });
     }
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 

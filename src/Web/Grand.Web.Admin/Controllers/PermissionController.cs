@@ -1,12 +1,12 @@
-﻿using DotLiquid.Util;
-using Grand.Business.Core.Extensions;
+﻿using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Permissions;
 using Grand.Infrastructure;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Models.Permissions;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Models.Permissions;
 using Grand.Web.Common.Models;
 using Grand.Web.Common.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,12 +18,12 @@ public class PermissionController : BaseAdminController
 {
     #region Constructors
 
-    public PermissionController(IContextAccessor contextAccessor,
+    public PermissionController(IWorkContext workContext,
         IPermissionService permissionService,
         IGroupService groupService,
         ITranslationService translationService)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _permissionService = permissionService;
         _groupService = groupService;
         _translationService = translationService;
@@ -33,7 +33,7 @@ public class PermissionController : BaseAdminController
 
     #region Fields
 
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IPermissionService _permissionService;
     private readonly IGroupService _groupService;
     private readonly ITranslationService _translationService;
@@ -50,7 +50,7 @@ public class PermissionController : BaseAdminController
         var customerGroups = await _groupService.GetAllCustomerGroups(showHidden: true);
         foreach (var pr in permissionRecords.OrderBy(x => x.Category))
             model.AvailablePermissions.Add(new PermissionRecordModel {
-                Name =_translationService.GetResource(pr.GetTranslationPermissionName(), _contextAccessor.WorkContext.WorkingLanguage.Id),
+                Name = pr.GetTranslationPermissionName(_translationService, _workContext),
                 SystemName = pr.SystemName,
                 Area = pr.Area,
                 Category = pr.Category,
@@ -169,7 +169,7 @@ public class PermissionController : BaseAdminController
         if (permissionRecord != null)
         {
             model.AvailableActions = permissionRecord.Actions.ToList();
-            model.PermissionName = _translationService.GetResource(permissionRecord.GetTranslationPermissionName(), _contextAccessor.WorkContext.WorkingLanguage.Id);
+            model.PermissionName = permissionRecord.GetTranslationPermissionName(_translationService, _workContext);
         }
         else
         {

@@ -1,14 +1,14 @@
 ﻿using FluentValidation;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Common;
 using Grand.Domain.Orders;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.ShoppingCart;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.ShoppingCart;
 
@@ -17,9 +17,9 @@ public class WishlistEmailAFriendValidator : BaseGrandValidator<WishlistEmailAFr
     public WishlistEmailAFriendValidator(
         IEnumerable<IValidatorConsumer<WishlistEmailAFriendModel>> validators,
         IEnumerable<IValidatorConsumer<ICaptchaValidModel>> validatorsCaptcha,
-        IContextAccessor contextAccessor, IGroupService groupService,
+        IWorkContext workContext, IGroupService groupService,
         CaptchaSettings captchaSettings, ShoppingCartSettings shoppingCartSettings,
-        IHttpContextAccessor httpcontextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         ITranslationService translationService)
         : base(validators)
     {
@@ -37,13 +37,13 @@ public class WishlistEmailAFriendValidator : BaseGrandValidator<WishlistEmailAFr
             RuleFor(x => x.Captcha).NotNull()
                 .WithMessage(translationService.GetResource("Account.Captcha.Required"));
             RuleFor(x => x.Captcha)
-                .SetValidator(new CaptchaValidator(validatorsCaptcha, httpcontextAccessor, googleReCaptchaValidator));
+                .SetValidator(new CaptchaValidator(validatorsCaptcha, contextAccessor, googleReCaptchaValidator));
         }
 
         RuleFor(x => x).CustomAsync(async (x, context, _) =>
         {
             //check whether the current customer is guest and ia allowed to email wishlist
-            if (await groupService.IsGuest(contextAccessor.WorkContext.CurrentCustomer) &&
+            if (await groupService.IsGuest(workContext.CurrentCustomer) &&
                 !shoppingCartSettings.AllowAnonymousUsersToEmailWishlist)
                 context.AddFailure(translationService.GetResource("Wishlist.EmailAFriend.OnlyRegisteredUsers"));
         });

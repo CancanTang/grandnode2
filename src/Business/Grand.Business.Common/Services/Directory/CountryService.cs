@@ -142,9 +142,7 @@ public class CountryService : ICountryService
             select c;
         var countries = await Task.FromResult(query.ToList());
         //sort by passed identifiers
-        return countryIds.Select(id => countries.FirstOrDefault(country => country.Id == id))
-            .Where(country => country != null)
-            .ToList();
+        return countryIds.Select(id => countries.Find(x => x.Id == id)).Where(country => country != null).ToList();
     }
 
     /// <summary>
@@ -255,7 +253,8 @@ public class CountryService : ICountryService
         ArgumentNullException.ThrowIfNull(stateProvince);
 
         var country = await GetCountryById(countryId);
-        ArgumentNullException.ThrowIfNull(country);
+        if (country == null)
+            throw new ArgumentNullException(nameof(country));
 
         country.StateProvinces.Add(stateProvince);
 
@@ -272,7 +271,8 @@ public class CountryService : ICountryService
         ArgumentNullException.ThrowIfNull(stateProvince);
 
         var country = await GetCountryById(countryId);
-        ArgumentNullException.ThrowIfNull(country);
+        if (country == null)
+            throw new ArgumentNullException(nameof(country));
 
         if (country.StateProvinces.FirstOrDefault(x => x.Id == stateProvince.Id) != null)
         {
@@ -300,7 +300,8 @@ public class CountryService : ICountryService
         ArgumentNullException.ThrowIfNull(stateProvince);
 
         var country = await GetCountryById(countryId);
-        ArgumentNullException.ThrowIfNull(country);
+        if (country == null)
+            throw new ArgumentNullException(nameof(country));
 
         var state = country.StateProvinces.FirstOrDefault(x => x.Id == stateProvince.Id);
         country.StateProvinces.Remove(state);

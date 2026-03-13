@@ -1,11 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\Build\Grand.Common.props" />
   <ItemGroup>
-  	<PackageReference Include="ExcelMapper" />
-  	<PackageReference Include="NPOI" />
-	<PackageReference Include="SixLabors.ImageSharp" />
-	<PackageReference Include="Scryber.Core" />
-    <PackageReference Include="Scryber.Core.OpenType" />
+	<PackageReference Include="ExcelMapper" Version="5.2.483" />
+	<PackageReference Include="Scryber.Core" Version="6.0.4-beta" />
+    <PackageReference Include="Scryber.Core.OpenType" Version="6.1.0-beta" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Grand.Domain\Grand.Domain.csproj" />

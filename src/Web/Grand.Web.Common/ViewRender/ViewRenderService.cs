@@ -38,7 +38,7 @@ public class ViewRenderService : IViewRenderService
         await using var sw = new StringWriter();
         var viewResult = _razorViewEngine.GetView(viewPath, viewPath, false);
 
-        ArgumentNullException.ThrowIfNull(viewResult.View);
+        if (viewResult.View == null) throw new ArgumentNullException($"{viewPath} does not match any available view");
 
         var viewDictionary = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()) {
             Model = model

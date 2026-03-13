@@ -1,5 +1,4 @@
 ﻿using Grand.Business.Core.Commands.Checkout.Orders;
-using Grand.Business.Core.Commands.Messages.Common;
 using Grand.Business.Core.Events.Checkout.Orders;
 using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Discounts;
@@ -12,6 +11,7 @@ using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Checkout.Payments;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
+using Grand.Business.Core.Interfaces.Common.Pdf;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.Messages;
 using Grand.Business.Core.Queries.Checkout.Orders;
@@ -20,6 +20,7 @@ using Grand.Domain.Catalog;
 using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Discounts;
+using Grand.Domain.Localization;
 using Grand.Domain.Orders;
 using Grand.Domain.Payments;
 using Grand.Domain.Shipping;
@@ -28,6 +29,7 @@ using Grand.Infrastructure;
 using Grand.SharedKernel;
 using Grand.SharedKernel.Extensions;
 using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Grand.Business.Checkout.Commands.Handlers.Orders;
@@ -59,13 +61,14 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
     private readonly IProductReservationService _productReservationService;
     private readonly IProductService _productService;
     private readonly ISalesEmployeeService _salesEmployeeService;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ShippingSettings _shippingSettings;
     private readonly ShoppingCartSettings _shoppingCartSettings;
     private readonly IShoppingCartValidator _shoppingCartValidator;
     private readonly ITaxService _taxService;
     private readonly TaxSettings _taxSettings;
     private readonly IVendorService _vendorService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public PlaceOrderCommandHandler(
         IOrderService orderService,
@@ -83,7 +86,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         ITaxService taxService,
         ICustomerService customerService,
         IDiscountService discountService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IGroupService groupService,
         IMessageProviderService messageProviderService,
         IVendorService vendorService,
@@ -95,6 +98,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         IAuctionService auctionService,
         ICountryService countryService,
         IShoppingCartValidator shoppingCartValidator,
+        IServiceScopeFactory serviceScopeFactory,
         ShippingSettings shippingSettings,
         ShoppingCartSettings shoppingCartSettings,
         PaymentSettings paymentSettings,
@@ -117,7 +121,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         _customerService = customerService;
         _groupService = groupService;
         _discountService = discountService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _messageProviderService = messageProviderService;
         _vendorService = vendorService;
         _salesEmployeeService = salesEmployeeService;
@@ -128,6 +132,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         _auctionService = auctionService;
         _countryService = countryService;
         _shoppingCartValidator = shoppingCartValidator;
+        _serviceScopeFactory = serviceScopeFactory;
         _shippingSettings = shippingSettings;
         _shoppingCartSettings = shoppingCartSettings;
         _paymentSettings = paymentSettings;
@@ -177,7 +182,9 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
 
                 #region Events & notes
 
-                await _mediator.Send(new OrderNotificationCommand { Order = result.PlacedOrder, WorkContext = _contextAccessor.WorkContext }, cancellationToken);
+                _ = Task.Run(
+                    () => SendNotification(_serviceScopeFactory, result.PlacedOrder, _workContext.CurrentCustomer,
+                        _workContext.OriginalCustomerIfImpersonated), cancellationToken);
 
                 //check order status
                 await _mediator.Send(new CheckOrderStatusCommand { Order = result.PlacedOrder }, cancellationToken);
@@ -266,7 +273,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         var paymentTransaction = new PaymentTransaction();
         var paymentTransactionId =
             details.Customer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.PaymentTransaction,
-                _contextAccessor.StoreContext.CurrentStore.Id);
+                _workContext.CurrentStore.Id);
         if (!string.IsNullOrEmpty(paymentTransactionId))
         {
             paymentTransaction = await _paymentTransactionService.GetById(paymentTransactionId);
@@ -284,7 +291,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         paymentTransaction.OrderGuid =
             paymentTransaction.OrderGuid == Guid.Empty ? Guid.NewGuid() : paymentTransaction.OrderGuid;
         paymentTransaction.PaymentMethodSystemName = details.PaymentMethodSystemName;
-        paymentTransaction.StoreId = _contextAccessor.StoreContext.CurrentStore.Id;
+        paymentTransaction.StoreId = _workContext.CurrentStore.Id;
         paymentTransaction.CustomerId = details.Customer.Id;
         paymentTransaction.TransactionAmount = details.OrderTotal;
         paymentTransaction.CurrencyRate = details.CurrencyRate;
@@ -337,8 +344,8 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
     /// <returns>Shopping cart item weight</returns>
     private async Task<double> GetShoppingCartItemWeight(ShoppingCartItem shoppingCartItem)
     {
-        ArgumentNullException.ThrowIfNull(shoppingCartItem);
-
+        if (shoppingCartItem == null)
+            throw new ArgumentNullException(nameof(shoppingCartItem));
         var product = await _productService.GetProductById(shoppingCartItem.ProductId);
         if (product == null)
             return 0;
@@ -352,19 +359,19 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
                 switch (attributeValue.AttributeValueTypeId)
                 {
                     case AttributeValueType.Simple:
-                        {
-                            //simple attribute
-                            attributesTotalWeight += attributeValue.WeightAdjustment;
-                        }
+                    {
+                        //simple attribute
+                        attributesTotalWeight += attributeValue.WeightAdjustment;
+                    }
                         break;
                     case AttributeValueType.AssociatedToProduct:
-                        {
-                            //bundled product
-                            var associatedProduct =
-                                await _productService.GetProductById(attributeValue.AssociatedProductId);
-                            if (associatedProduct is { IsShipEnabled: true })
-                                attributesTotalWeight += associatedProduct.Weight * attributeValue.Quantity;
-                        }
+                    {
+                        //bundled product
+                        var associatedProduct =
+                            await _productService.GetProductById(attributeValue.AssociatedProductId);
+                        if (associatedProduct is { IsShipEnabled: true })
+                            attributesTotalWeight += associatedProduct.Weight * attributeValue.Quantity;
+                    }
                         break;
                 }
         }
@@ -377,7 +384,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
     {
         var details = new PlaceOrderContainer {
             //customer
-            Customer = _contextAccessor.WorkContext.CurrentCustomer
+            Customer = _workContext.CurrentCustomer
         };
         if (details.Customer == null)
             throw new ArgumentException("Customer is not set");
@@ -404,8 +411,8 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         //customer currency
         var currencyTmp = await _currencyService.GetCurrencyById(
             details.Customer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.CurrencyId,
-                _contextAccessor.StoreContext.CurrentStore.Id));
-        var customerCurrency = currencyTmp is { Published: true } ? currencyTmp : _contextAccessor.WorkContext.WorkingCurrency;
+                _workContext.CurrentStore.Id));
+        var customerCurrency = currencyTmp is { Published: true } ? currencyTmp : _workContext.WorkingCurrency;
         details.Currency = customerCurrency;
         var primaryStoreCurrency = await _currencyService.GetPrimaryStoreCurrency();
         details.CurrencyRate = Math.Round(customerCurrency.Rate / primaryStoreCurrency.Rate, 6);
@@ -414,10 +421,10 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         //customer language
         details.Language = await _languageService.GetLanguageById(
             details.Customer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.LanguageId,
-                _contextAccessor.StoreContext.CurrentStore.Id));
+                _workContext.CurrentStore.Id));
 
         if (details.Language is not { Published: true })
-            details.Language = _contextAccessor.WorkContext.WorkingLanguage;
+            details.Language = _workContext.WorkingLanguage;
 
         details.BillingAddress = details.Customer.BillingAddress;
         if (!string.IsNullOrEmpty(details.BillingAddress.CountryId))
@@ -430,14 +437,14 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         //checkout attributes
         details.CheckoutAttributes =
             details.Customer.GetUserFieldFromEntity<List<CustomAttribute>>(SystemCustomerFieldNames.CheckoutAttributes,
-                _contextAccessor.StoreContext.CurrentStore.Id);
+                _workContext.CurrentStore.Id);
         details.CheckoutAttributeDescription =
             await _checkoutAttributeFormatter.FormatAttributes(details.CheckoutAttributes, details.Customer);
 
         //load and validate customer shopping cart
         details.Cart = details.Customer.ShoppingCartItems
             .Where(sci => sci.ShoppingCartTypeId is ShoppingCartType.ShoppingCart or ShoppingCartType.Auctions)
-            .LimitPerStore(_shoppingCartSettings.SharedCartBetweenStores, _contextAccessor.StoreContext.CurrentStore.Id)
+            .LimitPerStore(_shoppingCartSettings.SharedCartBetweenStores, _workContext.CurrentStore.Id)
             .ToList();
 
         if (!details.Cart.Any())
@@ -477,7 +484,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         if (_taxSettings.AllowCustomersToSelectTaxDisplayType)
             details.TaxDisplayType =
                 (TaxDisplayType)details.Customer.GetUserFieldFromEntity<int>(SystemCustomerFieldNames.TaxDisplayTypeId,
-                    _contextAccessor.StoreContext.CurrentStore.Id);
+                    _workContext.CurrentStore.Id);
         else
             details.TaxDisplayType = _taxSettings.TaxDisplayType;
 
@@ -510,7 +517,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         {
             var pickupPoint =
                 details.Customer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.SelectedPickupPoint,
-                    _contextAccessor.StoreContext.CurrentStore.Id);
+                    _workContext.CurrentStore.Id);
             if (_shippingSettings.AllowPickUpInStore && pickupPoint != null)
             {
                 details.PickUpInStore = true;
@@ -536,7 +543,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
 
             var shippingOption =
                 details.Customer.GetUserFieldFromEntity<ShippingOption>(SystemCustomerFieldNames.SelectedShippingOption,
-                    _contextAccessor.StoreContext.CurrentStore.Id);
+                    _workContext.CurrentStore.Id);
             if (shippingOption != null)
             {
                 details.ShippingMethodName = shippingOption.Name;
@@ -566,8 +573,8 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
 
         //payment 
         var paymentMethodSystemName =
-            _contextAccessor.WorkContext.CurrentCustomer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.SelectedPaymentMethod,
-                _contextAccessor.StoreContext.CurrentStore.Id);
+            _workContext.CurrentCustomer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.SelectedPaymentMethod,
+                _workContext.CurrentStore.Id);
         details.PaymentMethodSystemName = paymentMethodSystemName;
         var paymentAdditionalFee =
             await _paymentService.GetAdditionalHandlingFee(details.Cart, paymentMethodSystemName);
@@ -637,7 +644,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         var itemWeight = await GetShoppingCartItemWeight(sc);
         var warehouseId = !string.IsNullOrEmpty(sc.WarehouseId)
             ? sc.WarehouseId
-            : _contextAccessor.StoreContext.CurrentStore.DefaultWarehouseId;
+            : _workContext.CurrentStore.DefaultWarehouseId;
         if (!product.UseMultipleWarehouses && string.IsNullOrEmpty(warehouseId))
             if (!string.IsNullOrEmpty(product.WarehouseId))
                 warehouseId = product.WarehouseId;
@@ -734,7 +741,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
                 SenderEmail = giftVoucherSenderEmail,
                 Message = giftVoucherMessage,
                 IsRecipientNotified = false,
-                StoreId = _orderSettings.GiftVouchers_Assign_StoreId ? _contextAccessor.StoreContext.CurrentStore.Id : string.Empty
+                StoreId = _orderSettings.GiftVouchers_Assign_StoreId ? _workContext.CurrentStore.Id : string.Empty
             };
             await _giftVoucherService.InsertGiftVoucher(gc);
         }
@@ -1022,5 +1029,94 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Place
         await _customerService.ResetCheckoutData(details.Customer, order.StoreId, true, true);
 
         return order;
+    }
+
+    /// <summary>
+    ///     Send notification order
+    /// </summary>
+    /// <param name="scopeFactory"></param>
+    /// <param name="order">Order</param>
+    /// <param name="customer"></param>
+    /// <param name="originalCustomerIfImpersonated"></param>
+    protected virtual async Task SendNotification(IServiceScopeFactory scopeFactory, Order order, Customer customer,
+        Customer originalCustomerIfImpersonated)
+    {
+        using var scope = scopeFactory.CreateScope();
+
+        var workContext = scope.ServiceProvider.GetService<IWorkContextSetter>();
+        await workContext.SetCurrentCustomer(customer);
+        await workContext.SetWorkingLanguage(customer);
+        await workContext.SetWorkingCurrency(customer);
+        await workContext.SetTaxDisplayType(customer);
+
+        var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
+        var messageProviderService = scope.ServiceProvider.GetRequiredService<IMessageProviderService>();
+        var orderSettings = scope.ServiceProvider.GetRequiredService<OrderSettings>();
+        var languageSettings = scope.ServiceProvider.GetRequiredService<LanguageSettings>();
+        var pdfService = scope.ServiceProvider.GetRequiredService<IPdfService>();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        try
+        {
+            //notes, messages
+            if (originalCustomerIfImpersonated != null)
+                //this order is placed by a store administrator impersonating a customer
+                await orderService.InsertOrderNote(new OrderNote {
+                    Note =
+                        $"Order placed by a store owner ('{originalCustomerIfImpersonated.Email}'. ID = {originalCustomerIfImpersonated.Id}) impersonating the customer.",
+                    DisplayToCustomer = false,
+                    OrderId = order.Id
+                });
+            else
+                await orderService.InsertOrderNote(new OrderNote {
+                    Note = "Order placed",
+                    DisplayToCustomer = false,
+                    OrderId = order.Id
+                });
+
+            //send email notifications
+            await messageProviderService.SendOrderPlacedStoreOwnerMessage(order, customer,
+                languageSettings.DefaultAdminLanguageId);
+
+            string orderPlacedAttachmentFilePath = string.Empty, orderPlacedAttachmentFileName = string.Empty;
+            var orderPlacedAttachments = new List<string>();
+
+            try
+            {
+                orderPlacedAttachmentFilePath =
+                    orderSettings.AttachPdfInvoiceToOrderPlacedEmail && !orderSettings.AttachPdfInvoiceToBinary
+                        ? await pdfService.PrintOrderToPdf(order, order.CustomerLanguageId)
+                        : null;
+                orderPlacedAttachmentFileName =
+                    orderSettings.AttachPdfInvoiceToOrderPlacedEmail && !orderSettings.AttachPdfInvoiceToBinary
+                        ? "order.pdf"
+                        : null;
+                orderPlacedAttachments = orderSettings.AttachPdfInvoiceToOrderPlacedEmail &&
+                                         orderSettings.AttachPdfInvoiceToBinary
+                    ? [
+                        await pdfService.SaveOrderToBinary(order, order.CustomerLanguageId)
+                    ]
+                    : [];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error - order placed attachment file {OrderOrderNumber}", order.OrderNumber);
+            }
+
+            await messageProviderService
+                .SendOrderPlacedCustomerMessage(order, customer, order.CustomerLanguageId,
+                    orderPlacedAttachmentFilePath, orderPlacedAttachmentFileName, orderPlacedAttachments);
+
+            if (order.OrderItems.Any(x => !string.IsNullOrEmpty(x.VendorId)))
+            {
+                var vendors = await mediator.Send(new GetVendorsInOrderQuery { Order = order });
+                foreach (var vendor in vendors)
+                    await messageProviderService.SendOrderPlacedVendorMessage(order, customer, vendor,
+                        languageSettings.DefaultAdminLanguageId);
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Place order send notification error");
+        }
     }
 }

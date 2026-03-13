@@ -1,6 +1,5 @@
 ﻿using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.ExportImport;
-using Grand.Business.Core.Interfaces.System.Reports;
 using Grand.Business.Customers.Services;
 using Grand.Business.Customers.Services.ExportImport;
 using Grand.Domain.Common;
@@ -20,14 +19,14 @@ public class StartupApplication : IStartupApplication
         RegisterCustomerService(services);
     }
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 
     public int Priority => 100;
     public bool BeforeConfigure => false;
 
-    private static void RegisterCustomerService(IServiceCollection serviceCollection)
+    private void RegisterCustomerService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IVendorService, VendorService>();
         serviceCollection.AddScoped<ICustomerAttributeParser, CustomerAttributeParser>();
@@ -36,7 +35,6 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<ICustomerNoteService, CustomerNoteService>();
         serviceCollection.AddScoped<ICustomerHistoryPasswordService, CustomerHistoryPasswordService>();
         serviceCollection.AddScoped<ICustomerManagerService, CustomerManagerService>();
-        serviceCollection.AddScoped<ICustomerReportService, CustomerReportService>();
         serviceCollection.AddScoped<ISalesEmployeeService, SalesEmployeeService>();
         serviceCollection.AddScoped<IUserApiService, UserApiService>();
         serviceCollection.AddScoped<IAffiliateService, AffiliateService>();

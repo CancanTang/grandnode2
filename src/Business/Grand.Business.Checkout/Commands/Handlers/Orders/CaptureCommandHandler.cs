@@ -36,7 +36,8 @@ public class CaptureCommandHandler : IRequestHandler<CaptureCommand, IList<strin
     public async Task<IList<string>> Handle(CaptureCommand command, CancellationToken cancellationToken)
     {
         var paymentTransaction = command.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(command.PaymentTransaction));
 
         var canCapture = await _mediator.Send(new CanCaptureQuery { PaymentTransaction = paymentTransaction },
             cancellationToken);

@@ -1,8 +1,10 @@
 ﻿using Grand.Business.Core.Interfaces.Catalog.Products;
+using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Permissions;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Catalog;
+using Grand.Business.Core.Utilities.Common.Security;
+using Grand.Infrastructure;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Catalog;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
@@ -18,11 +20,15 @@ public class ProductReviewController : BaseAdminController
     public ProductReviewController(
         IProductReviewViewModelService productReviewViewModelService,
         IProductReviewService productReviewService,
-        ITranslationService translationService)
+        ITranslationService translationService,
+        IWorkContext workContext,
+        IGroupService groupService)
     {
         _productReviewViewModelService = productReviewViewModelService;
         _productReviewService = productReviewService;
         _translationService = translationService;
+        _workContext = workContext;
+        _groupService = groupService;
     }
 
     #endregion
@@ -32,6 +38,8 @@ public class ProductReviewController : BaseAdminController
     private readonly IProductReviewViewModelService _productReviewViewModelService;
     private readonly IProductReviewService _productReviewService;
     private readonly ITranslationService _translationService;
+    private readonly IWorkContext _workContext;
+    private readonly IGroupService _groupService;
 
     #endregion Fields
 
@@ -45,7 +53,8 @@ public class ProductReviewController : BaseAdminController
 
     public async Task<IActionResult> List()
     {
-        var model = await _productReviewViewModelService.PrepareProductReviewListModel();
+        var model = await _productReviewViewModelService.PrepareProductReviewListModel(_workContext.CurrentCustomer
+            .StaffStoreId);
         return View(model);
     }
 
@@ -53,6 +62,10 @@ public class ProductReviewController : BaseAdminController
     [HttpPost]
     public async Task<IActionResult> List(DataSourceRequest command, ProductReviewListModel model)
     {
+        //limit for store manager
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            model.SearchStoreId = _workContext.CurrentCustomer.StaffStoreId;
+
         var (productReviewModels, totalCount) =
             await _productReviewViewModelService.PrepareProductReviewsModel(model, command.Page, command.PageSize);
         var gridModel = new DataSourceResult {
@@ -73,6 +86,9 @@ public class ProductReviewController : BaseAdminController
             //No product review found with the specified id
             return RedirectToAction("List");
 
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer) &&
+            productReview.StoreId != _workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
+
         var model = new ProductReviewModel();
         await _productReviewViewModelService.PrepareProductReviewModel(model, productReview, false, false);
         return View(model);
@@ -88,12 +104,15 @@ public class ProductReviewController : BaseAdminController
             //No product review found with the specified id
             return RedirectToAction("List");
 
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer) &&
+            productReview.StoreId != _workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
+
         if (ModelState.IsValid)
         {
             productReview = await _productReviewViewModelService.UpdateProductReview(productReview, model);
             Success(_translationService.GetResource("Admin.Catalog.ProductReviews.Updated"));
             return continueEditing
-                ? RedirectToAction("Edit", new { productReview.Id, productReview.ProductId })
+                ? RedirectToAction("Edit", new { id = productReview.Id, productReview.ProductId })
                 : RedirectToAction("List");
         }
 
@@ -112,6 +131,9 @@ public class ProductReviewController : BaseAdminController
             //No product review found with the specified id
             return RedirectToAction("List");
 
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer) &&
+            productReview.StoreId != _workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
+
         if (ModelState.IsValid)
         {
             await _productReviewViewModelService.DeleteProductReview(productReview);
@@ -128,7 +150,8 @@ public class ProductReviewController : BaseAdminController
     public async Task<IActionResult> ApproveSelected(ICollection<string> selectedIds)
     {
         if (selectedIds != null)
-            await _productReviewViewModelService.ApproveSelected(selectedIds.ToList());
+            await _productReviewViewModelService.ApproveSelected(selectedIds.ToList(),
+                _workContext.CurrentCustomer.StaffStoreId);
 
         return Json(new { Result = true });
     }
@@ -138,7 +161,8 @@ public class ProductReviewController : BaseAdminController
     public async Task<IActionResult> DisapproveSelected(ICollection<string> selectedIds)
     {
         if (selectedIds != null)
-            await _productReviewViewModelService.DisapproveSelected(selectedIds.ToList());
+            await _productReviewViewModelService.DisapproveSelected(selectedIds.ToList(),
+                _workContext.CurrentCustomer.StaffStoreId);
 
         return Json(new { Result = true });
     }
@@ -151,19 +175,23 @@ public class ProductReviewController : BaseAdminController
         if (string.IsNullOrWhiteSpace(term) || term.Length < searchTermMinimumLength)
             return Content("");
 
+        var storeId = string.Empty;
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
         //products
         const int productNumber = 15;
         var products = (await productService.SearchProducts(
+            storeId: storeId,
             keywords: term,
             pageSize: productNumber,
             showHidden: true)).products;
 
         var result = (from p in products
-                      select new
-                      {
-                          label = p.Name,
-                          productid = p.Id
-                      })
+                select new {
+                    label = p.Name,
+                    productid = p.Id
+                })
             .ToList();
         return Json(result);
     }

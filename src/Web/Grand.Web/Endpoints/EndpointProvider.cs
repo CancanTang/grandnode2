@@ -1,6 +1,9 @@
 ﻿using Grand.Data;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Endpoints;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Grand.Web.Endpoints;
 
@@ -450,7 +453,7 @@ public class EndpointProvider : IEndpointProvider
         //pixel
         endpointRouteBuilder.MapControllerRoute("PixelQueuedEmail",
             "queuedemail/pixel.png",
-            new { controller = "Common", action = "QueuedEmail" });
+            new { controller = "Pixel", action = "QueuedEmail" });
     }
 
     private void RegisterBlogRoute(IEndpointRouteBuilder endpointRouteBuilder, string pattern)

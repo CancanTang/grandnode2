@@ -8,43 +8,28 @@ namespace Grand.Infrastructure.Tests.Plugins;
 [TestClass]
 public class PluginExtensionsTests
 {
+    private readonly SampleBasePlugin sampleBasePlugin;
+
     public PluginExtensionsTests()
     {
-        
-        var pluginPaths = Path.Combine(TestContext.CurrentContext.TestDirectory, CommonPath.AppData, CommonPath.InstalledPluginsFile);
-        PluginPaths.Initialize(pluginPaths);
-        PluginManager.ClearPlugins();
+        CommonPath.BaseDirectory = TestContext.CurrentContext.TestDirectory;
+        sampleBasePlugin = new SampleBasePlugin();
     }
 
     [TestMethod]
     public async Task ParseInstalledPluginsFileTest()
     {
-        var sampleBasePlugin = new SampleBasePlugin();
         await sampleBasePlugin.Install();
-        var plugins = PluginExtensions.ParseInstalledPluginsFile(PluginPaths.Instance.InstalledPluginsFile);
+        var plugins = PluginExtensions.ParseInstalledPluginsFile(CommonPath.InstalledPluginsFilePath);
         Assert.IsNotNull(plugins);
     }
 
     [TestMethod]
-    public async Task MarkPluginAsInstalledTest()
+    public async Task SaveInstalledPluginsFileTest()
     {
-        //Act
-        await PluginExtensions.MarkPluginAsInstalled("plugin1");
-        //Assert
-        var plugins = PluginExtensions.ParseInstalledPluginsFile(PluginPaths.Instance.InstalledPluginsFile);
-        Assert.HasCount(1, plugins);
-    }
-
-    [TestMethod]
-    public async Task MarkPluginAsUninstalled()
-    {
-        //Arrange
-        await PluginExtensions.MarkPluginAsInstalled("plugin1");
-        await PluginExtensions.MarkPluginAsInstalled("plugin2");
-        //Act
-        await PluginExtensions.MarkPluginAsUninstalled("plugin1");
-        //Assert
-        var plugins = PluginExtensions.ParseInstalledPluginsFile(PluginPaths.Instance.InstalledPluginsFile);
-        Assert.HasCount(1, plugins);
+        await PluginExtensions.SaveInstalledPluginsFile(new List<string> { "plugin1", "plugin2" },
+            CommonPath.InstalledPluginsFilePath);
+        var plugins = PluginExtensions.ParseInstalledPluginsFile(CommonPath.InstalledPluginsFilePath);
+        Assert.AreEqual(2, plugins.Count);
     }
 }

@@ -1,6 +1,5 @@
 ﻿using Grand.Infrastructure.Configuration;
 using Grand.SharedKernel.Extensions;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,8 +20,8 @@ public static class PluginManager
 
     public const string CopyPath = "Plugins/bin";
 
-    private static readonly Lock _synLock = new();
-    
+    private static readonly object _synLock = new();
+
     #endregion
 
     #region Fields
@@ -46,28 +45,29 @@ public static class PluginManager
     ///     Load plugins
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void Load(IMvcCoreBuilder mvcCoreBuilder, IConfiguration configuration, IWebHostEnvironment hostEnvironment)
+    public static void Load(IMvcCoreBuilder mvcCoreBuilder, IConfiguration configuration)
     {
         _config = new ExtensionsConfig();
         configuration.GetSection("Extensions").Bind(_config);
 
         lock (_synLock)
         {
-            ArgumentNullException.ThrowIfNull(mvcCoreBuilder);
+            if (mvcCoreBuilder == null)
+                throw new ArgumentNullException(nameof(mvcCoreBuilder));
 
             _logger = mvcCoreBuilder.Services.BuildServiceProvider().GetService<ILoggerFactory>()
                 .CreateLogger("PluginManager");
 
-            _pluginFolder = new DirectoryInfo(Path.Combine(hostEnvironment.ContentRootPath, CommonPath.Plugins));
-            _copyFolder = new DirectoryInfo(Path.Combine(hostEnvironment.ContentRootPath, CommonPath.Plugins, "bin"));
-                
+            _pluginFolder = new DirectoryInfo(CommonPath.PluginsPath);
+            _copyFolder = new DirectoryInfo(CommonPath.PluginsCopyPath);
+
             var referencedPlugins = new List<PluginInfo>();
             try
             {
                 var installedPluginSystemNames =
                     !string.IsNullOrEmpty(_config.InstalledPlugins)
                         ? _config.InstalledPlugins.Split(",").Select(x => x.Trim())
-                        : PluginExtensions.ParseInstalledPluginsFile(PluginPaths.Instance.InstalledPluginsFile);
+                        : PluginExtensions.ParseInstalledPluginsFile(CommonPath.InstalledPluginsFilePath);
 
                 _logger.LogInformation("Creating shadow copy folder and querying for dlls");
                 Directory.CreateDirectory(_pluginFolder.FullName);
@@ -190,7 +190,8 @@ public static class PluginManager
     /// <returns>Plugin descriptor if exists; otherwise null</returns>
     public static PluginInfo FindPlugin(Type typeAssembly)
     {
-        ArgumentNullException.ThrowIfNull(typeAssembly);
+        if (typeAssembly == null)
+            throw new ArgumentNullException(nameof(typeAssembly));
 
         return ReferencedPlugins?.FirstOrDefault(plugin => plugin.ReferencedAssembly != null
                                                            && plugin.ReferencedAssembly.FullName!.Equals(
@@ -204,7 +205,7 @@ public static class PluginManager
     /// </summary>
     public static void ClearPlugins()
     {
-        var filePath = PluginPaths.Instance.InstalledPluginsFile;
+        var filePath = CommonPath.InstalledPluginsFilePath;
         if (File.Exists(filePath))
             File.Delete(filePath);
     }
@@ -215,7 +216,8 @@ public static class PluginManager
 
     private static IList<PluginInfo> GetPluginInfo()
     {
-        ArgumentNullException.ThrowIfNull(_pluginFolder);
+        if (_pluginFolder == null)
+            throw new ArgumentNullException(nameof(_pluginFolder));
 
         var result = new List<PluginInfo>();
         foreach (var pluginFile in _pluginFolder.GetFiles("*.dll", SearchOption.AllDirectories))
@@ -330,7 +332,7 @@ public static class PluginManager
 
     private static bool Matches(string fullName, string pattern)
     {
-        return Regex.IsMatch(fullName, pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+        return Regex.IsMatch(fullName, pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
     }
 
     private static void AddApplicationPart(IMvcCoreBuilder mvcCoreBuilder,

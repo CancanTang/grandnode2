@@ -7,6 +7,7 @@ using Grand.Web.Features.Models.Catalog;
 using Grand.Web.Features.Models.Products;
 using Grand.Web.Models.Catalog;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Features.Handlers.Catalog;
 
@@ -17,18 +18,18 @@ public class GetCompareProductsHandler : IRequestHandler<GetCompareProducts, Com
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IMediator _mediator;
     private readonly IProductService _productService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public GetCompareProductsHandler(
         IProductService productService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IAclService aclService,
         IMediator mediator,
         IHttpContextAccessor httpContextAccessor,
         CatalogSettings catalogSettings)
     {
         _productService = productService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _aclService = aclService;
         _mediator = mediator;
         _httpContextAccessor = httpContextAccessor;
@@ -53,8 +54,8 @@ public class GetCompareProductsHandler : IRequestHandler<GetCompareProducts, Com
 
         //ACL and store acl
         products = products.Where(p =>
-            _aclService.Authorize(p, _contextAccessor.WorkContext.CurrentCustomer) &&
-            _aclService.Authorize(p, _contextAccessor.StoreContext.CurrentStore.Id)).ToList();
+            _aclService.Authorize(p, _workContext.CurrentCustomer) &&
+            _aclService.Authorize(p, _workContext.CurrentStore.Id)).ToList();
         //availability dates
         products = products.Where(p => p.IsAvailable()).ToList();
 
@@ -72,10 +73,10 @@ public class GetCompareProductsHandler : IRequestHandler<GetCompareProducts, Com
         //try to get cookie
         if (!_httpContextAccessor.HttpContext!.Request.Cookies.TryGetValue(CacheKey.PRODUCTS_COMPARE_COOKIE_NAME,
                 out var productIdsCookie) || string.IsNullOrEmpty(productIdsCookie))
-            return [];
+            return new List<string>();
 
         //get array of string product identifiers from cookie
-        var productIds = productIdsCookie.Split(['|'], StringSplitOptions.RemoveEmptyEntries);
+        var productIds = productIdsCookie.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
 
         //return list of int product identifiers
         return productIds.Select(productId => productId).Distinct().Take(10).ToList();

@@ -21,22 +21,21 @@ public class PowerExcelMapper : ExcelMapper
         return ms;
     }
 
-    public async Task<IEnumerable<T>> FetchAsync<T>(Stream stream, int sheetIndex = 0,
+    public new async Task<IEnumerable<T>> FetchAsync<T>(Stream stream, int sheetIndex = 0,
         Func<string, object, object> valueParser = null)
     {
         using var ms = await ReadAsync(stream);
-        ms.Position = 0;
         return Fetch(ms, typeof(T), sheetIndex, valueParser).OfType<T>();
     }
 
-    public IEnumerable Fetch(Stream stream, Type type, int sheetIndex,
+    public new IEnumerable Fetch(Stream stream, Type type, int sheetIndex,
         Func<string, object, object> valueParser = null)
     {
         Workbook = WorkbookFactory.Create(stream);
         return Fetch(type, sheetIndex, valueParser);
     }
 
-    public IEnumerable Fetch(Type type, int sheetIndex = 0, Func<string, object, object> valueParser = null)
+    public new IEnumerable Fetch(Type type, int sheetIndex = 0, Func<string, object, object> valueParser = null)
     {
         var sheet = Workbook.GetSheetAt(sheetIndex);
         return Fetch(sheet, type, valueParser);
@@ -242,7 +241,7 @@ public class PowerExcelMapper : ExcelMapper
         return t.GetTypeInfo().IsValueType ? Activator.CreateInstance(t) : null;
     }
 
-    private static void TriggerOrThrowParsingError(ExcelMapperConvertException excelMapperConvertException)
+    private void TriggerOrThrowParsingError(ExcelMapperConvertException excelMapperConvertException)
     {
         var parsingError = new ParsingErrorEventArgs(excelMapperConvertException);
         //ErrorParsingCell?.Invoke(this, parsingError);

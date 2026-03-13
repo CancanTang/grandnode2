@@ -6,7 +6,6 @@ using Grand.Business.Core.Interfaces.Marketing.Newsletters;
 using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Tax;
-using Grand.Web.Common.Localization;
 using Grand.Web.Features.Models.Customers;
 using Grand.Web.Models.Customer;
 using Grand.Web.Models.Newsletter;
@@ -25,8 +24,7 @@ public class GetInfoHandler : IRequestHandler<GetInfo, CustomerInfoModel>
     private readonly INewsLetterSubscriptionService _newsLetterSubscriptionService;
     private readonly TaxSettings _taxSettings;
     private readonly ITranslationService _translationService;
-    private readonly IEnumTranslationService _enumTranslationService;
-    
+
     public GetInfoHandler(
         INewsLetterSubscriptionService newsLetterSubscriptionService,
         INewsletterCategoryService newsletterCategoryService,
@@ -35,8 +33,7 @@ public class GetInfoHandler : IRequestHandler<GetInfo, CustomerInfoModel>
         IExternalAuthenticationService externalAuthenticationService,
         IMediator mediator,
         CustomerSettings customerSettings,
-        TaxSettings taxSettings, 
-        IEnumTranslationService enumTranslationService)
+        TaxSettings taxSettings)
     {
         _newsLetterSubscriptionService = newsLetterSubscriptionService;
         _newsletterCategoryService = newsletterCategoryService;
@@ -46,7 +43,6 @@ public class GetInfoHandler : IRequestHandler<GetInfo, CustomerInfoModel>
         _mediator = mediator;
         _customerSettings = customerSettings;
         _taxSettings = taxSettings;
-        _enumTranslationService = enumTranslationService;
     }
 
     public async Task<CustomerInfoModel> Handle(GetInfo request, CancellationToken cancellationToken)
@@ -86,7 +82,7 @@ public class GetInfoHandler : IRequestHandler<GetInfo, CustomerInfoModel>
         return model;
     }
 
-    private static void PrepareNotExludeModel(CustomerInfoModel model, GetInfo request)
+    private void PrepareNotExludeModel(CustomerInfoModel model, GetInfo request)
     {
         model.VatNumber = request.Customer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.VatNumber);
         model.FirstName = request.Customer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.FirstName);
@@ -165,7 +161,9 @@ public class GetInfoHandler : IRequestHandler<GetInfo, CustomerInfoModel>
         }
 
         model.DisplayVatNumber = _taxSettings.EuVatEnabled;
-        model.VatNumberStatusNote = _enumTranslationService.GetTranslationEnum((VatNumberStatus)request.Customer.GetUserFieldFromEntity<int>(SystemCustomerFieldNames.VatNumberStatusId));
+        model.VatNumberStatusNote =
+            ((VatNumberStatus)request.Customer.GetUserFieldFromEntity<int>(SystemCustomerFieldNames.VatNumberStatusId))
+            .GetTranslationEnum(_translationService, request.Language.Id);
         model.GenderEnabled = _customerSettings.GenderEnabled;
         model.DateOfBirthEnabled = _customerSettings.DateOfBirthEnabled;
         model.DateOfBirthRequired = _customerSettings.DateOfBirthRequired;

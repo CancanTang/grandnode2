@@ -1,5 +1,6 @@
 ﻿using Grand.Business.Authentication.Services;
 using Grand.Business.Core.Interfaces.Authentication;
+using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Domain.Customers;
 using Grand.Domain.Localization;
@@ -16,12 +17,12 @@ public class TwoFactorAuthenticationServiceTests
     private Mock<IEnumerable<ISMSVerificationService>> _sMsVerificationService;
     private TwoFactorAuthenticationService _twoFactorAuthenticationService;
     private Mock<ICustomerService> _customerServiceMock;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
     {
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
         _customerServiceMock = new Mock<ICustomerService>();
         _sMsVerificationService = new Mock<IEnumerable<ISMSVerificationService>>();
         _twoFactorAuthenticationService = new TwoFactorAuthenticationService(_workContextMock.Object,
@@ -32,8 +33,8 @@ public class TwoFactorAuthenticationServiceTests
     public async Task GenerateCodeSetupTest_AppVerification()
     {
         //Arrange
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         //Act
         var result = await _twoFactorAuthenticationService.GenerateCodeSetup(Guid.NewGuid().ToString(),
             new Customer { Email = "test@test.com" },
@@ -47,8 +48,8 @@ public class TwoFactorAuthenticationServiceTests
     public async Task GenerateCodeSetupTest_Email()
     {
         //Arrange
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         //Act
         var result = await _twoFactorAuthenticationService.GenerateCodeSetup(Guid.NewGuid().ToString(),
             new Customer { Email = "test@test.com" },

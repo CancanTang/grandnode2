@@ -39,14 +39,14 @@ public class StartupApplication : IStartupApplication
         RegisterExportImportService(services);
     }
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 
     public int Priority => 100;
     public bool BeforeConfigure => false;
 
-    private static void RegisterCommonService(IServiceCollection serviceCollection)
+    private void RegisterCommonService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IAddressAttributeParser, AddressAttributeParser>();
         serviceCollection.AddScoped<IAddressAttributeService, AddressAttributeService>();
@@ -54,7 +54,7 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<IPdfService, HtmlToPdfService>();
     }
 
-    private static void RegisterDirectoryService(IServiceCollection serviceCollection)
+    private void RegisterDirectoryService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IDateTimeService, DateTimeService>();
 
@@ -64,19 +64,18 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<IGroupService, GroupService>();
     }
 
-    private static void RegisterConfigurationService(IServiceCollection serviceCollection)
+    private void RegisterConfigurationService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ISettingService, SettingService>();
     }
 
-    private static void RegisterLocalizationService(IServiceCollection serviceCollection)
+    private void RegisterLocalizationService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ITranslationService, TranslationService>();
         serviceCollection.AddScoped<ILanguageService, LanguageService>();
-        serviceCollection.AddScoped<IPluginTranslateResource, PluginTranslateResource>();
     }
 
-    private static void RegisterSecurityService(IServiceCollection serviceCollection)
+    private void RegisterSecurityService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IPermissionService, PermissionService>();
         serviceCollection.AddScoped<IAclService, AclService>();
@@ -84,19 +83,18 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<IPermissionProvider, PermissionProvider>();
     }
 
-    private static void RegisterSeoService(IServiceCollection serviceCollection)
+    private void RegisterSeoService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ISlugService, SlugService>();
-        serviceCollection.AddScoped<ISeNameService, SeNameService>();
     }
 
 
-    private static void RegisterStoresService(IServiceCollection serviceCollection)
+    private void RegisterStoresService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IStoreService, StoreService>();
     }
 
-    private static void RegisterExportImportService(IServiceCollection serviceCollection)
+    private void RegisterExportImportService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ISchemaProperty<CountryStatesDto>, CountrySchemaProperty>();
 

@@ -1,6 +1,6 @@
-﻿@inject IContextAccessor contextAccessor
+﻿@inject IWorkContext workContext
 @{
-    var supportRtl = contextAccessor.WorkContext.WorkingLanguage.Rtl;
+    var supportRtl = workContext.WorkingLanguage.Rtl;
 }
 <li class="nav-item">
     <ul class="px-0">

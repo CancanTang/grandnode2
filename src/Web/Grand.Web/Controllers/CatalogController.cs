@@ -7,8 +7,9 @@ using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Customers;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
+using Grand.Domain.Customers;
 using Grand.Domain.Vendors;
 using Grand.Infrastructure;
 using Grand.Web.Commands.Models.Vendors;
@@ -20,11 +21,9 @@ using Grand.Web.Models.Catalog;
 using Grand.Web.Models.Vendors;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Grand.SharedKernel.Attributes;
 
 namespace Grand.Web.Controllers;
 
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class CatalogController : BasePublicController
 {
     #region Constructors
@@ -34,7 +33,7 @@ public class CatalogController : BasePublicController
         ICategoryService categoryService,
         IBrandService brandService,
         ICollectionService collectionService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IGroupService groupService,
         ITranslationService translationService,
         IAclService aclService,
@@ -46,7 +45,7 @@ public class CatalogController : BasePublicController
         _categoryService = categoryService;
         _brandService = brandService;
         _collectionService = collectionService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _groupService = groupService;
         _translationService = translationService;
         _aclService = aclService;
@@ -63,7 +62,7 @@ public class CatalogController : BasePublicController
     private readonly ICategoryService _categoryService;
     private readonly IBrandService _brandService;
     private readonly ICollectionService _collectionService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IGroupService _groupService;
     private readonly ITranslationService _translationService;
     private readonly IAclService _aclService;
@@ -91,26 +90,26 @@ public class CatalogController : BasePublicController
     #region Categories
 
     [HttpGet]
-    public virtual async Task<ActionResult<CategoryModel>> Category(string categoryId, CatalogPagingFilteringModel command)
+    public virtual async Task<IActionResult> Category(string categoryId, CatalogPagingFilteringModel command)
     {
         var category = await _categoryService.GetCategoryById(categoryId);
         if (category == null)
-            return NotFound();
+            return InvokeHttp404();
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         //Check whether the current user has a "Manage catalog" permission
         //It allows him to preview a category before publishing
         if (!category.Published && !await _permissionService.Authorize(StandardPermission.ManageCategories, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //ACL (access control list)
         if (!_aclService.Authorize(category, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //Store access
-        if (!_aclService.Authorize(category, _contextAccessor.StoreContext.CurrentStore.Id))
-            return NotFound();
+        if (!_aclService.Authorize(category, _workContext.CurrentStore.Id))
+            return InvokeHttp404();
 
         //display "edit" (manage) link
         if (await _permissionService.Authorize(StandardPermission.ManageAccessAdminPanel, customer) &&
@@ -121,10 +120,10 @@ public class CatalogController : BasePublicController
         var model = await _mediator.Send(new GetCategory {
             Category = category,
             Command = command,
-            Currency = _contextAccessor.WorkContext.WorkingCurrency,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Currency = _workContext.WorkingCurrency,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore
         });
 
         //layout
@@ -138,9 +137,9 @@ public class CatalogController : BasePublicController
     public virtual async Task<IActionResult> CategoryAll(CategoryPagingModel command)
     {
         var model = await _mediator.Send(new GetCategoryAll {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore,
             Command = command
         });
         return View(model);
@@ -155,22 +154,22 @@ public class CatalogController : BasePublicController
     {
         var brand = await _brandService.GetBrandById(brandId);
         if (brand == null)
-            return NotFound();
+            return InvokeHttp404();
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         //Check whether the current user has a "Manage catalog" permission
         //It allows him to preview a collection before publishing
         if (!brand.Published && !await _permissionService.Authorize(StandardPermission.ManageBrands, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //ACL (access control list)
         if (!_aclService.Authorize(brand, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //Store access
-        if (!_aclService.Authorize(brand, _contextAccessor.StoreContext.CurrentStore.Id))
-            return NotFound();
+        if (!_aclService.Authorize(brand, _workContext.CurrentStore.Id))
+            return InvokeHttp404();
 
         //display "edit" (manage) link
         if (await _permissionService.Authorize(StandardPermission.ManageAccessAdminPanel, customer) &&
@@ -180,11 +179,11 @@ public class CatalogController : BasePublicController
         //model
         var model = await _mediator.Send(new GetBrand {
             Command = command,
-            Currency = _contextAccessor.WorkContext.WorkingCurrency,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Currency = _workContext.WorkingCurrency,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
             Brand = brand,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Store = _workContext.CurrentStore
         });
 
         //template
@@ -197,9 +196,9 @@ public class CatalogController : BasePublicController
     public virtual async Task<IActionResult> BrandAll(BrandPagingModel command)
     {
         var model = await _mediator.Send(new GetBrandAll {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore,
             Command = command
         });
         return View(model);
@@ -214,23 +213,23 @@ public class CatalogController : BasePublicController
     {
         var collection = await _collectionService.GetCollectionById(collectionId);
         if (collection == null)
-            return NotFound();
+            return InvokeHttp404();
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         //Check whether the current user has a "Manage catalog" permission
         //It allows him to preview a collection before publishing
         if (!collection.Published &&
             !await _permissionService.Authorize(StandardPermission.ManageCollections, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //ACL (access control list)
         if (!_aclService.Authorize(collection, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //Store access
-        if (!_aclService.Authorize(collection, _contextAccessor.StoreContext.CurrentStore.Id))
-            return NotFound();
+        if (!_aclService.Authorize(collection, _workContext.CurrentStore.Id))
+            return InvokeHttp404();
 
         //display "edit" (manage) link
         if (await _permissionService.Authorize(StandardPermission.ManageAccessAdminPanel, customer) &&
@@ -240,11 +239,11 @@ public class CatalogController : BasePublicController
         //model
         var model = await _mediator.Send(new GetCollection {
             Command = command,
-            Currency = _contextAccessor.WorkContext.WorkingCurrency,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Currency = _workContext.WorkingCurrency,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
             Collection = collection,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Store = _workContext.CurrentStore
         });
 
         //template
@@ -258,9 +257,9 @@ public class CatalogController : BasePublicController
     public virtual async Task<IActionResult> CollectionAll(CollectionPagingModel command)
     {
         var model = await _mediator.Send(new GetCollectionAll {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore,
             Command = command
         });
         return View(model);
@@ -275,13 +274,13 @@ public class CatalogController : BasePublicController
     {
         var vendor = await _vendorService.GetVendorById(vendorId);
         if (vendor == null || vendor.Deleted || !vendor.Active)
-            return NotFound();
+            return InvokeHttp404();
 
         //Vendor is active?
         if (!vendor.Active)
-            return NotFound();
+            return InvokeHttp404();
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         //display "edit" (manage) link
         if (await _permissionService.Authorize(StandardPermission.ManageAccessAdminPanel, customer) &&
@@ -291,9 +290,9 @@ public class CatalogController : BasePublicController
         var model = await _mediator.Send(new GetVendor {
             Command = command,
             Vendor = vendor,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Language = _workContext.WorkingLanguage,
+            Customer = _workContext.CurrentCustomer,
+            Store = _workContext.CurrentStore
         });
         //review
         model.VendorReviewOverview = PrepareVendorReviewOverviewModel(vendor);
@@ -309,7 +308,7 @@ public class CatalogController : BasePublicController
             return RedirectToRoute("HomePage");
 
         var model = await _mediator.Send(
-            new GetVendorAll { Language = _contextAccessor.WorkContext.WorkingLanguage, Command = command });
+            new GetVendorAll { Language = _workContext.WorkingLanguage, Command = command });
         return View(model);
     }
 
@@ -320,7 +319,8 @@ public class CatalogController : BasePublicController
     [HttpPost]
     [AutoValidateAntiforgeryToken]
     [DenySystemAccount]
-    public virtual async Task<IActionResult> VendorReviews(VendorReviewsModel model)
+    public virtual async Task<IActionResult> VendorReviews(
+        VendorReviewsModel model)
     {
         var vendor = await _vendorService.GetVendorById(model.VendorId);
         if (vendor is not { Active: true } || !vendor.AllowCustomerReviews)
@@ -329,7 +329,7 @@ public class CatalogController : BasePublicController
         if (ModelState.IsValid)
         {
             var vendorReview = await _mediator.Send(new InsertVendorReviewCommand
-                { Vendor = vendor, Store = _contextAccessor.StoreContext.CurrentStore, Model = model });
+                { Vendor = vendor, Store = _workContext.CurrentStore, Model = model });
             //raise event
             if (vendorReview.IsApproved)
                 await _mediator.Publish(new VendorReviewApprovedEvent(vendorReview));
@@ -372,7 +372,7 @@ public class CatalogController : BasePublicController
         if (vendorReview == null)
             throw new ArgumentException("No vendor review found with the specified id");
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         if (await _groupService.IsGuest(customer) && !_vendorSettings.AllowAnonymousUsersToReviewVendor)
             return Json(new {
@@ -390,7 +390,7 @@ public class CatalogController : BasePublicController
             });
 
         vendorReview = await _mediator.Send(new SetVendorReviewHelpfulnessCommand {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
+            Customer = _workContext.CurrentCustomer,
             Vendor = vendor,
             Review = vendorReview,
             Washelpful = washelpful
@@ -413,14 +413,14 @@ public class CatalogController : BasePublicController
     {
         var productTag = await productTagService.GetProductTagById(productTagId);
         if (productTag == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var model = await _mediator.Send(new GetProductsByTag {
             Command = command,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Language = _workContext.WorkingLanguage,
             ProductTag = productTag,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Customer = _workContext.CurrentCustomer,
+            Store = _workContext.CurrentStore
         });
         return View(model);
     }
@@ -431,14 +431,14 @@ public class CatalogController : BasePublicController
     {
         var productTag = await productTagService.GetProductTagBySeName(seName);
         if (productTag == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var model = await _mediator.Send(new GetProductsByTag {
             Command = command,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Language = _workContext.WorkingLanguage,
             ProductTag = productTag,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Customer = _workContext.CurrentCustomer,
+            Store = _workContext.CurrentStore
         });
         return View("ProductsByTag", model);
     }
@@ -447,8 +447,8 @@ public class CatalogController : BasePublicController
     public virtual async Task<IActionResult> ProductTagsAll()
     {
         var model = await _mediator.Send(new GetProductTagsAll {
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore
         });
         return View(model);
     }
@@ -470,12 +470,12 @@ public class CatalogController : BasePublicController
         var isSearchTermSpecified = HttpContext.Request.Query.ContainsKey("q");
         var searchModel = await _mediator.Send(new GetSearch {
             Command = command,
-            Currency = _contextAccessor.WorkContext.WorkingCurrency,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
+            Currency = _workContext.WorkingCurrency,
+            Customer = _workContext.CurrentCustomer,
             IsSearchTermSpecified = isSearchTermSpecified,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Language = _workContext.WorkingLanguage,
             Model = model,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Store = _workContext.CurrentStore
         });
         return View(searchModel);
     }
@@ -490,10 +490,10 @@ public class CatalogController : BasePublicController
         var result = await _mediator.Send(new GetSearchAutoComplete {
             CategoryId = categoryId,
             Term = term.Trim(),
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Store = _contextAccessor.StoreContext.CurrentStore,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Currency = _contextAccessor.WorkContext.WorkingCurrency
+            Customer = _workContext.CurrentCustomer,
+            Store = _workContext.CurrentStore,
+            Language = _workContext.WorkingLanguage,
+            Currency = _workContext.WorkingCurrency
         });
         return Json(result);
     }

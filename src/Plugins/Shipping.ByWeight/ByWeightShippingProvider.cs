@@ -25,7 +25,7 @@ public class ByWeightShippingCalcPlugin : IShippingRateCalculationProvider
 
     public ByWeightShippingCalcPlugin(
         IShippingMethodService shippingMethodService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ITranslationService translationService,
         IProductService productService,
         ICheckoutAttributeParser checkoutAttributeParser,
@@ -34,7 +34,7 @@ public class ByWeightShippingCalcPlugin : IShippingRateCalculationProvider
         ByWeightShippingSettings byWeightShippingSettings)
     {
         _shippingMethodService = shippingMethodService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _translationService = translationService;
         _productService = productService;
         _checkoutAttributeParser = checkoutAttributeParser;
@@ -89,7 +89,7 @@ public class ByWeightShippingCalcPlugin : IShippingRateCalculationProvider
     #region Fields
 
     private readonly IShippingMethodService _shippingMethodService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly ITranslationService _translationService;
     private readonly IProductService _productService;
     private readonly ICheckoutAttributeParser _checkoutAttributeParser;
@@ -207,7 +207,7 @@ public class ByWeightShippingCalcPlugin : IShippingRateCalculationProvider
 
         var storeId = getShippingOptionRequest.StoreId;
         if (string.IsNullOrEmpty(storeId))
-            storeId = _contextAccessor.StoreContext.CurrentStore.Id;
+            storeId = _workContext.CurrentStore.Id;
         var countryId = getShippingOptionRequest.ShippingAddress.CountryId;
         var stateProvinceId = getShippingOptionRequest.ShippingAddress.StateProvinceId;
 
@@ -231,7 +231,7 @@ public class ByWeightShippingCalcPlugin : IShippingRateCalculationProvider
         var weight = await GetTotalWeight(getShippingOptionRequest);
 
         var shippingMethods =
-            await _shippingMethodService.GetAllShippingMethods(countryId, _contextAccessor.WorkContext.CurrentCustomer);
+            await _shippingMethodService.GetAllShippingMethods(countryId, _workContext.CurrentCustomer);
         foreach (var shippingMethod in shippingMethods)
         {
             double? rate = null;
@@ -251,10 +251,10 @@ public class ByWeightShippingCalcPlugin : IShippingRateCalculationProvider
             if (rate is not null)
             {
                 var shippingOption = new ShippingOption {
-                    Name = shippingMethod.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id),
-                    Description = shippingMethod.GetTranslation(x => x.Description, _contextAccessor.WorkContext.WorkingLanguage.Id),
+                    Name = shippingMethod.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id),
+                    Description = shippingMethod.GetTranslation(x => x.Description, _workContext.WorkingLanguage.Id),
                     Rate = await _currencyService.ConvertFromPrimaryStoreCurrency(rate.Value,
-                        _contextAccessor.WorkContext.WorkingCurrency)
+                        _workContext.WorkingCurrency)
                 };
                 response.ShippingOptions.Add(shippingOption);
             }

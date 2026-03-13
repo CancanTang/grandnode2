@@ -1,17 +1,19 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Plugins;
 using Grand.SharedKernel.Extensions;
 using Grand.Web.Admin.Extensions;
-using Grand.Web.AdminShared.Extensions;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Models.Plugins;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Models.Plugins;
 using Grand.Web.Common.DataSource;
-using Grand.Web.Common.Localization;
+using Grand.Web.Common.Extensions;
 using Grand.Web.Common.Security.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.IO.Compression;
 using System.Reflection;
 
@@ -22,23 +24,27 @@ public class PluginController(
     ITranslationService translationService,
     ILogger<PluginController> logger,
     IHostApplicationLifetime applicationLifetime,
-    IContextAccessor contextAccessor,
+    IWorkContext workContext,
     IServiceProvider serviceProvider,
-    IEnumTranslationService enumTranslationService,
-    IWebHostEnvironment webHostEnvironment,
     ExtensionsConfig extConfig)
     : BaseAdminController
 {
-    #region Utilities
+    #region Fields
 
-    private readonly string PluginsPath = Path.Combine(webHostEnvironment.ContentRootPath, CommonPath.Plugins);
+    #endregion
+
+    #region Constructors
+
+    #endregion
+
+    #region Utilities
 
     [NonAction]
     protected virtual PluginModel PreparePluginModel(PluginInfo PluginInfo)
     {
         var pluginModel = PluginInfo.ToModel();
         //logo
-        pluginModel.LogoUrl = PluginInfo.GetLogoUrl(contextAccessor.StoreContext.CurrentHost.Url);
+        pluginModel.LogoUrl = PluginInfo.GetLogoUrl(workContext);
 
         //configuration URLs
         if (PluginInfo.Installed)
@@ -56,21 +62,29 @@ public class PluginController(
     /// <param name="path">Directory path</param>
     protected void DeleteDirectory(string path)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(path);
+        if (string.IsNullOrEmpty(path))
+            throw new ArgumentNullException(path);
 
-        // Ensure the path is within the PluginsPath
-        if (!path.StartsWith(PluginsPath, StringComparison.Ordinal))
-            throw new UnauthorizedAccessException("Attempt to delete a directory outside of the plugins path.");
+        //find more info about directory deletion
+        //and why we use this approach at https://stackoverflow.com/questions/329355/cannot-delete-directory-with-directory-deletepath-true
 
-        foreach (var directory in Directory.GetDirectories(path))
-            DeleteDirectory(directory);
+        foreach (var directory in Directory.GetDirectories(path)) DeleteDirectory(directory);
 
-        if (Directory.Exists(path))
+        try
+        {
             Directory.Delete(path, true);
-
+        }
+        catch (IOException)
+        {
+            Directory.Delete(path, true);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Directory.Delete(path, true);
+        }
     }
 
-    protected static byte[] ToByteArray(Stream stream)
+    protected byte[] ToByteArray(Stream stream)
     {
         using (stream)
         {
@@ -95,7 +109,7 @@ public class PluginController(
     {
         var model = new PluginListModel {
             //load modes
-            AvailableLoadModes = enumTranslationService.ToSelectList(LoadPluginsStatus.All, false).ToList()
+            AvailableLoadModes = LoadPluginsStatus.All.ToSelectList(HttpContext, false).ToList()
         };
 
         return View(model);
@@ -153,7 +167,7 @@ public class PluginController(
             Success(translationService.GetResource("Admin.Plugins.Installed"));
 
             logger.LogInformation("The plugin has been installed by the user {CurrentCustomerEmail}",
-                contextAccessor.WorkContext.CurrentCustomer.Email);
+                workContext.CurrentCustomer.Email);
 
             //stop application
             applicationLifetime.StopApplication();
@@ -187,7 +201,7 @@ public class PluginController(
             Success(translationService.GetResource("Admin.Plugins.Uninstalled"));
 
             logger.LogInformation("The plugin has been uninstalled by the user {CurrentCustomerEmail}",
-                contextAccessor.WorkContext.CurrentCustomer.Email);
+                workContext.CurrentCustomer.Email);
 
             //stop application
             applicationLifetime.StopApplication();
@@ -216,13 +230,18 @@ public class PluginController(
                 //No plugin found with the specified id
                 return RedirectToAction("List");
 
-            DeleteDirectory(pluginInfo.OriginalAssemblyFile.DirectoryName);
+            var pluginsPath = CommonPath.PluginsPath;
+
+            foreach (var folder in Directory.GetDirectories(pluginsPath))
+                if (Path.GetFileName(folder) != "bin" && Directory.GetFiles(folder).Select(x => Path.GetFileName(x))
+                        .Contains(pluginInfo.PluginFileName))
+                    DeleteDirectory(folder);
 
             //uninstall plugin
             Success(translationService.GetResource("Admin.Plugins.Removed"));
 
             logger.LogInformation("The plugin has been removed by the user {CurrentCustomerEmail}",
-                contextAccessor.WorkContext.CurrentCustomer.Email);
+                workContext.CurrentCustomer.Email);
 
             //stop application
             applicationLifetime.StopApplication();
@@ -238,7 +257,7 @@ public class PluginController(
     public IActionResult ReloadList()
     {
         logger.LogInformation("Reload list of plugins by the user {CurrentCustomerEmail}",
-            contextAccessor.WorkContext.CurrentCustomer.Email);
+            workContext.CurrentCustomer.Email);
 
         //stop application
         applicationLifetime.StopApplication();
@@ -260,21 +279,19 @@ public class PluginController(
             Error(translationService.GetResource("Admin.Common.UploadFile"));
             return RedirectToAction("List");
         }
-        var tempDirectory = Path.Combine(webHostEnvironment.ContentRootPath, CommonPath.Plugins, CommonPath.TmpUploadPath);
+
         var zipFilePath = "";
         try
         {
             if (!Path.GetExtension(zippedFile.FileName).Equals(".zip", StringComparison.InvariantCultureIgnoreCase))
                 throw new Exception("Only zip archives are supported");
 
-            // Ensure that temp directory is created
+            //ensure that temp directory is created
+            var tempDirectory = CommonPath.TmpUploadPath;
             Directory.CreateDirectory(new DirectoryInfo(tempDirectory).FullName);
 
-            // Generate a unique file name for the uploaded file
-            var uniqueFileName = Guid.NewGuid().ToString() + ".zip";
-            zipFilePath = Path.Combine(tempDirectory, uniqueFileName);
-
-            // Copy original archive to the temp directory
+            //copy original archive to the temp directory
+            zipFilePath = Path.Combine(tempDirectory, zippedFile.FileName);
             using (var fileStream = new FileStream(zipFilePath, FileMode.Create))
             {
                 zippedFile.CopyTo(fileStream);
@@ -287,12 +304,13 @@ public class PluginController(
         }
         finally
         {
-            // Delete temporary file
-            DeleteDirectory(tempDirectory);
+            //delete temporary file
+            if (!string.IsNullOrEmpty(zipFilePath))
+                System.IO.File.Delete(zipFilePath);
         }
 
         logger.LogInformation("The plugin has been uploaded by the user {CurrentCustomerEmail}",
-            contextAccessor.WorkContext.CurrentCustomer.Email);
+            workContext.CurrentCustomer.Email);
 
         //stop application
         applicationLifetime.StopApplication();
@@ -302,7 +320,7 @@ public class PluginController(
 
     private void Upload(string archivePath)
     {
-        var pluginsPath = Path.Combine(webHostEnvironment.ContentRootPath, CommonPath.Plugins);
+        var pluginsDirectory = CommonPath.PluginsPath;
         var uploadedItemDirectoryName = "";
         PluginInfo _pluginInfo = null;
         using (var archive = ZipFile.Open(archivePath, ZipArchiveMode.Update))
@@ -373,15 +391,16 @@ public class PluginController(
         if (string.IsNullOrEmpty(uploadedItemDirectoryName))
             throw new Exception("Cannot get the plugin directory name");
 
-        var pathToUpload = Path.Combine(pluginsPath, uploadedItemDirectoryName);
+        var pathToUpload = Path.Combine(pluginsDirectory, uploadedItemDirectoryName);
 
         try
         {
-            DeleteDirectory(pathToUpload);
+            if (Directory.Exists(pathToUpload))
+                DeleteDirectory(pathToUpload);
         }
         catch { }
 
-        ZipFile.ExtractToDirectory(archivePath, pluginsPath);
+        ZipFile.ExtractToDirectory(archivePath, pluginsDirectory);
     }
 
     #endregion

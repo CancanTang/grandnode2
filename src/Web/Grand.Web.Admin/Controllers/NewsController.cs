@@ -3,11 +3,11 @@ using Grand.Business.Core.Interfaces.Cms;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Stores;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.News;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.News;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.News;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
@@ -203,7 +203,8 @@ public class NewsController : BaseAdminController
     [HttpPost]
     public async Task<IActionResult> Comments(string filterByNewsItemId, DataSourceRequest command)
     {
-        var comments = await _newsViewModelService.PrepareNewsCommentModel(filterByNewsItemId, command.Page, command.PageSize);
+        var comments =
+            await _newsViewModelService.PrepareNewsCommentModel(filterByNewsItemId, command.Page, command.PageSize);
 
         var gridModel = new DataSourceResult {
             Data = comments.newsCommentModels.ToList(),

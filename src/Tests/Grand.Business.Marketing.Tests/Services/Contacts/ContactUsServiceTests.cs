@@ -37,7 +37,7 @@ public class ContactUsServiceTests
 
         //Assert
         Assert.IsNull(_repository.Table.FirstOrDefault(x => x.FullName == "test"));
-        Assert.IsEmpty(_repository.Table);
+        Assert.AreEqual(0, _repository.Table.Count());
     }
 
     [TestMethod]
@@ -52,7 +52,7 @@ public class ContactUsServiceTests
         await _contactUsService.ClearTable();
 
         //Assert
-        Assert.IsEmpty(_repository.Table);
+        Assert.AreEqual(0, _repository.Table.Count());
     }
 
     [TestMethod]
@@ -67,7 +67,7 @@ public class ContactUsServiceTests
         var result = await _contactUsService.GetAllContactUs();
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]
@@ -97,6 +97,6 @@ public class ContactUsServiceTests
         await _contactUsService.InsertContactUs(contactUs);
 
         //Assert
-        Assert.IsNotEmpty(_repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
     }
 }

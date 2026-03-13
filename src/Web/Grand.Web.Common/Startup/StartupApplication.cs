@@ -1,16 +1,13 @@
 using Grand.Business.Core.Interfaces.Common.Pdf;
-using Grand.Business.Core.Interfaces.System.Admin;
 using Grand.Data;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Caching.Message;
+using Grand.Infrastructure.Caching.RabbitMq;
 using Grand.Infrastructure.Caching.Redis;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
-using Grand.Web.Common.Helpers;
 using Grand.Web.Common.Localization;
-using Grand.Web.Common.Menu;
 using Grand.Web.Common.Middleware;
 using Grand.Web.Common.Page;
 using Grand.Web.Common.Routing;
@@ -48,14 +45,14 @@ public class StartupApplication : IStartupApplication
         RegisterFramework(services);
     }
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 
     public int Priority => 0;
     public bool BeforeConfigure => false;
 
-    private static void RegisterCache(IServiceCollection serviceCollection, IConfiguration configuration)
+    private void RegisterCache(IServiceCollection serviceCollection, IConfiguration configuration)
     {
         var config = new RedisConfig();
         configuration.GetSection("Redis").Bind(config);
@@ -70,15 +67,22 @@ public class StartupApplication : IStartupApplication
             serviceCollection.AddSingleton<ICacheBase, RedisMessageCacheManager>();
             return;
         }
+
+        var rabbit = new RabbitConfig();
+        configuration.GetSection("Rabbit").Bind(rabbit);
+        if (rabbit.RabbitCachePubSubEnabled && rabbit.RabbitEnabled)
+            serviceCollection.AddSingleton<ICacheBase, RabbitMqMessageCacheManager>();
     }
 
-    private static void RegisterContextService(IServiceCollection serviceCollection)
+    private void RegisterContextService(IServiceCollection serviceCollection)
     {
         //work context
-        serviceCollection.AddSingleton<IContextAccessor, ContextAccessor>();
-        serviceCollection.AddScoped<IWorkContextSetter, WorkContextSetter>();
-        serviceCollection.AddScoped<IStoreContextSetter, StoreContextSetter>();
-        serviceCollection.AddScoped<IAdminStoreService, AdminStoreService>();
+        serviceCollection.AddScoped<IWorkContext, WorkContext>();
+        serviceCollection.AddScoped<IWorkContextSetter>(provider => provider.GetService<IWorkContext>() as WorkContext);
+
+        //helper for Settings
+        serviceCollection.AddScoped<IStoreHelper, StoreHelper>();
+
         //View factory
         serviceCollection.AddScoped<IViewFactory, ViewFactory>();
 
@@ -93,13 +97,10 @@ public class StartupApplication : IStartupApplication
 
         //Default theme view
         serviceCollection.AddScoped<IThemeView, DefaultThemeView>();
-        
-        //Admin site map service
-        serviceCollection.AddScoped<IAdminSiteMapService, AdminSiteMapService>();        
     }
 
 
-    private static void RegisterFramework(IServiceCollection serviceCollection)
+    private void RegisterFramework(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IPageHeadBuilder, PageHeadBuilder>();
 
@@ -109,7 +110,6 @@ public class StartupApplication : IStartupApplication
 
         serviceCollection.AddScoped<IValidatorFactory, ValidatorFactory>();
 
-        serviceCollection.AddScoped<IEnumTranslationService, EnumTranslationService>();
         if (DataSettingsManager.DatabaseIsInstalled())
         {
             serviceCollection.AddScoped<LocService>();
@@ -125,7 +125,7 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddSingleton<IPoweredByMiddlewareOptions, PoweredByMiddlewareOptions>();
 
         //request reCAPTCHA service
-        serviceCollection.AddHttpClient<IGoogleReCaptchaValidator, GoogleReCaptchaValidator>();
+        serviceCollection.AddHttpClient<GoogleReCaptchaValidator>();
 
         serviceCollection.AddScoped<IViewRenderService, ViewRenderService>();
     }

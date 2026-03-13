@@ -10,9 +10,10 @@ using Grand.Domain.Customers;
 using Grand.Domain.Orders;
 using Grand.Infrastructure;
 using Grand.Web.Admin.Extensions;
-using Grand.Web.AdminShared.Models.Home;
+using Grand.Web.Admin.Models.Home;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Grand.Web.Admin.Controllers;
 
@@ -24,7 +25,7 @@ public class HomeController : BaseAdminController
         ITranslationService translationService,
         IStoreService storeService,
         ICustomerService customerService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IGroupService groupService,
         IOrderReportService orderReportService,
         IProductsReportService productsReportService,
@@ -35,7 +36,7 @@ public class HomeController : BaseAdminController
         _translationService = translationService;
         _storeService = storeService;
         _customerService = customerService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _groupService = groupService;
         _orderReportService = orderReportService;
         _productsReportService = productsReportService;
@@ -53,8 +54,8 @@ public class HomeController : BaseAdminController
         var model = new DashboardActivityModel();
 
         var storeId = string.Empty;
-        if (await _groupService.IsStoreManager(_contextAccessor.WorkContext.CurrentCustomer))
-            storeId = _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId;
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
 
         model.OrdersPending =
             (await _orderReportService.GetOrderAverageReportLine(storeId, os: (int)OrderStatusSystem.Pending))
@@ -85,7 +86,7 @@ public class HomeController : BaseAdminController
     private readonly ITranslationService _translationService;
     private readonly IStoreService _storeService;
     private readonly ICustomerService _customerService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IGroupService _groupService;
     private readonly IOrderReportService _orderReportService;
     private readonly IProductsReportService _productsReportService;
@@ -120,8 +121,8 @@ public class HomeController : BaseAdminController
     {
         var language = await languageService.GetLanguageById(langid);
         if (language != null)
-            await _customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.LanguageId,
-                language.Id, _contextAccessor.StoreContext.CurrentStore.Id);
+            await _customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.LanguageId,
+                language.Id, _workContext.CurrentStore.Id);
 
         //home page
         if (string.IsNullOrEmpty(returnUrl))
@@ -137,19 +138,19 @@ public class HomeController : BaseAdminController
         if (storeid != null)
             storeid = storeid.Trim();
 
-        if (await _groupService.IsStoreManager(_contextAccessor.WorkContext.CurrentCustomer))
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
             returnUrl = Url.Action("Index", "Home", new { area = Constants.AreaAdmin });
 
         var store = await _storeService.GetStoreById(storeid);
         if (store != null || storeid == "")
-            await _customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer,
+            await _customerService.UpdateUserField(_workContext.CurrentCustomer,
                 SystemCustomerFieldNames.AdminAreaStoreScopeConfiguration, storeid);
         else
-            await _customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer,
+            await _customerService.UpdateUserField(_workContext.CurrentCustomer,
                 SystemCustomerFieldNames.AdminAreaStoreScopeConfiguration, "");
 
         //home page
-        if (!Url.IsLocalUrl(returnUrl))
+        if (string.IsNullOrEmpty(returnUrl) || !Url.IsLocalUrl(returnUrl))
             returnUrl = Url.Action("Index", "Home", new { area = Constants.AreaAdmin });
 
         return Redirect(returnUrl);
@@ -196,9 +197,18 @@ public class HomeController : BaseAdminController
         return Json(result);
     }
 
-    public IActionResult AccessDenied()
+    public async Task<IActionResult> AccessDenied(string pageUrl)
     {
-        _logger.LogInformation("Access denied");
+        var currentCustomer = _workContext.CurrentCustomer;
+        if (currentCustomer == null || await _groupService.IsGuest(currentCustomer))
+        {
+            _logger.LogInformation("Access denied to anonymous request on {PageUrl}", pageUrl);
+            return View();
+        }
+
+        _logger.LogInformation("Access denied to user #{CurrentCustomerEmail} \'{CurrentCustomerEmail}\' on {PageUrl}",
+            currentCustomer.Email, currentCustomer.Email, pageUrl);
+
         return View();
     }
 

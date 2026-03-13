@@ -11,6 +11,7 @@ using Grand.Domain.Customers;
 using Grand.Domain.Stores;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Configuration;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -29,14 +30,16 @@ public class ProductAttributeFormatterTests
     private Mock<IProductService> _productServiceMock;
     private Mock<ITaxService> _taxServiceMock;
     private Mock<ITranslationService> _translationServiceMock;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void InitializeTests()
     {
-        _workContextMock = new Mock<IContextAccessor>();
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        CommonPath.BaseDirectory = "";
+
+        _workContextMock = new Mock<IWorkContext>();
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         _productAttributeServiceMock = new Mock<IProductAttributeService>();
         _productAttributeServiceMock.Setup(x => x.GetProductAttributeById(It.IsAny<string>()))
             .Returns(Task.FromResult(new ProductAttribute { Name = "test" }));

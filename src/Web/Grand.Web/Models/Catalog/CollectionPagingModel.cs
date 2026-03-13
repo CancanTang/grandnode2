@@ -2,4 +2,6 @@
 
 namespace Grand.Web.Models.Catalog;
 
-public class CollectionPagingModel : BasePageableModel;
+public class CollectionPagingModel : BasePageableModel
+{
+}

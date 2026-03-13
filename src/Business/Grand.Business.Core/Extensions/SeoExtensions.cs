@@ -30,7 +30,7 @@ public static class SeoExtensions
     #region Fields
 
     private static Dictionary<string, string> _seoCharacterTable;
-    private static readonly Lock SLock = new();
+    private static readonly object SLock = new();
 
     #endregion
 
@@ -136,13 +136,20 @@ public static class SeoExtensions
 
         return seName;
     }
-    
-    private static string GetSeName(string name, SeoSettings seoSettings)
+
+
+    /// <summary>
+    ///     Get SE name
+    /// </summary>
+    /// <param name="name">Name</param>
+    /// <param name="seoSettings">SeoSettings</param>
+    /// <returns>Result</returns>
+    public static string GetSeName(string name, SeoSettings seoSettings)
     {
-        return SeoExtensions.GenerateSlug(name, seoSettings.ConvertNonWesternChars, seoSettings.AllowUnicodeCharsInUrls,
+        return GenerateSlug(name, seoSettings.ConvertNonWesternChars, seoSettings.AllowUnicodeCharsInUrls,
             seoSettings.AllowSlashChar, seoSettings.SeoCharConversion);
     }
-    
+
     /// <summary>
     ///     Get SE name
     /// </summary>

@@ -1,10 +1,10 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.Marketing.Documents;
-using Grand.Domain.Permissions;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Documents;
+using Grand.Business.Core.Utilities.Common.Security;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Documents;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;

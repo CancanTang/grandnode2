@@ -8,13 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v1
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 10.0.x
-    - name: Install .NET Aspire workload
-      run: dotnet workload install aspire        
+        dotnet-version: 8.0.x
     - name: Restore
       run: dotnet restore ./GrandNode.sln
     - name: Build with dotnet
@@ -40,7 +38,7 @@ jobs:
     - name: Grand.Business.Storage Unit Tests
       run: dotnet test ./src/Tests/Grand.Business.Storage.Tests/Grand.Business.Storage.Tests.csproj
     - name: Grand.Business.System Unit Tests
-      run: dotnet test ./src/Tests/Grand.Modules.Tests/Grand.Modules.Tests.csproj
+      run: dotnet test ./src/Tests/Grand.Business.System.Tests/Grand.Business.System.Tests.csproj
     - name: Grand.Business.Data Unit Tests
       run: dotnet test ./src/Tests/Grand.Data.Tests/Grand.Data.Tests.csproj
     - name: Grand.Domain.Domain.Tests Unit Tests

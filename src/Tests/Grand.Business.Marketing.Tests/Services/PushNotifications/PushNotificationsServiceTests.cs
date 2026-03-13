@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Moq.Protected;
 using System.Net;
+using System.Net.Http;
 using System.Text.Json;
 
 namespace Grand.Business.Marketing.Tests.Services.PushNotifications;
@@ -55,7 +56,7 @@ public class PushNotificationsServiceTests
         //Act
         await _pushNotificationsService.InsertPushReceiver(new PushRegistration());
         //Assert
-        Assert.IsNotEmpty(_repositoryPushRegistration.Table);
+        Assert.IsTrue(_repositoryPushRegistration.Table.Any());
     }
 
     [TestMethod]
@@ -69,7 +70,7 @@ public class PushNotificationsServiceTests
         await _pushNotificationsService.DeletePushReceiver(pushRegistration);
 
         //Assert
-        Assert.IsEmpty(_repositoryPushRegistration.Table);
+        Assert.IsFalse(_repositoryPushRegistration.Table.Any());
     }
 
     [TestMethod]
@@ -110,10 +111,10 @@ public class PushNotificationsServiceTests
         await _pushNotificationsService.InsertPushReceiver(new PushRegistration { Allowed = true });
 
         //Act
-        var result = await _pushNotificationsService.GetAllowedPushReceivers();
+        var result = await _pushNotificationsService.GetPushReceivers();
 
         //Assert
-        Assert.HasCount(2, result);
+        Assert.AreEqual(2, result.Count);
     }
 
     [TestMethod]
@@ -150,7 +151,7 @@ public class PushNotificationsServiceTests
         //Act
         await _pushNotificationsService.InsertPushMessage(new PushMessage());
         //Assert
-        Assert.IsEmpty(_repositoryPushRegistration.Table);
+        Assert.IsFalse(_repositoryPushRegistration.Table.Any());
     }
 
     [TestMethod]
@@ -165,7 +166,7 @@ public class PushNotificationsServiceTests
         var result = await _pushNotificationsService.GetPushMessages();
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]
@@ -177,10 +178,10 @@ public class PushNotificationsServiceTests
         await _repositoryPushRegistration.InsertAsync(new PushRegistration { Allowed = true });
 
         //Act
-        var result = await _pushNotificationsService.GetAllowedPushReceivers();
+        var result = await _pushNotificationsService.GetPushReceivers();
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]

@@ -1,6 +1,6 @@
 ﻿using Grand.Business.Core.Interfaces.Cms;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Data;
 using Grand.Domain.Stores;
 using Grand.Infrastructure;
@@ -33,12 +33,25 @@ public class ClosedStoreAttribute : TypeFilterAttribute
     /// <summary>
     ///     Represents a filter that confirms access to closed store
     /// </summary>
-    private class CheckAccessClosedStoreFilter(bool ignoreFilter,
-        IPermissionService permissionService,
-        IContextAccessor contextAccessor,
-        IPageService pageService,
-        StoreInformationSettings storeInformationSettings) : IAsyncActionFilter
+    private class CheckAccessClosedStoreFilter : IAsyncActionFilter
     {
+        #region Ctor
+
+        public CheckAccessClosedStoreFilter(bool ignoreFilter,
+            IPermissionService permissionService,
+            IWorkContext workContext,
+            IPageService pageService,
+            StoreInformationSettings storeInformationSettings)
+        {
+            _ignoreFilter = ignoreFilter;
+            _permissionService = permissionService;
+            _workContext = workContext;
+            _pageService = pageService;
+            _storeInformationSettings = storeInformationSettings;
+        }
+
+        #endregion
+
         #region Methods
 
         /// <summary>
@@ -53,7 +66,7 @@ public class ClosedStoreAttribute : TypeFilterAttribute
                 .Where(f => f.Scope == FilterScope.Action)
                 .Select(f => f.Filter).OfType<ClosedStoreAttribute>().FirstOrDefault();
 
-            if (actionFilter?.IgnoreFilter ?? ignoreFilter)
+            if (actionFilter?.IgnoreFilter ?? _ignoreFilter)
             {
                 await next();
                 return;
@@ -66,7 +79,7 @@ public class ClosedStoreAttribute : TypeFilterAttribute
             }
 
             //store isn't closed
-            if (!storeInformationSettings.StoreClosed)
+            if (!_storeInformationSettings.StoreClosed)
             {
                 await next();
                 return;
@@ -91,7 +104,7 @@ public class ClosedStoreAttribute : TypeFilterAttribute
             {
                 //get identifiers of pages are accessible when a store is closed
                 var now = DateTime.UtcNow;
-                var allowedPageIds = (await pageService.GetAllPages(contextAccessor.StoreContext.CurrentStore.Id))
+                var allowedPageIds = (await _pageService.GetAllPages(_workContext.CurrentStore.Id))
                     .Where(t => t.AccessibleWhenStoreClosed &&
                                 (!t.StartDateUtc.HasValue || t.StartDateUtc < now) &&
                                 (!t.EndDateUtc.HasValue || t.EndDateUtc > now))
@@ -107,7 +120,7 @@ public class ClosedStoreAttribute : TypeFilterAttribute
             }
 
             //check whether current customer has access to a closed store
-            if (await permissionService.Authorize(StandardPermission.AccessClosedStore))
+            if (await _permissionService.Authorize(StandardPermission.AccessClosedStore))
             {
                 await next();
                 return;
@@ -116,6 +129,16 @@ public class ClosedStoreAttribute : TypeFilterAttribute
             //store is closed and no access, so redirect to 'StoreClosed' page
             context.Result = new RedirectToRouteResult("StoreClosed", new RouteValueDictionary());
         }
+
+        #endregion
+
+        #region Fields
+
+        private readonly bool _ignoreFilter;
+        private readonly IPermissionService _permissionService;
+        private readonly IWorkContext _workContext;
+        private readonly IPageService _pageService;
+        private readonly StoreInformationSettings _storeInformationSettings;
 
         #endregion
     }

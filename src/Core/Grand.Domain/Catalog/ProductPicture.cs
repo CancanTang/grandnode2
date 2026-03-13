@@ -14,9 +14,4 @@ public class ProductPicture : SubBaseEntity
     ///     Gets or sets the display order
     /// </summary>
     public int DisplayOrder { get; set; }
-    
-    /// <summary>
-    ///     Gets or sets the default picture
-    /// </summary>
-    public bool IsDefault { get; set; }
 }

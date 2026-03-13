@@ -11,7 +11,8 @@ public class
     public Task<bool> Handle(CanMarkPaymentTransactionAsAuthorizedQuery request, CancellationToken cancellationToken)
     {
         var paymentTransaction = request.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(request.PaymentTransaction));
 
         return paymentTransaction.TransactionStatus == TransactionStatus.Canceled
             ? Task.FromResult(false)

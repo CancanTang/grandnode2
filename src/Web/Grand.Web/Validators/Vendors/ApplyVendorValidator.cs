@@ -1,13 +1,13 @@
 ﻿using FluentValidation;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Common;
 using Grand.Domain.Vendors;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.Vendors;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.Vendors;
 
@@ -19,7 +19,7 @@ public class ApplyVendorValidator : BaseGrandValidator<ApplyVendorModel>
         IEnumerable<IValidatorConsumer<VendorAddressModel>> addressvalidators,
         ITranslationService translationService, ICountryService countryService,
         CaptchaSettings captchaSettings,
-        IHttpContextAccessor contextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         VendorSettings addressSettings)
         : base(validators)
     {

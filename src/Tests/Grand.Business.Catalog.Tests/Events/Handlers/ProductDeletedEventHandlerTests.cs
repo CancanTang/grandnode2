@@ -37,7 +37,7 @@ public class ProductDeletedEventHandlerTests
         _productTagService = new Mock<IProductTagService>();
         _handler = new ProductDeletedEventHandler(_repository, _customerGroupProductRepository,
             _customerRepository, _entityUrlRepository, _productTagRepository, _productReviewRepository,
-            _productDeletedRepository);
+            _productDeletedRepository, _productTagService.Object);
     }
 
 
@@ -57,9 +57,9 @@ public class ProductDeletedEventHandlerTests
         //Assert
         var result = _repository.Table.FirstOrDefault(x => x.Id == product.Id);
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.RelatedProducts);
-        Assert.IsEmpty(result.RecommendedProduct);
-        Assert.IsEmpty(result.CrossSellProduct);
-        Assert.IsEmpty(result.SimilarProducts);
+        Assert.IsTrue(result.RelatedProducts.Count == 0);
+        Assert.IsTrue(result.RecommendedProduct.Count == 0);
+        Assert.IsTrue(result.CrossSellProduct.Count == 0);
+        Assert.IsTrue(result.SimilarProducts.Count == 0);
     }
 }

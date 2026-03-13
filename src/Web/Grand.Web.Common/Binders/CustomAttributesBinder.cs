@@ -8,7 +8,7 @@ public class CustomAttributesBinder : IModelBinder
 {
     public Task BindModelAsync(ModelBindingContext bindingContext)
     {
-        ArgumentNullException.ThrowIfNull(bindingContext);
+        if (bindingContext == null) throw new ArgumentNullException(nameof(bindingContext));
 
         if (bindingContext.HttpContext.Request.HasFormContentType)
         {
@@ -26,7 +26,7 @@ public class CustomAttributesBinder : IModelBinder
 
     private static string GetKey(string key)
     {
-        var regex = new Regex("\\[(?<Value>\\w+)\\]", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+        var regex = new Regex("\\[(?<Value>\\w+)\\]");
         string value = null;
         var match = regex.Match(key);
         if (match.Success) value = match.Groups["Value"].Value;

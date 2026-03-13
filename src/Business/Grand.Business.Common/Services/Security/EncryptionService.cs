@@ -45,7 +45,7 @@ public class EncryptionService : IEncryptionService
             throw new ArgumentException("Unrecognized hash name");
 
         var hashByteArray = algorithm.ComputeHash(Encoding.UTF8.GetBytes(saltAndPassword));
-        return Convert.ToHexString(hashByteArray);
+        return BitConverter.ToString(hashByteArray).Replace("-", "");
     }
 
     /// <summary>
@@ -95,7 +95,7 @@ public class EncryptionService : IEncryptionService
 
     #region Utilities
 
-    private static byte[] EncryptTextToMemory(string data, byte[] key, byte[] iv)
+    private byte[] EncryptTextToMemory(string data, byte[] key, byte[] iv)
     {
         using var ms = new MemoryStream();
         using (var cs = new CryptoStream(ms, TripleDES.Create().CreateEncryptor(key, iv), CryptoStreamMode.Write))
@@ -108,7 +108,7 @@ public class EncryptionService : IEncryptionService
         return ms.ToArray();
     }
 
-    private static string DecryptTextFromMemory(byte[] data, byte[] key, byte[] iv)
+    private string DecryptTextFromMemory(byte[] data, byte[] key, byte[] iv)
     {
         using var ms = new MemoryStream(data);
         using var cs = new CryptoStream(ms, TripleDES.Create().CreateDecryptor(key, iv), CryptoStreamMode.Read);

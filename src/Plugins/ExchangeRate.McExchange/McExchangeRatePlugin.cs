@@ -5,4 +5,6 @@ using System.Runtime.CompilerServices;
 
 namespace ExchangeRate.McExchange;
 
-public class McExchangeRatePlugin : BasePlugin;
+public class McExchangeRatePlugin : BasePlugin
+{
+}

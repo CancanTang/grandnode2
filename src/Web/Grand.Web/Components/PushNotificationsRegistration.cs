@@ -9,11 +9,11 @@ namespace Grand.Web.Components;
 public class PushNotificationsRegistration : BaseViewComponent
 {
     private readonly PushNotificationsSettings _pushNotificationsSettings;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
-    public PushNotificationsRegistration(IContextAccessor contextAccessor, PushNotificationsSettings pushNotificationsSettings)
+    public PushNotificationsRegistration(IWorkContext workContext, PushNotificationsSettings pushNotificationsSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _pushNotificationsSettings = pushNotificationsSettings;
     }
 
@@ -34,7 +34,7 @@ public class PushNotificationsRegistration : BaseViewComponent
         if (!_pushNotificationsSettings.Enabled) return Content("");
 
         if (!_pushNotificationsSettings.AllowGuestNotifications &&
-            string.IsNullOrEmpty(_contextAccessor.WorkContext.CurrentCustomer.Email))
+            string.IsNullOrEmpty(_workContext.CurrentCustomer.Email))
             return Content("");
 
         return View(model);

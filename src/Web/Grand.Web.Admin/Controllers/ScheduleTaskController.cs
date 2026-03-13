@@ -2,15 +2,16 @@
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Stores;
 using Grand.Business.Core.Interfaces.System.ScheduleTasks;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Tasks;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Models.Tasks;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Models.Tasks;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Grand.Web.Admin.Controllers;
 
@@ -116,7 +117,8 @@ public class ScheduleTaskController : BaseAdminController
             return RedirectToAction("List");
         }
 
-        model.ScheduleTaskName = scheduleTask.ScheduleTaskName;        
+        model.ScheduleTaskName = scheduleTask.ScheduleTaskName;
+        model.Type = scheduleTask.Type;
         model = await PrepareStores(model);
         Error(ModelState);
 
@@ -130,8 +132,9 @@ public class ScheduleTaskController : BaseAdminController
         {
             var scheduleTask = await _scheduleTaskService.GetTaskById(id);
             if (scheduleTask == null) throw new Exception("Schedule task cannot be loaded");
-           
-            var task = HttpContext.RequestServices.GetRequiredKeyedService<IScheduleTask>(scheduleTask.ScheduleTaskName);
+            var typeofTask = Type.GetType(scheduleTask.Type);
+            var task = HttpContext.RequestServices.GetServices<IScheduleTask>()
+                .FirstOrDefault(x => x.GetType() == typeofTask);
             if (task != null)
             {
                 scheduleTask.LastStartUtc = DateTime.UtcNow;
@@ -154,7 +157,7 @@ public class ScheduleTaskController : BaseAdminController
             }
             else
             {
-                Error($"Task {scheduleTask.ScheduleTaskName} has not been registered");
+                Error($"Task {typeofTask?.Name} has not been registered");
             }
         }
         catch (Exception exc)

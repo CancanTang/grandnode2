@@ -90,7 +90,7 @@ public class GetCustomerQueryHandler : IRequestHandler<GetCustomerQuery, IQuerya
         return Task.FromResult(query);
     }
 
-    private static string GetName(Expression<Func<Customer, object>> exp)
+    private string GetName(Expression<Func<Customer, object>> exp)
     {
         if (exp.Body is MemberExpression body) return body.Member.Name;
         var expBody = (UnaryExpression)exp.Body;
@@ -98,7 +98,7 @@ public class GetCustomerQueryHandler : IRequestHandler<GetCustomerQuery, IQuerya
         return body?.Member.Name;
     }
 
-    private static IOrderedQueryable<T> OrderingHelper<T>(IQueryable<T> source, string propertyName)
+    private IOrderedQueryable<T> OrderingHelper<T>(IQueryable<T> source, string propertyName)
     {
         var param = Expression.Parameter(typeof(T), propertyName);
         var property = Expression.PropertyOrField(param, propertyName);

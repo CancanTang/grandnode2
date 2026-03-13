@@ -4,6 +4,7 @@ using Grand.Domain.Catalog;
 using Grand.Infrastructure.Extensions;
 using Grand.Infrastructure.Models;
 using Grand.Web.Common.Page.Paging;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Grand.Web.Models.Catalog;
@@ -67,7 +68,7 @@ public class CatalogPagingFilteringModel : BasePageableModel
             //comma separated list of parameters to exclude
             const string excludedQueryStringParams = "pagenumber";
             var excludedQueryStringParamsSplitted =
-                excludedQueryStringParams.Split([','], StringSplitOptions.RemoveEmptyEntries);
+                excludedQueryStringParams.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var exclude in excludedQueryStringParamsSplitted)
                 url = CommonExtensions.ModifyQueryString(url, exclude, null);
             return url;

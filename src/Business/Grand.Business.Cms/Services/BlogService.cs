@@ -102,10 +102,7 @@ public class BlogService : IBlogService
         }
 
         if (!string.IsNullOrEmpty(storeId) && !_accessControlConfig.IgnoreStoreLimitations)
-            query = from p in query
-                    where !p.LimitedToStores || p.Stores.Contains(storeId)
-                    select p;
-
+            query = query.Where(b => b.Stores.Contains(storeId) || !b.LimitedToStores);
         if (!string.IsNullOrEmpty(tag)) query = query.Where(x => x.Tags.Contains(tag));
 
         query = query.OrderByDescending(b => b.CreatedOnUtc);
@@ -157,7 +154,7 @@ public class BlogService : IBlogService
             foreach (var tag in tags)
             {
                 var foundBlogPostTag =
-                    blogPostTags.FirstOrDefault(bpt => bpt.Name.Equals(tag, StringComparison.OrdinalIgnoreCase));
+                    blogPostTags.Find(bpt => bpt.Name.Equals(tag, StringComparison.OrdinalIgnoreCase));
                 if (foundBlogPostTag == null)
                 {
                     foundBlogPostTag = new BlogPostTag {
@@ -269,10 +266,8 @@ public class BlogService : IBlogService
             select bc;
         var comments = query.ToList();
         //sort by passed identifiers
-        var sortedComments = commentIds.Select(id => comments.FirstOrDefault(comment => comment.Id == id))
-            .Where(comment => comment != null)
+        var sortedComments = commentIds.Select(id => comments.Find(x => x.Id == id)).Where(comment => comment != null)
             .ToList();
-        
         return await Task.FromResult(sortedComments);
     }
 
@@ -327,7 +322,8 @@ public class BlogService : IBlogService
     /// <returns></returns>
     public virtual async Task<BlogCategory> GetBlogCategoryBySeName(string blogCategorySeName)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(blogCategorySeName);
+        if (string.IsNullOrEmpty(blogCategorySeName))
+            throw new ArgumentNullException(nameof(blogCategorySeName));
 
         return await _blogCategoryRepository.GetOneAsync(x => x.SeName == blogCategorySeName.ToLowerInvariant());
     }

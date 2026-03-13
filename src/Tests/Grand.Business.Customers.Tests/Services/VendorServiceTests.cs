@@ -1,10 +1,7 @@
 ﻿using Grand.Business.Customers.Services;
 using Grand.Data;
 using Grand.Domain.Vendors;
-using Grand.Infrastructure.Caching;
-using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Events;
-using Grand.Infrastructure.Tests.Caching;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -18,16 +15,14 @@ public class VendorServiceTests
     private Mock<IRepository<Vendor>> _repoMock;
     private Mock<IRepository<VendorReview>> _vendorReviewRepositoryMock;
     private VendorService _vendorService;
-    private MemoryCacheBase _cacheBase;
+
     [TestInitialize]
     public void Init()
     {
-        _mediatorMock = new Mock<IMediator>();
         _repoMock = new Mock<IRepository<Vendor>>();
         _vendorReviewRepositoryMock = new Mock<IRepository<VendorReview>>();
-        _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
-           new CacheConfig { DefaultCacheTimeMinutes = 1 });
-        _vendorService = new VendorService(_repoMock.Object, _vendorReviewRepositoryMock.Object, _cacheBase, _mediatorMock.Object);
+        _mediatorMock = new Mock<IMediator>();
+        _vendorService = new VendorService(_repoMock.Object, _vendorReviewRepositoryMock.Object, _mediatorMock.Object);
     }
 
     [TestMethod]

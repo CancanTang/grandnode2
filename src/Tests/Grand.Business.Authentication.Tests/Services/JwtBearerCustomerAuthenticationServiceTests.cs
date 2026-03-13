@@ -3,7 +3,7 @@ using Grand.Business.Core.Interfaces.Authentication;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Customers;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Security;
@@ -54,7 +54,7 @@ public class JwtBearerCustomerAuthenticationServiceTests
         context.Principal = new ClaimsPrincipal(new ClaimsIdentity(claims, ""));
         var result = await _jwtBearerCustomerAuthenticationService.Valid(context);
         Assert.IsFalse(result);
-        Assert.AreEqual("Not found customer", await _jwtBearerCustomerAuthenticationService.ErrorMessage());
+        Assert.AreEqual(await _jwtBearerCustomerAuthenticationService.ErrorMessage(), "Not found customer");
     }
 
     [TestMethod]
@@ -73,8 +73,8 @@ public class JwtBearerCustomerAuthenticationServiceTests
         context.Principal = new ClaimsPrincipal(new ClaimsIdentity(claims, ""));
         var result = await _jwtBearerCustomerAuthenticationService.Valid(context);
         Assert.IsFalse(result);
-        Assert.AreEqual("Invalid token or cancel by refresh token",
-            await _jwtBearerCustomerAuthenticationService.ErrorMessage());
+        Assert.AreEqual(await _jwtBearerCustomerAuthenticationService.ErrorMessage(),
+            "Invalid token or cancel by refresh token");
     }
 
 
@@ -97,8 +97,8 @@ public class JwtBearerCustomerAuthenticationServiceTests
             .Returns(() => Task.FromResult(new Customer { Active = false }));
         var result = await _jwtBearerCustomerAuthenticationService.Valid(context);
         Assert.IsFalse(result);
-        Assert.AreEqual("Customer not exists/or not active in the customer table",
-            await _jwtBearerCustomerAuthenticationService.ErrorMessage());
+        Assert.AreEqual(await _jwtBearerCustomerAuthenticationService.ErrorMessage(),
+            "Customer not exists/or not active in the customer table");
     }
 
     [TestMethod]
@@ -123,8 +123,8 @@ public class JwtBearerCustomerAuthenticationServiceTests
 
         var result = await _jwtBearerCustomerAuthenticationService.Valid(context);
         Assert.IsFalse(result);
-        Assert.AreEqual("You do not have permission to use API operation (Customer group)",
-            await _jwtBearerCustomerAuthenticationService.ErrorMessage());
+        Assert.AreEqual(await _jwtBearerCustomerAuthenticationService.ErrorMessage(),
+            "You do not have permission to use API operation (Customer group)");
     }
 
     [TestMethod]

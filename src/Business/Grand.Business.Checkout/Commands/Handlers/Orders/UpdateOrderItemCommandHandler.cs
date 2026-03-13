@@ -32,8 +32,11 @@ public class UpdateOrderItemCommandHandler : IRequestHandler<UpdateOrderItemComm
 
     public async Task<bool> Handle(UpdateOrderItemCommand request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Order);
-        ArgumentNullException.ThrowIfNull(request.OrderItem);
+        if (request.Order == null)
+            throw new ArgumentNullException(nameof(request.Order));
+
+        if (request.OrderItem == null)
+            throw new ArgumentNullException(nameof(request.OrderItem));
 
         var originalOrder = await _orderService.GetOrderById(request.Order.Id);
         var originalOrderItem = originalOrder.OrderItems.FirstOrDefault(x => x.Id == request.OrderItem.Id);

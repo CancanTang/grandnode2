@@ -1,9 +1,10 @@
-﻿using Grand.Business.Core.Interfaces.Catalog.Prices;
+﻿using Grand.Business.Core.Extensions;
+using Grand.Business.Core.Interfaces.Catalog.Prices;
 using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Common.Directory;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Queries.Checkout.Orders;
 using Grand.Domain.Tax;
-using Grand.Web.Common.Localization;
 using Grand.Web.Features.Models.Orders;
 using Grand.Web.Models.Orders;
 using MediatR;
@@ -17,22 +18,22 @@ public class GetMerchandiseReturnsHandler : IRequestHandler<GetMerchandiseReturn
     private readonly IMediator _mediator;
     private readonly IOrderService _orderService;
     private readonly IPriceFormatter _priceFormatter;
-    private readonly IEnumTranslationService _enumTranslationService;
-    
+    private readonly ITranslationService _translationService;
+
     public GetMerchandiseReturnsHandler(
         IOrderService orderService,
+        ITranslationService translationService,
         IDateTimeService dateTimeService,
         IPriceFormatter priceFormatter,
         IGroupService groupService,
-        IMediator mediator, 
-        IEnumTranslationService enumTranslationService)
+        IMediator mediator)
     {
         _orderService = orderService;
         _groupService = groupService;
+        _translationService = translationService;
         _dateTimeService = dateTimeService;
         _priceFormatter = priceFormatter;
         _mediator = mediator;
-        _enumTranslationService = enumTranslationService;
     }
 
     public async Task<CustomerMerchandiseReturnsModel> Handle(GetMerchandiseReturns request,
@@ -70,7 +71,9 @@ public class GetMerchandiseReturnsHandler : IRequestHandler<GetMerchandiseReturn
             var itemModel = new CustomerMerchandiseReturnsModel.MerchandiseReturnModel {
                 Id = merchandiseReturn.Id,
                 ReturnNumber = merchandiseReturn.ReturnNumber,
-                MerchandiseReturnStatus = _enumTranslationService.GetTranslationEnum(merchandiseReturn.MerchandiseReturnStatus),
+                MerchandiseReturnStatus =
+                    merchandiseReturn.MerchandiseReturnStatus.GetTranslationEnum(_translationService,
+                        request.Language.Id),
                 CreatedOn = _dateTimeService.ConvertToUserTime(merchandiseReturn.CreatedOnUtc, DateTimeKind.Utc),
                 ProductsCount = merchandiseReturn.MerchandiseReturnItems.Sum(x => x.Quantity),
                 ReturnTotal = _priceFormatter.FormatPrice(total)

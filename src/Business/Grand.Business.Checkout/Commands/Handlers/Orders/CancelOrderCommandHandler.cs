@@ -49,7 +49,8 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, boo
 
     public async Task<bool> Handle(CancelOrderCommand request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Order);
+        if (request.Order == null)
+            throw new ArgumentNullException(nameof(request.Order));
 
         if (request.Order.OrderStatusId == (int)OrderStatusSystem.Cancelled)
             throw new Exception("Cannot do cancel for order.");

@@ -34,7 +34,8 @@ public class ReduceLoyaltyPointsCommandHandler : IRequestHandler<ReduceLoyaltyPo
 
     public async Task<bool> Handle(ReduceLoyaltyPointsCommand request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Order);
+        if (request.Order == null)
+            throw new ArgumentNullException(nameof(request.Order));
 
         var customer = await _customerService.GetCustomerById(request.Order.CustomerId);
 

@@ -9,6 +9,7 @@ using Grand.Infrastructure;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Plugins;
 using Grand.Infrastructure.TypeSearch;
+using Grand.SharedKernel.Extensions;
 using Grand.Web.Common.View;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -17,6 +18,7 @@ using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.WebEncoders;
 using StackExchange.Redis;
 using System.Text.Encodings.Web;
@@ -121,11 +123,12 @@ public static class ServiceCollectionExtensions
         {
             var securityConfig = new SecurityConfig();
             configuration.GetSection("Security").Bind(securityConfig);
-            var defaultKeyPath = Path.Combine(AppContext.BaseDirectory, "App_Data", "DataProtectionKeys");
-            var keyPersistenceLocation = string.IsNullOrEmpty(securityConfig.KeyPersistenceLocation)
-                ? defaultKeyPath
+
+            var dataProtectionKeysPath = string.IsNullOrEmpty(securityConfig.KeyPersistenceLocation)
+                ? CommonPath.DataProtectionKeysPath
                 : securityConfig.KeyPersistenceLocation;
-            var dataProtectionKeysFolder = new DirectoryInfo(keyPersistenceLocation);
+            var dataProtectionKeysFolder = new DirectoryInfo(dataProtectionKeysPath);
+
             //configure the data protection system to persist keys to the specified directory
             services.AddDataProtection().PersistKeysToFileSystem(dataProtectionKeysFolder);
         }
@@ -211,6 +214,8 @@ public static class ServiceCollectionExtensions
         var securityConfig = new SecurityConfig();
         configuration.GetSection("Security").Bind(securityConfig);
 
+        if (securityConfig.EnableRuntimeCompilation) mvcBuilder.AddRazorRuntimeCompilation();
+
         if (securityConfig.UseHsts)
             services.AddHsts(options =>
             {
@@ -253,9 +258,9 @@ public static class ServiceCollectionExtensions
                 var type = item.GetType();
                 var storeId = "";
                 var settingService = x.GetRequiredService<ISettingService>();
-                var contextAccessor = x.GetRequiredService<IContextAccessor>();
-                if (contextAccessor.StoreContext != null)
-                    storeId = contextAccessor.StoreContext.CurrentStore.Id;
+                var store = x.GetRequiredService<IStoreHelper>().StoreHost;
+                if (store != null)
+                    storeId = store.Id;
 
                 return settingService.LoadSetting(type, storeId);
             });
@@ -265,6 +270,31 @@ public static class ServiceCollectionExtensions
     {
         var hcBuilder = services.AddHealthChecks();
         hcBuilder.AddCheck("self", () => HealthCheckResult.Healthy());
+    }
+
+    public static void AddGrandApplicationInsights(this IServiceCollection services, IConfiguration configuration)
+    {
+        var applicationInsights = new ApplicationInsightsConfig();
+        configuration.GetSection("ApplicationInsights").Bind(applicationInsights);
+        if (!string.IsNullOrEmpty(applicationInsights.ConnectionString))
+        {
+            services.AddApplicationInsightsTelemetry();
+            services.AddServiceProfiler();
+            services.AddLogging(builder =>
+            {
+                builder.AddApplicationInsights(
+                    config =>
+                    {
+                        config.ConnectionString = applicationInsights.ConnectionString;
+                    },
+                    options =>
+                    {
+                        options.IncludeScopes = false;
+                        options.TrackExceptionsAsExceptionTelemetry = false;
+                    }
+                );
+            });
+        }
     }
 
     /// <summary>

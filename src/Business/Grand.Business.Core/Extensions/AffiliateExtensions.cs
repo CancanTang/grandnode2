@@ -1,4 +1,7 @@
-﻿using Grand.Domain.Affiliates;
+﻿using Grand.Business.Core.Interfaces.Customers;
+using Grand.Domain.Affiliates;
+using Grand.Domain.Seo;
+using Grand.SharedKernel.Extensions;
 using System.Web;
 
 namespace Grand.Business.Core.Extensions;
@@ -44,7 +47,9 @@ public static class AffiliateExtensions
     public static string GenerateUrl(this Affiliate affiliate, string host)
     {
         ArgumentNullException.ThrowIfNull(affiliate);
-        ArgumentNullException.ThrowIfNullOrEmpty(host);
+
+        if (string.IsNullOrEmpty(host))
+            throw new ArgumentNullException(nameof(host));
 
         var uriBuilder = new UriBuilder(host);
         var query = HttpUtility.ParseQueryString(uriBuilder.Query);
@@ -56,5 +61,50 @@ public static class AffiliateExtensions
         uriBuilder.Port = -1;
         uriBuilder.Query = query.ToString();
         return uriBuilder.ToString();
+    }
+
+    /// <summary>
+    ///     Validate friendly URL name
+    /// </summary>
+    /// <param name="affiliate">Affiliate</param>
+    /// <param name="seoSettings"></param>
+    /// <param name="friendlyUrlName">Friendly URL name</param>
+    /// <param name="affiliateService"></param>
+    /// <param name="name"></param>
+    /// <returns>Valid friendly name</returns>
+    public static async Task<string> ValidateFriendlyUrlName(this Affiliate affiliate,
+        IAffiliateService affiliateService, SeoSettings seoSettings, string friendlyUrlName, string name)
+    {
+        ArgumentNullException.ThrowIfNull(affiliate);
+
+        if (string.IsNullOrEmpty(friendlyUrlName))
+            friendlyUrlName = name;
+
+        //ensure we have only valid chars
+        friendlyUrlName = SeoExtensions.GetSeName(friendlyUrlName, seoSettings.ConvertNonWesternChars,
+            seoSettings.AllowUnicodeCharsInUrls, seoSettings.SeoCharConversion);
+
+        //max length
+        friendlyUrlName = CommonHelper.EnsureMaximumLength(friendlyUrlName, 200);
+
+        if (string.IsNullOrEmpty(friendlyUrlName))
+            return friendlyUrlName;
+        //check whether such friendly URL name already exists (and that is not the current affiliate)
+        var i = 2;
+        var tempName = friendlyUrlName;
+        while (true)
+        {
+            var affiliateByFriendlyUrlName = await affiliateService.GetAffiliateByFriendlyUrlName(tempName);
+            var reserved = affiliateByFriendlyUrlName != null && affiliateByFriendlyUrlName.Id != affiliate.Id;
+            if (!reserved)
+                break;
+
+            tempName = $"{friendlyUrlName}-{i}";
+            i++;
+        }
+
+        friendlyUrlName = tempName;
+
+        return friendlyUrlName;
     }
 }

@@ -53,7 +53,7 @@ public class OrderCalculationService : IOrderCalculationService
     /// <param name="shippingSettings">Shipping settings</param>
     /// <param name="shoppingCartSettings">Shopping cart settings</param>
     /// <param name="catalogSettings">Catalog settings</param>
-    public OrderCalculationService(IContextAccessor contextAccessor,
+    public OrderCalculationService(IWorkContext workContext,
         IPricingService priceCalculationService,
         ITaxService taxService,
         IShippingService shippingService,
@@ -72,7 +72,7 @@ public class OrderCalculationService : IOrderCalculationService
         ShoppingCartSettings shoppingCartSettings,
         CatalogSettings catalogSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _pricingService = priceCalculationService;
         _taxService = taxService;
         _shippingService = shippingService;
@@ -96,7 +96,7 @@ public class OrderCalculationService : IOrderCalculationService
 
     #region Fields
 
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IPricingService _pricingService;
     private readonly ITaxService _taxService;
     private readonly IShippingService _shippingService;
@@ -136,7 +136,7 @@ public class OrderCalculationService : IOrderCalculationService
             return (discountAmount, appliedDiscounts);
 
         var allDiscounts = await _discountService.GetActiveDiscountsByContext(DiscountType.AssignedToOrderSubTotal,
-            _contextAccessor.StoreContext.CurrentStore.Id, currency.CurrencyCode);
+            _workContext.CurrentStore.Id, currency.CurrencyCode);
         var allowedDiscounts = new List<ApplyDiscount>();
         if (allDiscounts != null)
             foreach (var discount in allDiscounts)
@@ -149,13 +149,12 @@ public class OrderCalculationService : IOrderCalculationService
                     allowedDiscounts.Add(new ApplyDiscount {
                         DiscountId = discount.Id,
                         IsCumulative = discount.IsCumulative,
-                        CouponCode = validDiscount.CouponCode,
-                        MaximumDiscountedQuantity = discount.MaximumDiscountedQuantity
+                        CouponCode = validDiscount.CouponCode
                     });
             }
 
         var preferredDiscounts = await _discountService.GetPreferredDiscount(allowedDiscounts, customer,
-            _contextAccessor.WorkContext.WorkingCurrency, orderSubTotal);
+            _workContext.WorkingCurrency, orderSubTotal);
         appliedDiscounts = preferredDiscounts.appliedDiscount;
         discountAmount = preferredDiscounts.discountAmount;
 
@@ -182,7 +181,7 @@ public class OrderCalculationService : IOrderCalculationService
             return (shippingDiscountAmount, appliedDiscounts);
 
         var allDiscounts = await _discountService.GetActiveDiscountsByContext(DiscountType.AssignedToShipping,
-            _contextAccessor.StoreContext.CurrentStore.Id, currency.CurrencyCode);
+            _workContext.CurrentStore.Id, currency.CurrencyCode);
         var allowedDiscounts = new List<ApplyDiscount>();
         if (allDiscounts != null)
             foreach (var discount in allDiscounts)
@@ -195,13 +194,12 @@ public class OrderCalculationService : IOrderCalculationService
                     allowedDiscounts.Add(new ApplyDiscount {
                         DiscountId = discount.Id,
                         IsCumulative = discount.IsCumulative,
-                        CouponCode = validDiscount.CouponCode,
-                        MaximumDiscountedQuantity = discount.MaximumDiscountedQuantity
+                        CouponCode = validDiscount.CouponCode
                     });
             }
 
         var (appliedDiscount, discountAmount) = await _discountService.GetPreferredDiscount(allowedDiscounts,
-            customer, _contextAccessor.WorkContext.WorkingCurrency, shippingTotal);
+            customer, _workContext.WorkingCurrency, shippingTotal);
         appliedDiscounts = appliedDiscount;
         shippingDiscountAmount = discountAmount;
 
@@ -210,7 +208,7 @@ public class OrderCalculationService : IOrderCalculationService
 
         if (_shoppingCartSettings.RoundPrices)
             shippingDiscountAmount =
-                RoundingHelper.RoundPrice(shippingDiscountAmount, _contextAccessor.WorkContext.WorkingCurrency);
+                RoundingHelper.RoundPrice(shippingDiscountAmount, _workContext.WorkingCurrency);
 
         return (shippingDiscountAmount, appliedDiscounts);
     }
@@ -232,7 +230,7 @@ public class OrderCalculationService : IOrderCalculationService
             return (discountAmount, appliedDiscounts);
 
         var allDiscounts = await _discountService.GetActiveDiscountsByContext(DiscountType.AssignedToOrderTotal,
-            _contextAccessor.StoreContext.CurrentStore.Id, currency.CurrencyCode);
+            _workContext.CurrentStore.Id, currency.CurrencyCode);
         var allowedDiscounts = new List<ApplyDiscount>();
         if (allDiscounts != null)
             foreach (var discount in allDiscounts)
@@ -245,13 +243,12 @@ public class OrderCalculationService : IOrderCalculationService
                     allowedDiscounts.Add(new ApplyDiscount {
                         DiscountId = discount.Id,
                         IsCumulative = discount.IsCumulative,
-                        CouponCode = validDiscount.CouponCode,
-                        MaximumDiscountedQuantity = discount.MaximumDiscountedQuantity
+                        CouponCode = validDiscount.CouponCode
                     });
             }
 
         var preferredDiscount = await _discountService.GetPreferredDiscount(allowedDiscounts, customer,
-            _contextAccessor.WorkContext.WorkingCurrency, orderTotal);
+            _workContext.WorkingCurrency, orderTotal);
         appliedDiscounts = preferredDiscount.appliedDiscount;
         discountAmount = preferredDiscount.discountAmount;
 
@@ -259,7 +256,7 @@ public class OrderCalculationService : IOrderCalculationService
             discountAmount = 0;
 
         if (_shoppingCartSettings.RoundPrices)
-            discountAmount = RoundingHelper.RoundPrice(discountAmount, _contextAccessor.WorkContext.WorkingCurrency);
+            discountAmount = RoundingHelper.RoundPrice(discountAmount, _workContext.WorkingCurrency);
 
         return (discountAmount, appliedDiscounts);
     }
@@ -311,7 +308,7 @@ public class OrderCalculationService : IOrderCalculationService
             return (discountAmount, appliedDiscounts, subTotalWithoutDiscount, subTotalWithDiscount, taxRates);
 
         //get the customer 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         //sub totals
         double subTotalExclTaxWithoutDiscount = 0;
@@ -347,7 +344,7 @@ public class OrderCalculationService : IOrderCalculationService
         {
             var checkoutAttributes =
                 customer.GetUserFieldFromEntity<List<CustomAttribute>>(SystemCustomerFieldNames.CheckoutAttributes,
-                    _contextAccessor.StoreContext.CurrentStore.Id);
+                    _workContext.CurrentStore.Id);
             var attributeValues = await _checkoutAttributeParser.ParseCheckoutAttributeValue(checkoutAttributes);
             foreach (var attributeValue in attributeValues)
             {
@@ -356,14 +353,14 @@ public class OrderCalculationService : IOrderCalculationService
                         customer);
                 var caExclTax =
                     await _currencyService.ConvertFromPrimaryStoreCurrency(
-                        checkoutAttributePriceExclTax.checkoutPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                        checkoutAttributePriceExclTax.checkoutPrice, _workContext.WorkingCurrency);
 
                 var (checkoutPrice, taxRate) =
                     await _taxService.GetCheckoutAttributePrice(attributeValue.ca, attributeValue.cav, true,
                         customer);
                 var caInclTax =
                     await _currencyService.ConvertFromPrimaryStoreCurrency(checkoutPrice,
-                        _contextAccessor.WorkContext.WorkingCurrency);
+                        _workContext.WorkingCurrency);
 
                 subTotalExclTaxWithoutDiscount += caExclTax;
                 subTotalInclTaxWithoutDiscount += caInclTax;
@@ -386,12 +383,12 @@ public class OrderCalculationService : IOrderCalculationService
 
         if (_shoppingCartSettings.RoundPrices)
             subTotalWithoutDiscount =
-                RoundingHelper.RoundPrice(subTotalWithoutDiscount, _contextAccessor.WorkContext.WorkingCurrency);
+                RoundingHelper.RoundPrice(subTotalWithoutDiscount, _workContext.WorkingCurrency);
 
         //We calculate discount amount on order subtotal excl tax (discount first)
         //calculate discount amount ('Applied to order subtotal' discount)
-        var orderSubtotalDiscount = await GetOrderSubtotalDiscount(customer, _contextAccessor.StoreContext.CurrentStore,
-            _contextAccessor.WorkContext.WorkingCurrency, subTotalExclTaxWithoutDiscount);
+        var orderSubtotalDiscount = await GetOrderSubtotalDiscount(customer, _workContext.CurrentStore,
+            _workContext.WorkingCurrency, subTotalExclTaxWithoutDiscount);
         var discountAmountExclTax = orderSubtotalDiscount.ordersubtotaldiscount;
         appliedDiscounts = orderSubtotalDiscount.appliedDiscounts;
 
@@ -417,7 +414,7 @@ public class OrderCalculationService : IOrderCalculationService
                 discountAmountInclTax += discountTax;
                 taxValue = taxRates[taxRate] - discountTax;
                 if (_shoppingCartSettings.RoundPrices)
-                    taxValue = RoundingHelper.RoundPrice(taxValue, _contextAccessor.WorkContext.WorkingCurrency);
+                    taxValue = RoundingHelper.RoundPrice(taxValue, _workContext.WorkingCurrency);
                 taxRates[taxRate] = taxValue;
             }
 
@@ -427,8 +424,8 @@ public class OrderCalculationService : IOrderCalculationService
 
         if (_shoppingCartSettings.RoundPrices)
         {
-            discountAmountInclTax = RoundingHelper.RoundPrice(discountAmountInclTax, _contextAccessor.WorkContext.WorkingCurrency);
-            discountAmountExclTax = RoundingHelper.RoundPrice(discountAmountExclTax, _contextAccessor.WorkContext.WorkingCurrency);
+            discountAmountInclTax = RoundingHelper.RoundPrice(discountAmountInclTax, _workContext.WorkingCurrency);
+            discountAmountExclTax = RoundingHelper.RoundPrice(discountAmountExclTax, _workContext.WorkingCurrency);
         }
 
         if (includingTax)
@@ -446,7 +443,7 @@ public class OrderCalculationService : IOrderCalculationService
             subTotalWithDiscount = 0;
 
         if (_shoppingCartSettings.RoundPrices)
-            subTotalWithDiscount = RoundingHelper.RoundPrice(subTotalWithDiscount, _contextAccessor.WorkContext.WorkingCurrency);
+            subTotalWithDiscount = RoundingHelper.RoundPrice(subTotalWithDiscount, _workContext.WorkingCurrency);
 
         return (discountAmount, appliedDiscounts, subTotalWithoutDiscount, subTotalWithDiscount, taxRates);
     }
@@ -476,7 +473,7 @@ public class OrderCalculationService : IOrderCalculationService
     /// <returns>A value indicating whether shipping is free</returns>
     public virtual async Task<bool> IsFreeShipping(IList<ShoppingCartItem> cart)
     {
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
         if (customer != null)
         {
             //check whether customer has a free shipping
@@ -528,9 +525,9 @@ public class OrderCalculationService : IOrderCalculationService
 
         //discount
         var (discountAmount, applyDiscounts) = await GetShippingDiscount(
-            _contextAccessor.WorkContext.CurrentCustomer,
-            _contextAccessor.StoreContext.CurrentStore,
-            _contextAccessor.WorkContext.WorkingCurrency, adjustedRate);
+            _workContext.CurrentCustomer,
+            _workContext.CurrentStore,
+            _workContext.WorkingCurrency, adjustedRate);
         appliedDiscounts = applyDiscounts;
 
         adjustedRate -= discountAmount;
@@ -539,7 +536,7 @@ public class OrderCalculationService : IOrderCalculationService
             adjustedRate = 0;
 
         if (_shoppingCartSettings.RoundPrices)
-            adjustedRate = RoundingHelper.RoundPrice(adjustedRate, _contextAccessor.WorkContext.WorkingCurrency);
+            adjustedRate = RoundingHelper.RoundPrice(adjustedRate, _workContext.WorkingCurrency);
 
         return (adjustedRate, appliedDiscounts);
     }
@@ -553,7 +550,7 @@ public class OrderCalculationService : IOrderCalculationService
         Task<(double? shoppingCartShippingTotal, double taxRate, List<ApplyDiscount> appliedDiscounts)>
         GetShoppingCartShippingTotal(IList<ShoppingCartItem> cart)
     {
-        var includingTax = _contextAccessor.WorkContext.TaxDisplayType == TaxDisplayType.IncludingTax;
+        var includingTax = _workContext.TaxDisplayType == TaxDisplayType.IncludingTax;
         return await GetShoppingCartShippingTotal(cart, includingTax);
     }
 
@@ -572,7 +569,7 @@ public class OrderCalculationService : IOrderCalculationService
         var appliedDiscounts = new List<ApplyDiscount>();
         double taxRate = 0;
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
         var currency = await _currencyService.GetPrimaryExchangeRateCurrency();
 
         var isFreeShipping = await IsFreeShipping(cart);
@@ -583,7 +580,7 @@ public class OrderCalculationService : IOrderCalculationService
         if (customer != null)
             shippingOption =
                 customer.GetUserFieldFromEntity<ShippingOption>(SystemCustomerFieldNames.SelectedShippingOption,
-                    _contextAccessor.StoreContext.CurrentStore.Id);
+                    _workContext.CurrentStore.Id);
 
         if (shippingOption != null)
         {
@@ -600,8 +597,8 @@ public class OrderCalculationService : IOrderCalculationService
                 shippingAddress = customer.ShippingAddress;
 
             var shippingRateMethods =
-                await _shippingService.LoadActiveShippingRateCalculationProviders(_contextAccessor.WorkContext.CurrentCustomer,
-                    _contextAccessor.StoreContext.CurrentStore.Id, cart);
+                await _shippingService.LoadActiveShippingRateCalculationProviders(_workContext.CurrentCustomer,
+                    _workContext.CurrentStore.Id, cart);
 
             if (!shippingRateMethods.Any() && !_shippingSettings.AllowPickUpInStore)
                 throw new GrandException("Shipping rate  method could not be loaded");
@@ -612,7 +609,7 @@ public class OrderCalculationService : IOrderCalculationService
 
                 var shippingOptionRequest = await _shippingService.CreateShippingOptionRequests(customer, cart,
                     shippingAddress,
-                    _contextAccessor.StoreContext.CurrentStore);
+                    _workContext.CurrentStore);
 
                 double? fixedRate = null;
                 //calculate fixed rates for each request-package
@@ -673,12 +670,12 @@ public class OrderCalculationService : IOrderCalculationService
 
         var taxRates = new SortedDictionary<double, double>();
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
         var paymentMethodSystemName = "";
         if (customer != null)
             paymentMethodSystemName = customer.GetUserFieldFromEntity<string>(
                 SystemCustomerFieldNames.SelectedPaymentMethod,
-                _contextAccessor.StoreContext.CurrentStore.Id);
+                _workContext.CurrentStore.Id);
 
         //order sub total (items + checkout attributes)
         double subTotalTaxTotal = 0;
@@ -764,7 +761,7 @@ public class OrderCalculationService : IOrderCalculationService
             taxTotal = 0;
         //round tax
         if (_shoppingCartSettings.RoundPrices)
-            taxTotal = RoundingHelper.RoundPrice(taxTotal, _contextAccessor.WorkContext.WorkingCurrency);
+            taxTotal = RoundingHelper.RoundPrice(taxTotal, _workContext.WorkingCurrency);
 
         return (taxTotal, taxRates);
     }
@@ -786,9 +783,9 @@ public class OrderCalculationService : IOrderCalculationService
         var redeemedLoyaltyPoints = 0;
         double redeemedLoyaltyPointsAmount = 0;
 
-        var paymentMethodSystemName = _contextAccessor.WorkContext.CurrentCustomer.GetUserFieldFromEntity<string>(
+        var paymentMethodSystemName = _workContext.CurrentCustomer.GetUserFieldFromEntity<string>(
             SystemCustomerFieldNames.SelectedPaymentMethod,
-            _contextAccessor.StoreContext.CurrentStore.Id);
+            _workContext.CurrentStore.Id);
 
         //subtotal without tax
         var subTotal = await GetShoppingCartSubTotal(cart, false);
@@ -806,7 +803,7 @@ public class OrderCalculationService : IOrderCalculationService
                 await _paymentService.GetAdditionalHandlingFee(cart, paymentMethodSystemName);
             paymentMethodAdditionalFeeWithoutTax =
                 (await _taxService.GetPaymentMethodAdditionalFee(paymentMethodAdditionalFee, false,
-                    _contextAccessor.WorkContext.CurrentCustomer))
+                    _workContext.CurrentCustomer))
                 .paymentPrice;
         }
 
@@ -821,12 +818,12 @@ public class OrderCalculationService : IOrderCalculationService
         resultTemp += paymentMethodAdditionalFeeWithoutTax;
         resultTemp += shoppingCartTax;
         if (_shoppingCartSettings.RoundPrices)
-            resultTemp = RoundingHelper.RoundPrice(resultTemp, _contextAccessor.WorkContext.WorkingCurrency);
+            resultTemp = RoundingHelper.RoundPrice(resultTemp, _workContext.WorkingCurrency);
 
         #region Order total discount
 
-        var totalDiscount = await GetOrderTotalDiscount(_contextAccessor.WorkContext.CurrentCustomer, _contextAccessor.StoreContext.CurrentStore,
-            _contextAccessor.WorkContext.WorkingCurrency, resultTemp);
+        var totalDiscount = await GetOrderTotalDiscount(_workContext.CurrentCustomer, _workContext.CurrentStore,
+            _workContext.WorkingCurrency, resultTemp);
         var discountAmount = totalDiscount.orderTotalDiscount;
         var appliedDiscounts = totalDiscount.appliedDiscounts;
 
@@ -840,7 +837,7 @@ public class OrderCalculationService : IOrderCalculationService
         if (resultTemp < 0)
             resultTemp = 0;
         if (_shoppingCartSettings.RoundPrices)
-            resultTemp = RoundingHelper.RoundPrice(resultTemp, _contextAccessor.WorkContext.WorkingCurrency);
+            resultTemp = RoundingHelper.RoundPrice(resultTemp, _workContext.WorkingCurrency);
 
         #endregion
 
@@ -849,8 +846,8 @@ public class OrderCalculationService : IOrderCalculationService
         var appliedGiftVouchers = new List<AppliedGiftVoucher>();
         //we don't apply gift vouchers for recurring products
         var giftVouchers =
-            await GetActiveGiftVouchers(_contextAccessor.WorkContext.CurrentCustomer, _contextAccessor.WorkContext.WorkingCurrency,
-                _contextAccessor.StoreContext.CurrentStore);
+            await GetActiveGiftVouchers(_workContext.CurrentCustomer, _workContext.WorkingCurrency,
+                _workContext.CurrentStore);
         if (giftVouchers != null)
             foreach (var gc in giftVouchers)
                 if (resultTemp > 0)
@@ -873,7 +870,7 @@ public class OrderCalculationService : IOrderCalculationService
         if (resultTemp < 0)
             resultTemp = 0;
         if (_shoppingCartSettings.RoundPrices)
-            resultTemp = RoundingHelper.RoundPrice(resultTemp, _contextAccessor.WorkContext.WorkingCurrency);
+            resultTemp = RoundingHelper.RoundPrice(resultTemp, _workContext.WorkingCurrency);
 
         if (!shoppingCartShipping.HasValue)
             //we have errors
@@ -886,15 +883,15 @@ public class OrderCalculationService : IOrderCalculationService
 
         if (_loyaltyPointsSettings.Enabled)
         {
-            useLoyaltyPoints ??= _contextAccessor.WorkContext.CurrentCustomer.GetUserFieldFromEntity<bool>(
+            useLoyaltyPoints ??= _workContext.CurrentCustomer.GetUserFieldFromEntity<bool>(
                 SystemCustomerFieldNames.UseLoyaltyPointsDuringCheckout,
-                _contextAccessor.StoreContext.CurrentStore.Id);
+                _workContext.CurrentStore.Id);
 
             if (useLoyaltyPoints.Value)
             {
                 var loyaltyPointsBalance =
-                    await _loyaltyPointsService.GetLoyaltyPointsBalance(_contextAccessor.WorkContext.CurrentCustomer.Id,
-                        _contextAccessor.StoreContext.CurrentStore.Id);
+                    await _loyaltyPointsService.GetLoyaltyPointsBalance(_workContext.CurrentCustomer.Id,
+                        _workContext.CurrentStore.Id);
                 if (CheckMinimumLoyaltyPointsToUseRequirement(loyaltyPointsBalance))
                 {
                     var loyaltyPointsBalanceAmount = await ConvertLoyaltyPointsToAmount(loyaltyPointsBalance);
@@ -905,14 +902,14 @@ public class OrderCalculationService : IOrderCalculationService
                             redeemedLoyaltyPoints = loyaltyPointsBalance;
                             redeemedLoyaltyPointsAmount =
                                 await _currencyService.ConvertFromPrimaryStoreCurrency(loyaltyPointsBalanceAmount,
-                                    _contextAccessor.WorkContext.WorkingCurrency);
+                                    _workContext.WorkingCurrency);
                         }
                         else
                         {
                             redeemedLoyaltyPointsAmount = orderTotal;
                             redeemedLoyaltyPoints = ConvertAmountToLoyaltyPoints(
                                 await _currencyService.ConvertToPrimaryStoreCurrency(redeemedLoyaltyPointsAmount,
-                                    _contextAccessor.WorkContext.WorkingCurrency));
+                                    _workContext.WorkingCurrency));
                         }
                     }
                 }
@@ -923,7 +920,7 @@ public class OrderCalculationService : IOrderCalculationService
 
         orderTotal -= redeemedLoyaltyPointsAmount;
         if (_shoppingCartSettings.RoundPrices)
-            orderTotal = RoundingHelper.RoundPrice(orderTotal, _contextAccessor.WorkContext.WorkingCurrency);
+            orderTotal = RoundingHelper.RoundPrice(orderTotal, _workContext.WorkingCurrency);
 
         return (orderTotal, discountAmount, appliedDiscounts, appliedGiftVouchers, redeemedLoyaltyPoints,
             redeemedLoyaltyPointsAmount);
@@ -940,7 +937,7 @@ public class OrderCalculationService : IOrderCalculationService
             return 0;
 
         var result = loyaltyPoints * _loyaltyPointsSettings.ExchangeRate;
-        if (_shoppingCartSettings.RoundPrices) result = RoundingHelper.RoundPrice(result, _contextAccessor.WorkContext.WorkingCurrency);
+        if (_shoppingCartSettings.RoundPrices) result = RoundingHelper.RoundPrice(result, _workContext.WorkingCurrency);
 
         return await Task.FromResult(result);
     }

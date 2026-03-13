@@ -2,7 +2,7 @@
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Blogs;
 using Grand.Domain.Customers;
 using Grand.Infrastructure;
@@ -13,12 +13,12 @@ using Grand.Web.Events;
 using Grand.Web.Features.Models.Blogs;
 using Grand.Web.Models.Blogs;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Grand.SharedKernel.Attributes;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Grand.Web.Controllers;
 
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class BlogController : BasePublicController
 {
     #region Constructors
@@ -27,14 +27,14 @@ public class BlogController : BasePublicController
         IMediator mediator,
         IBlogService blogService,
         ITranslationService translationService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         BlogSettings blogSettings)
     {
         _mediator = mediator;
         _blogService = blogService;
         _translationService = translationService;
         _blogSettings = blogSettings;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
     }
 
     #endregion
@@ -44,7 +44,7 @@ public class BlogController : BasePublicController
     private readonly IMediator _mediator;
     private readonly IBlogService _blogService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly BlogSettings _blogSettings;
 
     #endregion
@@ -52,7 +52,8 @@ public class BlogController : BasePublicController
     #region Methods
 
     [HttpGet]
-    public virtual async Task<ActionResult<BlogPostListModel>> List(BlogPagingFilteringModel command)
+    [ProducesResponseType(typeof(BlogPostListModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> List(BlogPagingFilteringModel command)
     {
         if (!_blogSettings.Enabled)
             return RedirectToRoute("HomePage");
@@ -62,7 +63,8 @@ public class BlogController : BasePublicController
     }
 
     [HttpGet]
-    public virtual async Task<ActionResult<BlogPostListModel>> BlogByTag(BlogPagingFilteringModel command)
+    [ProducesResponseType(typeof(BlogPostListModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> BlogByTag(BlogPagingFilteringModel command)
     {
         if (!_blogSettings.Enabled)
             return RedirectToRoute("HomePage");
@@ -72,7 +74,8 @@ public class BlogController : BasePublicController
     }
 
     [HttpGet]
-    public virtual async Task<ActionResult<BlogPostListModel>> BlogByMonth(BlogPagingFilteringModel command)
+    [ProducesResponseType(typeof(BlogPostListModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> BlogByMonth(BlogPagingFilteringModel command)
     {
         if (!_blogSettings.Enabled)
             return RedirectToRoute("HomePage");
@@ -82,7 +85,8 @@ public class BlogController : BasePublicController
     }
 
     [HttpGet]
-    public virtual async Task<ActionResult<BlogPostListModel>> BlogByCategory(BlogPagingFilteringModel command)
+    [ProducesResponseType(typeof(BlogPostListModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> BlogByCategory(BlogPagingFilteringModel command)
     {
         if (!_blogSettings.Enabled)
             return RedirectToRoute("HomePage");
@@ -92,7 +96,8 @@ public class BlogController : BasePublicController
     }
 
     [HttpGet]
-    public virtual async Task<ActionResult<BlogPostListModel>> BlogByKeyword(BlogPagingFilteringModel command)
+    [ProducesResponseType(typeof(BlogPostListModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> BlogByKeyword(BlogPagingFilteringModel command)
     {
         if (!_blogSettings.Enabled)
             return RedirectToRoute("HomePage");
@@ -102,7 +107,8 @@ public class BlogController : BasePublicController
     }
 
     [HttpGet]
-    public virtual async Task<ActionResult<BlogPostModel>> BlogPost(string blogPostId,
+    [ProducesResponseType(typeof(BlogPostModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> BlogPost(string blogPostId,
         [FromServices] IAclService aclService,
         [FromServices] IPermissionService permissionService)
     {
@@ -116,8 +122,8 @@ public class BlogController : BasePublicController
             return RedirectToRoute("HomePage");
 
         //Store acl
-        if (!aclService.Authorize(blogPost, _contextAccessor.StoreContext.CurrentStore.Id))
-            return NotFound();
+        if (!aclService.Authorize(blogPost, _workContext.CurrentStore.Id))
+            return InvokeHttp404();
 
         var model = await _mediator.Send(new GetBlogPost { BlogPost = blogPost });
 
@@ -132,7 +138,8 @@ public class BlogController : BasePublicController
     [HttpPost]
     [AutoValidateAntiforgeryToken]
     [DenySystemAccount]
-    public virtual async Task<ActionResult<AddBlogCommentModel>> BlogPost(AddBlogCommentModel model,
+    [ProducesResponseType(typeof(AddBlogCommentModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> BlogPost(AddBlogCommentModel model,
         [FromServices] IAclService aclService)
     {
         var blogPost = await _blogService.GetBlogPostById(model.Id);
@@ -143,7 +150,7 @@ public class BlogController : BasePublicController
                 success = false
             });
 
-        if (!aclService.Authorize(blogPost, _contextAccessor.StoreContext.CurrentStore.Id))
+        if (!aclService.Authorize(blogPost, _workContext.CurrentStore.Id))
             return Json(new {
                 success = false
             });
@@ -162,7 +169,7 @@ public class BlogController : BasePublicController
                     blogComment.CommentText,
                     CreatedOn = HttpContext.RequestServices.GetService<IDateTimeService>()
                         .ConvertToUserTime(blogComment.CreatedOnUtc, DateTimeKind.Utc),
-                    CustomerName = _contextAccessor.WorkContext.CurrentCustomer.FormatUserName(HttpContext.RequestServices
+                    CustomerName = _workContext.CurrentCustomer.FormatUserName(HttpContext.RequestServices
                         .GetService<CustomerSettings>().CustomerNameFormat)
                 }
             });

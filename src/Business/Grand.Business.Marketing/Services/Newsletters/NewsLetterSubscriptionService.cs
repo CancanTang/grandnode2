@@ -1,3 +1,4 @@
+using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Marketing.Newsletters;
 using Grand.Business.Marketing.Extensions;
@@ -8,7 +9,6 @@ using Grand.Infrastructure.Extensions;
 using Grand.SharedKernel;
 using Grand.SharedKernel.Extensions;
 using MediatR;
-using System.IO;
 
 namespace Grand.Business.Marketing.Services.Newsletters;
 
@@ -83,7 +83,7 @@ public class NewsLetterSubscriptionService : INewsLetterSubscriptionService
             await PublishSubscriptionEvent(newsLetterSubscription.Email, true, publishSubscriptionEvents);
 
         //save history
-        await _historyService.SaveObject(newsLetterSubscription);
+        await newsLetterSubscription.SaveHistory<NewsLetterSubscription>(_historyService);
 
         //Publish event
         await _mediator.EntityInserted(newsLetterSubscription);
@@ -109,8 +109,8 @@ public class NewsLetterSubscriptionService : INewsLetterSubscriptionService
         await _subscriptionRepository.UpdateAsync(newsLetterSubscription);
 
         //save history
-        await _historyService.SaveObject(newsLetterSubscription);
-        
+        await newsLetterSubscription.SaveHistory<NewsLetterSubscription>(_historyService);
+
         //Publish the un/subscribe event 
         if (prevNewsLetterSubscription != null)
             switch (newsLetterSubscription.Active)
@@ -279,9 +279,9 @@ public class NewsLetterSubscriptionService : INewsLetterSubscriptionService
     {
         var count = 0;
         using var reader = new StreamReader(stream);
-        string line;
-        while ((line = await reader.ReadLineAsync()) is not null)
+        while (!reader.EndOfStream)
         {
+            var line = await reader.ReadLineAsync();
             if (string.IsNullOrWhiteSpace(line))
                 continue;
             var tmp = line.Split(',');

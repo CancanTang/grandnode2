@@ -41,7 +41,7 @@ public class ProductExtensionsAttributeParserTests
         product.ProductAttributeMappings.Add(new ProductAttributeMapping { Id = "key10" });
         product.ProductAttributeMappings.Add(new ProductAttributeMapping { Id = "key12" });
         var result = product.ParseProductAttributeMappings(customAtr);
-        Assert.IsEmpty(result);
+        Assert.IsTrue(result.Count == 0);
     }
 
     [TestMethod]
@@ -74,7 +74,7 @@ public class ProductExtensionsAttributeParserTests
     {
         var result =
             ProductExtensions.AddProductAttribute(customAtr, new ProductAttributeMapping { Id = "key6" }, "value6");
-        Assert.HasCount(5, result);
+        Assert.IsTrue(result.Count == 5);
         Assert.IsTrue(result.Last().Value.Equals("value6"));
     }
 
@@ -82,7 +82,7 @@ public class ProductExtensionsAttributeParserTests
     public void RemoveProductAttribute_ReturnExpectedValues()
     {
         var result = ProductExtensions.RemoveProductAttribute(customAtr, new ProductAttributeMapping { Id = "key1" });
-        Assert.HasCount(3, result);
+        Assert.IsTrue(result.Count == 3);
         Assert.IsFalse(result.Any(c => c.Key.Equals("key1")));
     }
 }

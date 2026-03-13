@@ -2,18 +2,17 @@
 using Grand.Business.Core.Interfaces.Common.Configuration;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Directory;
 using Grand.Domain.Tax;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Plugins;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Extensions.Mapping.Settings;
-using Grand.Web.AdminShared.Models.Common;
-using Grand.Web.AdminShared.Models.Tax;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Extensions.Mapping.Settings;
+using Grand.Web.Admin.Models.Common;
+using Grand.Web.Admin.Models.Tax;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Extensions;
-using Grand.Web.Common.Localization;
 using Grand.Web.Common.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -31,8 +30,7 @@ public class TaxController : BaseAdminController
         IServiceProvider serviceProvider,
         ICacheBase cacheBase,
         ITranslationService translationService,
-        ICountryService countryService, 
-        IEnumTranslationService enumTranslationService)
+        ICountryService countryService)
     {
         _taxService = taxService;
         _taxCategoryService = taxCategoryService;
@@ -41,7 +39,6 @@ public class TaxController : BaseAdminController
         _cacheBase = cacheBase;
         _translationService = translationService;
         _countryService = countryService;
-        _enumTranslationService = enumTranslationService;
     }
 
     #endregion
@@ -55,8 +52,7 @@ public class TaxController : BaseAdminController
     private readonly ICacheBase _cacheBase;
     private readonly ITranslationService _translationService;
     private readonly ICountryService _countryService;
-    private readonly IEnumTranslationService _enumTranslationService;
-    
+
     #endregion
 
     #region Tax Providers
@@ -75,8 +71,8 @@ public class TaxController : BaseAdminController
     public async Task<IActionResult> Providers(DataSourceRequest command)
     {
         var storeScope = await GetActiveStore();
-        await _settingService.LoadSetting<TaxSettings>(storeScope);
-        var taxProviderSettings = await _settingService.LoadSetting<TaxProviderSettings>();
+        _settingService.LoadSetting<TaxSettings>(storeScope);
+        var taxProviderSettings = _settingService.LoadSetting<TaxProviderSettings>();
 
         var taxProviders = _taxService.LoadAllTaxProviders()
             .ToList();
@@ -106,7 +102,7 @@ public class TaxController : BaseAdminController
 
     public async Task<IActionResult> MarkAsPrimaryProvider(string systemName)
     {
-        var taxProviderettings = await _settingService.LoadSetting<TaxProviderSettings>();
+        var taxProviderettings = _settingService.LoadSetting<TaxProviderSettings>();
 
         if (string.IsNullOrEmpty(systemName)) return RedirectToAction("Providers");
         var taxProvider = _taxService.LoadTaxProviderBySystemName(systemName);
@@ -130,12 +126,12 @@ public class TaxController : BaseAdminController
     {
         //load settings for a chosen store scope
         var storeScope = await GetActiveStore();
-        var taxSettings = await _settingService.LoadSetting<TaxSettings>(storeScope);
+        var taxSettings = _settingService.LoadSetting<TaxSettings>(storeScope);
         var model = taxSettings.ToModel();
 
         model.ActiveStore = storeScope;
-        model.TaxBasedOnValues = _enumTranslationService.ToSelectList(taxSettings.TaxBasedOn);
-        model.TaxDisplayTypeValues = _enumTranslationService.ToSelectList(taxSettings.TaxDisplayType);
+        model.TaxBasedOnValues = taxSettings.TaxBasedOn.ToSelectList(HttpContext);
+        model.TaxDisplayTypeValues = taxSettings.TaxDisplayType.ToSelectList(HttpContext);
 
         //tax categories
         var taxCategories = await _taxCategoryService.GetAllTaxCategories();
@@ -186,7 +182,7 @@ public class TaxController : BaseAdminController
     {
         //load settings for a chosen store scope
         var storeScope = await GetActiveStore();
-        var taxSettings = await _settingService.LoadSetting<TaxSettings>(storeScope);
+        var taxSettings = _settingService.LoadSetting<TaxSettings>(storeScope);
         taxSettings = model.ToEntity(taxSettings);
 
         await _settingService.SaveSetting(taxSettings, storeScope);

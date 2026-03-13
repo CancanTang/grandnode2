@@ -18,13 +18,17 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <summary>
     ///     Gets the collection
     /// </summary>
-    protected ILiteCollection<T> Collection { get; init; }
+    protected ILiteCollection<T> _collection;
+
+    public ILiteCollection<T> Collection => _collection;
     
     /// <summary>
     ///     Mongo Database
     /// </summary>
-    protected LiteDatabase Database { get; init; }
-    
+    protected LiteDatabase _database;
+
+    public LiteDatabase Database => _database;
+
     #endregion
 
     #region Ctor
@@ -35,28 +39,28 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     public LiteDBRepository(IAuditInfoProvider auditInfoProvider)
     {
         _auditInfoProvider = auditInfoProvider;
-        var connection = DataSettingsManager.Instance.LoadSettings();
+        var connection = DataSettingsManager.LoadSettings();
 
         if (!string.IsNullOrEmpty(connection.ConnectionString))
         {
-            Database = new LiteDatabase(connection.ConnectionString);
-            Collection = Database.GetCollection<T>(typeof(T).Name);
+            _database = new LiteDatabase(connection.ConnectionString);
+            _collection = _database.GetCollection<T>(typeof(T).Name);
         }
     }
 
     public LiteDBRepository(string connectionString, IAuditInfoProvider auditInfoProvider)
     {
         _auditInfoProvider = auditInfoProvider;
-        Database = new LiteDatabase(connectionString);
-        Collection = Database.GetCollection<T>(typeof(T).Name);
+        _database = new LiteDatabase(connectionString);
+        _collection = _database.GetCollection<T>(typeof(T).Name);
     }
 
 
     public LiteDBRepository(LiteDatabase database, IAuditInfoProvider auditInfoProvider)
     {
-        Database = database;
+        _database = database;
         _auditInfoProvider = auditInfoProvider;
-        Collection = Database.GetCollection<T>(typeof(T).Name);
+        _collection = _database.GetCollection<T>(typeof(T).Name);
     }
 
     #endregion
@@ -70,7 +74,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <returns>Entity</returns>
     public virtual T GetById(string id)
     {
-        return Collection.Find(e => e.Id == id).FirstOrDefault();
+        return _collection.Find(e => e.Id == id).FirstOrDefault();
     }
 
     /// <summary>
@@ -93,7 +97,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
         var visitor = new ToLowerInvariantVisitor();
         //WORKAROUND Issue #479 - Method ToLowerInvariant() in String are not supported when convert to BsonExpression
         var modifiedExpression = (Expression<Func<T, bool>>)visitor.Visit(predicate);
-        return Task.FromResult(Collection.Find(modifiedExpression).FirstOrDefault());
+        return Task.FromResult(_collection.Find(modifiedExpression).FirstOrDefault());
     }
 
     /// <summary>
@@ -104,7 +108,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     {
         entity.CreatedOnUtc = _auditInfoProvider.GetCurrentDateTime();
         entity.CreatedBy = _auditInfoProvider.GetCurrentUser();
-        Collection.Insert(entity);
+        _collection.Insert(entity);
         return entity;
     }
 
@@ -126,7 +130,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     {
         entity.UpdatedOnUtc = _auditInfoProvider.GetCurrentDateTime();
         entity.UpdatedBy = _auditInfoProvider.GetCurrentUser();
-        Collection.Update(entity);
+        _collection.Update(entity);
         return entity;
     }
 
@@ -149,12 +153,12 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <param name="value">value</param>
     public virtual Task UpdateField<U>(string id, Expression<Func<T, U>> expression, U value)
     {
-        var entity = Database.GetCollection(typeof(T).Name).FindById(new BsonValue(id));
+        var entity = _database.GetCollection(typeof(T).Name).FindById(new BsonValue(id));
         var bsonValue = BsonMapper.Global.Serialize(value);
         entity[GetName(expression)] = bsonValue;
         entity["UpdatedOnUtc"] = _auditInfoProvider.GetCurrentDateTime();
         entity["UpdatedBy"] = _auditInfoProvider.GetCurrentUser();
-        Database.GetCollection(typeof(T).Name).Update(entity);
+        _database.GetCollection(typeof(T).Name).Update(entity);
 
         return Task.CompletedTask;
     }
@@ -168,20 +172,20 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <param name="value">value</param>
     public virtual Task IncField<U>(string id, Expression<Func<T, U>> expression, U value)
     {
-        var entity = Database.GetCollection(typeof(T).Name).FindById(new BsonValue(id));
+        var entity = _database.GetCollection(typeof(T).Name).FindById(new BsonValue(id));
         switch (value)
         {
             case int intValue:
                 var intrawValue = Convert.ToInt32(entity[GetName(expression)].RawValue);
                 var bsonIntValue = BsonMapper.Global.Serialize(intrawValue + intValue);
                 entity[GetName(expression)] = bsonIntValue;
-                Database.GetCollection(typeof(T).Name).Update(entity);
+                _database.GetCollection(typeof(T).Name).Update(entity);
                 break;
             case long longValue:
                 var longrawValue = Convert.ToInt64(entity[GetName(expression)].RawValue);
                 var bsonLongValue = BsonMapper.Global.Serialize(longrawValue + longValue);
                 entity[GetName(expression)] = bsonLongValue;
-                Database.GetCollection(typeof(T).Name).Update(entity);
+                _database.GetCollection(typeof(T).Name).Update(entity);
                 break;
         }
 
@@ -196,7 +200,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <returns></returns>
     public virtual Task UpdateOneAsync(Expression<Func<T, bool>> filterexpression, UpdateBuilder<T> updateBuilder)
     {
-        var entity = Collection.FindOne(filterexpression);
+        var entity = _collection.FindOne(filterexpression);
         Update(entity, updateBuilder);
         return Task.CompletedTask;
     }
@@ -209,7 +213,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <returns></returns>
     public virtual Task UpdateManyAsync(Expression<Func<T, bool>> filterexpression, UpdateBuilder<T> updateBuilder)
     {
-        var entities = Collection.Find(filterexpression);
+        var entities = _collection.Find(filterexpression);
         foreach (var entity in entities) Update(entity, updateBuilder);
         return Task.CompletedTask;
     }
@@ -226,10 +230,10 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
             propertyInfo?.SetValue(entity, item.Value);
         }
 
-        entity!.UpdatedOnUtc = _auditInfoProvider.GetCurrentDateTime();
-        entity!.UpdatedBy = _auditInfoProvider.GetCurrentUser();
+        entity.UpdatedOnUtc = _auditInfoProvider.GetCurrentDateTime();
+        entity.UpdatedBy = _auditInfoProvider.GetCurrentUser();
 
-        Collection.Update(entity);
+        _collection.Update(entity);
         return Task.CompletedTask;
     }
 
@@ -243,7 +247,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <returns></returns>
     public virtual Task AddToSet<U>(string id, Expression<Func<T, IEnumerable<U>>> field, U value)
     {
-        var collection = Database.GetCollection(Collection.Name);
+        var collection = _database.GetCollection(_collection.Name);
         var entity = collection.FindById(new BsonValue(id));
         var fieldName = ((MemberExpression)field.Body).Member.Name;
 
@@ -274,7 +278,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     public virtual Task UpdateToSet<U, Z>(string id, Expression<Func<T, IEnumerable<U>>> field,
         Expression<Func<U, Z>> elemFieldMatch, Z elemMatch, U value)
     {
-        var collection = Database.GetCollection(Collection.Name);
+        var collection = _database.GetCollection(_collection.Name);
         var entity = collection.FindById(new BsonValue(id));
         var fieldName = ((MemberExpression)field.Body).Member.Name;
 
@@ -310,7 +314,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     public virtual Task UpdateToSet<U>(string id, Expression<Func<T, IEnumerable<U>>> field,
         Expression<Func<U, bool>> elemFieldMatch, U value)
     {
-        var collection = Database.GetCollection(Collection.Name);
+        var collection = _database.GetCollection(_collection.Name);
         var entity = collection.FindById(new BsonValue(id));
         var fieldName = ((MemberExpression)field.Body).Member.Name;
         if (entity == null) return Task.CompletedTask;
@@ -352,7 +356,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <returns></returns>
     public virtual Task UpdateToSet<U>(Expression<Func<T, IEnumerable<U>>> field, U elemFieldMatch, U value)
     {
-        var collection = Database.GetCollection(Collection.Name);
+        var collection = _database.GetCollection(_collection.Name);
         var fieldName = ((MemberExpression)field.Body).Member.Name;
         var records = collection.Find(Query.EQ($"{fieldName}[*] ANY", elemFieldMatch.ToString())).ToList();
         foreach (var entity in records)
@@ -361,7 +365,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
                 var bsonValue = BsonMapper.Global.Serialize(value);
                 var oldbsonValue = BsonMapper.Global.Serialize(elemFieldMatch);
                 var list = entity[fieldName].AsArray.ToList();
-                if (list.Any())
+                if (list != null && list.Any())
                 {
                     list.Add(bsonValue);
                     list.Remove(oldbsonValue);
@@ -388,7 +392,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     public virtual Task PullFilter<U, Z>(string id, Expression<Func<T, IEnumerable<U>>> field,
         Expression<Func<U, Z>> elemFieldMatch, Z elemMatch)
     {
-        var collection = Database.GetCollection(Collection.Name);
+        var collection = _database.GetCollection(_collection.Name);
         var fieldName = ((MemberExpression)field.Body).Member.Name;
 
         var member = ((MemberExpression)elemFieldMatch.Body).Member;
@@ -415,7 +419,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
                 var bsonValue = BsonMapper.Global.Serialize(elemMatch);
                 var list = entity[fieldName].AsArray.ToList();
                 var documents = list.Where(x => x[elementfieldName] == new BsonValue(elemMatch)).ToList();
-                if (documents.Any())
+                if (documents != null && documents.Any())
                 {
                     foreach (var document in documents) list.Remove(document);
                     entity[fieldName] = new BsonArray(list);
@@ -440,7 +444,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     public virtual Task PullFilter<U>(string id, Expression<Func<T, IEnumerable<U>>> field,
         Expression<Func<U, bool>> elemFieldMatch)
     {
-        var collection = Database.GetCollection(Collection.Name);
+        var collection = _database.GetCollection(_collection.Name);
         var entity = collection.FindById(new BsonValue(id));
         var fieldName = ((MemberExpression)field.Body).Member.Name;
         if (entity == null) return Task.CompletedTask;
@@ -472,7 +476,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <returns></returns>
     public virtual Task Pull(string id, Expression<Func<T, IEnumerable<string>>> field, string element)
     {
-        var collection = Database.GetCollection(Collection.Name);
+        var collection = _database.GetCollection(_collection.Name);
         var fieldName = ((MemberExpression)field.Body).Member.Name;
         if (string.IsNullOrEmpty(id))
         {
@@ -491,7 +495,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
             if (entity != null && entity[fieldName].IsArray)
             {
                 var list = entity[fieldName].AsArray.ToList();
-                if (list.Any())
+                if (list != null && list.Any())
                 {
                     list.Remove(new BsonValue(element));
                     entity[fieldName] = new BsonArray(list);
@@ -511,7 +515,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <param name="entity">Entity</param>
     public virtual void Delete(T entity)
     {
-        Collection.Delete(new BsonValue(entity.Id));
+        _collection.Delete(new BsonValue(entity.Id));
     }
 
     /// <summary>
@@ -540,7 +544,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <returns></returns>
     public virtual Task DeleteManyAsync(Expression<Func<T, bool>> filterExpression)
     {
-        Collection.DeleteMany(filterExpression);
+        _collection.DeleteMany(filterExpression);
         return Task.CompletedTask;
     }
 
@@ -549,7 +553,7 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// </summary>
     public Task ClearAsync()
     {
-        Collection.DeleteAll();
+        _collection.DeleteAll();
         return Task.CompletedTask;
     }
 
@@ -560,27 +564,27 @@ public class LiteDBRepository<T> : IRepository<T> where T : BaseEntity
     /// <summary>
     ///     Gets a table
     /// </summary>
-    public virtual IQueryable<T> Table => Collection.Query().ToEnumerable().AsQueryable();
+    public virtual IQueryable<T> Table => _collection.Query().ToEnumerable().AsQueryable();
 
     /// <summary>
     ///     Gets a table collection
     /// </summary>
-    public virtual IQueryable<C> TableCollection<C>() where C : class
+    public virtual IQueryable<T> TableCollection(string collectionName)
     {
-        return Database.GetCollection<C>(nameof(T)).Query().ToEnumerable().AsQueryable();
+        return _database.GetCollection<T>(collectionName).Query().ToEnumerable().AsQueryable();
     }
 
     #endregion
 
     #region Helpers
 
-    private static string GetName(LambdaExpression lambdaexpression)
+    private string GetName(LambdaExpression lambdaexpression)
     {
         var expression = (MemberExpression)lambdaexpression.Body;
         return expression.Member.Name;
     }
 
-    private static string GetName<TSource, TField>(Expression<Func<TSource, TField>> Field)
+    private string GetName<TSource, TField>(Expression<Func<TSource, TField>> Field)
     {
         if (Equals(Field, null)) throw new NullReferenceException("Field is required");
 

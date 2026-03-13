@@ -24,20 +24,17 @@ public class AuthorizeMenuAttributeTests
     private Mock<IAdminSiteMapService> _mockAdminSiteMapService;
     private AuthorizationFilterContext _mockFilterContext;
     private Mock<IPermissionService> _mockPermissionService;
-    private Mock<IContextAccessor> _mockWorkContext;
+    private Mock<IWorkContext> _mockWorkContext;
     private SecurityConfig _securityConfig;
 
     [TestInitialize]
     public void Setup()
     {
-        var path = Path.Combine("", CommonPath.AppData, CommonPath.SettingsFile);
-        DataSettingsManager.Initialize(path);
-        var settings = DataSettingsManager.Instance.LoadSettings();
+        CommonPath.BaseDirectory = "";
+        var settings = DataSettingsManager.LoadSettings();
         _mockPermissionService = new Mock<IPermissionService>();
         _mockAdminSiteMapService = new Mock<IAdminSiteMapService>();
-        _mockWorkContext = new Mock<IContextAccessor>();
-        _mockWorkContext.Setup(s => s.WorkContext.CurrentCustomer).Returns(new Customer());
-
+        _mockWorkContext = new Mock<IWorkContext>();
         _securityConfig = new SecurityConfig();
         var filters = new List<IFilterMetadata> {
             new AuthorizeMenuAttribute()
@@ -129,7 +126,6 @@ public class AuthorizeMenuAttributeTests
         };
         _mockAdminSiteMapService.Setup(s => s.GetSiteMap()).ReturnsAsync(new List<AdminSiteMap> { menuSiteMap });
         _mockPermissionService.Setup(s => s.Authorize(It.IsAny<string>(), It.IsAny<Customer>())).ReturnsAsync(false);
-
         _securityConfig.AuthorizeAdminMenu = true;
         var attribute = new AuthorizeMenuAttribute();
         var filter = new AuthorizeMenuAttribute.AuthorizeMenuFilter(

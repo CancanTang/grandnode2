@@ -17,7 +17,8 @@ public class CanCaptureQueryHandler : IRequestHandler<CanCaptureQuery, bool>
     public async Task<bool> Handle(CanCaptureQuery request, CancellationToken cancellationToken)
     {
         var paymentTransaction = request.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(request.PaymentTransaction));
 
         if (paymentTransaction.TransactionStatus is TransactionStatus.Canceled or TransactionStatus.Pending)
             return false;

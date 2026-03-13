@@ -1,5 +1,4 @@
 ﻿@model SlideModel
-@inject IEnumTranslationService EnumTranslation
 <script>
         $(document).ready(function () {
             $("#@Html.IdFor(model => model.SliderTypeId)").change(toggleSliderType);
@@ -112,7 +111,7 @@
         <div class="form-group">
             <admin-label asp-for="SliderTypeId"/>
             <div class="col-md-9 col-sm-9">
-                <admin-select asp-for="SliderTypeId" asp-items="@EnumTranslation.ToSelectList((SliderType)Model.SliderTypeId)"/>
+                <admin-select asp-for="SliderTypeId" asp-items="((SliderType)Model.SliderTypeId).ToSelectList()"/>
                 <span asp-validation-for="SliderTypeId"></span>
             </div>
         </div>

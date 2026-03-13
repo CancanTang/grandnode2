@@ -4,6 +4,7 @@ using Grand.Data;
 using Grand.Data.Tests.MongoDb;
 using Grand.Domain.Catalog;
 using Grand.Domain.Common;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -20,6 +21,8 @@ public class OutOfStockSubscriptionServiceTests
     [TestInitialize]
     public void InitializeTests()
     {
+        CommonPath.BaseDirectory = "";
+
         _repository = new MongoDBRepositoryTest<OutOfStockSubscription>();
         _mediatorMock = new Mock<IMediator>();
         _mediatorMock.Setup(x => x.Send(It.IsAny<SendNotificationsToSubscribersCommand>(), default))
@@ -48,7 +51,7 @@ public class OutOfStockSubscriptionServiceTests
         var result = await _outOfStockSubscriptionService.GetAllSubscriptionsByCustomerId("1");
 
         //Assert
-        Assert.HasCount(2, result);
+        Assert.AreEqual(2, result.Count);
     }
 
     [TestMethod]
@@ -167,7 +170,7 @@ public class OutOfStockSubscriptionServiceTests
 
         //Assert
         Assert.IsTrue(_repository.Table.Any());
-        Assert.AreEqual(1, _repository.Table.Count());
+        Assert.IsTrue(_repository.Table.Count() == 1);
     }
 
     [TestMethod]
@@ -185,7 +188,7 @@ public class OutOfStockSubscriptionServiceTests
         //Act
         await _outOfStockSubscriptionService.UpdateSubscription(outOfStockSubscription1);
         //Assert
-        Assert.AreEqual("2", _repository.Table.FirstOrDefault().CustomerId);
+        Assert.IsTrue(_repository.Table.FirstOrDefault().CustomerId == "2");
     }
 
     [TestMethod]
@@ -204,7 +207,7 @@ public class OutOfStockSubscriptionServiceTests
 
         //Assert
         Assert.IsFalse(_repository.Table.Any());
-        Assert.AreEqual(0, _repository.Table.Count());
+        Assert.IsTrue(_repository.Table.Count() == 0);
     }
 
     [TestMethod]
@@ -272,7 +275,7 @@ public class OutOfStockSubscriptionServiceTests
 
         //Act
         await _outOfStockSubscriptionService.SendNotificationsToSubscribers(new Product { Id = "1" },
-            [new() { Key = "MyKey", Value = "1" }], "");
+            new CustomAttribute[] { new() { Key = "MyKey", Value = "1" } }, "");
 
         //Assert
         _mediatorMock.Verify(c => c.Send(It.IsAny<SendNotificationsToSubscribersCommand>(), default),

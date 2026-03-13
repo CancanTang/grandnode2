@@ -9,7 +9,8 @@ public class CanMarkPaymentTransactionAsPaidQueryHandler : IRequestHandler<CanMa
     public async Task<bool> Handle(CanMarkPaymentTransactionAsPaidQuery request, CancellationToken cancellationToken)
     {
         var paymentTransaction = request.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(request.PaymentTransaction));
 
         if (paymentTransaction.TransactionStatus is TransactionStatus.Canceled or TransactionStatus.Paid
             or TransactionStatus.Refunded or TransactionStatus.PartiallyRefunded or TransactionStatus.Voided)

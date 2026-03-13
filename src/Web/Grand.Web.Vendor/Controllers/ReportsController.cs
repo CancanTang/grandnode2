@@ -1,16 +1,16 @@
-﻿using Grand.Business.Core.Interfaces.Catalog.Prices;
+﻿using Grand.Business.Core.Extensions;
+using Grand.Business.Core.Interfaces.Catalog.Prices;
 using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.System.Reports;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Payments;
 using Grand.Infrastructure;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Extensions;
-using Grand.Web.Common.Localization;
 using Grand.Web.Common.Security.Authorization;
 using Grand.Web.Vendor.Models.Report;
 using Microsoft.AspNetCore.Mvc;
@@ -34,12 +34,12 @@ public class ReportsController : BaseVendorController
     private readonly IProductsReportService _productsReportService;
     private readonly IStockQuantityService _stockQuantityService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
-    private readonly IEnumTranslationService _enumTranslationService;
+    private readonly IWorkContext _workContext;
+
     public ReportsController(IOrderReportService orderReportService,
         IProductsReportService productsReportService,
         ICustomerReportService customerReportService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IPriceFormatter priceFormatter,
         IProductService productService,
         IProductAttributeFormatter productAttributeFormatter,
@@ -49,13 +49,12 @@ public class ReportsController : BaseVendorController
         IDateTimeService dateTimeService,
         IOrderStatusService orderStatusService,
         ICurrencyService currencyService,
-        ICustomerService customerService, 
-        IEnumTranslationService enumTranslationService)
+        ICustomerService customerService)
     {
         _orderReportService = orderReportService;
         _productsReportService = productsReportService;
         _customerReportService = customerReportService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _priceFormatter = priceFormatter;
         _productService = productService;
         _productAttributeFormatter = productAttributeFormatter;
@@ -66,7 +65,6 @@ public class ReportsController : BaseVendorController
         _orderStatusService = orderStatusService;
         _currencyService = currencyService;
         _customerService = customerService;
-        _enumTranslationService = enumTranslationService;
     }
 
     [NonAction]
@@ -74,7 +72,7 @@ public class ReportsController : BaseVendorController
         int pageSize, int orderBy)
     {
         var items = await _orderReportService.BestSellersReport(
-            vendorId: _contextAccessor.WorkContext.CurrentVendor.Id,
+            vendorId: _workContext.CurrentVendor.Id,
             orderBy: orderBy,
             pageIndex: pageIndex,
             pageSize: pageSize,
@@ -123,7 +121,7 @@ public class ReportsController : BaseVendorController
     {
         var model = new BestsellersReportModel {
             //payment statuses
-            AvailablePaymentStatuses = _enumTranslationService.ToSelectList(PaymentStatus.Pending, false).ToList()
+            AvailablePaymentStatuses = PaymentStatus.Pending.ToSelectList(HttpContext, false).ToList()
         };
         model.AvailablePaymentStatuses.Insert(0,
             new SelectListItem { Text = _translationService.GetResource("Vendor.Common.All"), Value = "" });
@@ -156,7 +154,7 @@ public class ReportsController : BaseVendorController
             ps: paymentStatus,
             billingCountryId: model.BillingCountryId,
             orderBy: 2,
-            vendorId: _contextAccessor.WorkContext.CurrentVendor.Id,
+            vendorId: _workContext.CurrentVendor.Id,
             pageIndex: command.Page - 1,
             pageSize: command.PageSize,
             showHidden: true,
@@ -174,9 +172,9 @@ public class ReportsController : BaseVendorController
             var product = await _productService.GetProductById(x.ProductId);
             if (product != null)
                 m.ProductName = product.Name;
-            if (_contextAccessor.WorkContext.CurrentVendor != null)
+            if (_workContext.CurrentVendor != null)
             {
-                if (product?.VendorId == _contextAccessor.WorkContext.CurrentVendor.Id)
+                if (product?.VendorId == _workContext.CurrentVendor.Id)
                     result.Add(m);
             }
             else
@@ -211,7 +209,7 @@ public class ReportsController : BaseVendorController
             : _dateTimeService.ConvertToUtcTime(model.EndDate.Value, _dateTimeService.CurrentTimeZone).AddDays(1);
 
 
-        var items = await _orderReportService.ProductsNeverSold("", _contextAccessor.WorkContext.CurrentVendor.Id,
+        var items = await _orderReportService.ProductsNeverSold("", _workContext.CurrentVendor.Id,
             startDateValue, endDateValue,
             command.Page - 1, command.PageSize, true);
         var gridModel = new DataSourceResult {
@@ -230,7 +228,7 @@ public class ReportsController : BaseVendorController
     {
         var model = new CountryReportModel {
             //payment statuses
-            AvailablePaymentStatuses = _enumTranslationService.ToSelectList(PaymentStatus.Pending, false).ToList()
+            AvailablePaymentStatuses = PaymentStatus.Pending.ToSelectList(HttpContext, false).ToList()
         };
 
         model.AvailablePaymentStatuses.Insert(0,
@@ -253,7 +251,7 @@ public class ReportsController : BaseVendorController
         var paymentStatus = model.PaymentStatusId > 0 ? (PaymentStatus?)model.PaymentStatusId : null;
 
         var items = await _orderReportService.GetCountryReport(
-            vendorId: _contextAccessor.WorkContext.CurrentVendor.Id,
+            vendorId: _workContext.CurrentVendor.Id,
             ps: paymentStatus,
             startTimeUtc: startDateValue,
             endTimeUtc: endDateValue);
@@ -287,7 +285,7 @@ public class ReportsController : BaseVendorController
     [HttpPost]
     public async Task<IActionResult> LowStockReportList(DataSourceRequest command)
     {
-        var lowStockProducts = await _productsReportService.LowStockProducts(_contextAccessor.WorkContext.CurrentVendor.Id);
+        var lowStockProducts = await _productsReportService.LowStockProducts(_workContext.CurrentVendor.Id);
 
         var models = new List<LowStockProductModel>();
         //products
@@ -296,7 +294,9 @@ public class ReportsController : BaseVendorController
             var lowStockModel = new LowStockProductModel {
                 Id = product.Id,
                 Name = product.Name,
-                ManageInventoryMethod = _enumTranslationService.GetTranslationEnum(product.ManageInventoryMethodId),
+                ManageInventoryMethod =
+                    product.ManageInventoryMethodId.GetTranslationEnum(_translationService,
+                        _workContext.WorkingLanguage.Id),
                 StockQuantity = _stockQuantityService.GetTotalStockQuantity(product, total: true),
                 Published = product.Published
             };
@@ -311,8 +311,10 @@ public class ReportsController : BaseVendorController
                 Id = product.Id,
                 Name = product.Name,
                 Attributes = await _productAttributeFormatter.FormatAttributes(product, combination.Attributes,
-                    _contextAccessor.WorkContext.CurrentCustomer, "<br />", true, true, true, false),
-                ManageInventoryMethod = _enumTranslationService.GetTranslationEnum(product.ManageInventoryMethodId),
+                    _workContext.CurrentCustomer, "<br />", true, true, true, false),
+                ManageInventoryMethod =
+                    product.ManageInventoryMethodId.GetTranslationEnum(_translationService,
+                        _workContext.WorkingLanguage.Id),
                 StockQuantity = combination.StockQuantity,
                 Published = product.Published
             };
@@ -336,7 +338,8 @@ public class ReportsController : BaseVendorController
         var model = new CustomerReportsModel();
         var status = await _orderStatusService.GetAll();
 
-        model.AvailablePaymentStatuses = _enumTranslationService.ToSelectList(PaymentStatus.Pending, false).ToList();
+        model.AvailablePaymentStatuses =
+            PaymentStatus.Pending.ToSelectList(_translationService, _workContext, false).ToList();
         model.AvailablePaymentStatuses.Insert(0,
             new SelectListItem { Text = _translationService.GetResource("Vendor.Common.All"), Value = "" });
 
@@ -357,7 +360,7 @@ public class ReportsController : BaseVendorController
 
         var paymentStatus = model.PaymentStatusId > 0 ? (PaymentStatus?)model.PaymentStatusId : null;
 
-        var items = _customerReportService.GetBestCustomersReport("", _contextAccessor.WorkContext.CurrentVendor.Id, startDateValue,
+        var items = _customerReportService.GetBestCustomersReport("", _workContext.CurrentVendor.Id, startDateValue,
             endDateValue,
             null, paymentStatus, null, 2, command.Page - 1, command.PageSize);
 

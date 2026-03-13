@@ -7,7 +7,7 @@ using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.Storage;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
 using Grand.Domain.Common;
 using Grand.Domain.Media;
@@ -23,19 +23,16 @@ using Grand.Web.Features.Models.Products;
 using Grand.Web.Models.Catalog;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Grand.SharedKernel.Attributes;
-using Grand.SharedKernel.Extensions;
 
 namespace Grand.Web.Controllers;
 
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class ProductController : BasePublicController
 {
     #region Constructors
 
     public ProductController(
         IProductService productService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ITranslationService translationService,
         IRecentlyViewedProductsService recentlyViewedProductsService,
         IShoppingCartService shoppingCartService,
@@ -47,7 +44,7 @@ public class ProductController : BasePublicController
     )
     {
         _productService = productService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _translationService = translationService;
         _recentlyViewedProductsService = recentlyViewedProductsService;
         _shoppingCartService = shoppingCartService;
@@ -68,7 +65,7 @@ public class ProductController : BasePublicController
         if (!_catalogSettings.RecentlyViewedProductsEnabled)
             return Content("");
 
-        var products = await _recentlyViewedProductsService.GetRecentlyViewedProducts(_contextAccessor.WorkContext.CurrentCustomer.Id,
+        var products = await _recentlyViewedProductsService.GetRecentlyViewedProducts(_workContext.CurrentCustomer.Id,
             _catalogSettings.RecentlyViewedProductsNumber);
 
         //prepare model
@@ -115,7 +112,7 @@ public class ProductController : BasePublicController
             return Content("");
 
         var products = (await _productService.SearchProducts(
-            storeId: _contextAccessor.StoreContext.CurrentStore.Id,
+            storeId: _workContext.CurrentStore.Id,
             visibleIndividuallyOnly: true,
             markedAsNewOnly: true,
             orderBy: ProductSortingEnum.CreatedOn,
@@ -147,16 +144,16 @@ public class ProductController : BasePublicController
         if (ModelState.IsValid)
         {
             await _mediator.Send(new SendProductEmailAFriendMessageCommand {
-                Customer = _contextAccessor.WorkContext.CurrentCustomer,
+                Customer = _workContext.CurrentCustomer,
                 Product = product,
-                Language = _contextAccessor.WorkContext.WorkingLanguage,
-                Store = _contextAccessor.StoreContext.CurrentStore,
+                Language = _workContext.WorkingLanguage,
+                Store = _workContext.CurrentStore,
                 Model = model
             });
 
             model.ProductId = product.Id;
-            model.ProductName = product.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id);
-            model.ProductSeName = product.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id);
+            model.ProductName = product.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id);
+            model.ProductSeName = product.GetSeName(_workContext.WorkingLanguage.Id);
 
             model.SuccessfullySent = true;
             model.Result = _translationService.GetResource("Products.EmailAFriend.SuccessfullySent");
@@ -166,8 +163,8 @@ public class ProductController : BasePublicController
 
         //If we got this far, something failed, redisplay form
         model.ProductId = product.Id;
-        model.ProductName = product.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id);
-        model.ProductSeName = product.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id);
+        model.ProductName = product.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id);
+        model.ProductSeName = product.GetSeName(_workContext.WorkingLanguage.Id);
         model.DisplayCaptcha = _captchaSettings.Enabled && _captchaSettings.ShowOnEmailProductToFriendPage;
         model.SuccessfullySent = false;
         model.Result = string.Join(",", ModelState.Values.SelectMany(v => v.Errors).Select(x => x.ErrorMessage));
@@ -207,9 +204,9 @@ public class ProductController : BasePublicController
 
         // email
         await _mediator.Send(new SendProductAskQuestionMessageCommand {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore,
             Model = productaskqestionmodel,
             Product = product,
             RemoteIpAddress = HttpContext.Connection?.RemoteIpAddress?.ToString()
@@ -236,7 +233,7 @@ public class ProductController : BasePublicController
         if (!string.IsNullOrEmpty(parameter)) query = query.Where(x => x.Parameter == parameter);
 
         var reservations = query.ToList();
-        var inCart = (await _shoppingCartService.GetShoppingCart(_contextAccessor.StoreContext.CurrentStore.Id))
+        var inCart = (await _shoppingCartService.GetShoppingCart(_workContext.CurrentStore.Id))
             .Where(x => !string.IsNullOrEmpty(x.ReservationId)).ToList();
         foreach (var cartItem in inCart)
         {
@@ -254,7 +251,7 @@ public class ProductController : BasePublicController
     #region Fields
 
     private readonly IProductService _productService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly ITranslationService _translationService;
     private readonly IRecentlyViewedProductsService _recentlyViewedProductsService;
     private readonly IShoppingCartService _shoppingCartService;
@@ -269,32 +266,32 @@ public class ProductController : BasePublicController
     #region Product details page
 
     [HttpGet]
-    public virtual async Task<ActionResult<ProductDetailsModel>> ProductDetails(string productId)
+    public virtual async Task<IActionResult> ProductDetails(string productId)
     {
         var product = await _productService.GetProductById(productId);
         if (product == null)
-            return NotFound();
+            return InvokeHttp404();
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         //published?
         if (!_catalogSettings.AllowViewUnpublishedProductPage)
             //Check whether the current user has a "Manage catalog" permission
             //It allows him to preview a product before publishing
             if (!product.Published && !await _permissionService.Authorize(StandardPermission.ManageProducts, customer))
-                return NotFound();
+                return InvokeHttp404();
 
         //ACL (access control list)
         if (!_aclService.Authorize(product, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //Store access
-        if (!_aclService.Authorize(product, _contextAccessor.StoreContext.CurrentStore.Id))
-            return NotFound();
+        if (!_aclService.Authorize(product, _workContext.CurrentStore.Id))
+            return InvokeHttp404();
 
         //availability dates
         if (!product.IsAvailable() && product.ProductTypeId != ProductType.Auction)
-            return NotFound();
+            return InvokeHttp404();
 
         //visible individually?
         if (!product.VisibleIndividually)
@@ -304,12 +301,12 @@ public class ProductController : BasePublicController
             return parentGroupedProduct == null
                 ? RedirectToRoute("HomePage")
                 : RedirectToRoute("Product",
-                    new { SeName = parentGroupedProduct.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id) });
+                    new { SeName = parentGroupedProduct.GetSeName(_workContext.WorkingLanguage.Id) });
         }
 
         //prepare the model
         var model = await _mediator.Send(new GetProductDetailsPage {
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Store = _workContext.CurrentStore,
             Product = product,
             IsAssociatedProduct = false
         });
@@ -325,7 +322,7 @@ public class ProductController : BasePublicController
         if (await _permissionService.Authorize(StandardPermission.ManageAccessAdminPanel, customer) &&
             await _permissionService.Authorize(StandardPermission.ManageProducts, customer))
             //a vendor should have access only to his products
-            if (_contextAccessor.WorkContext.CurrentVendor == null || _contextAccessor.WorkContext.CurrentVendor.Id == product.VendorId)
+            if (_workContext.CurrentVendor == null || _workContext.CurrentVendor.Id == product.VendorId)
                 DisplayEditLink(Url.Action("Edit", "Product", new { id = product.Id, area = "Admin" }));
         _ = _productService.IncrementProductField(product, x => x.Viewed, 1);
 
@@ -335,16 +332,16 @@ public class ProductController : BasePublicController
     //handle product attribute selection event. this way we return new price, overridden gtin/sku/mpn
     //currently we use this method on the product details pages
     [HttpPost]
-    public virtual async Task<ActionResult<ProductDetailsModel>> ProductDetails_AttributeChange(ProductModel model)
+    public virtual async Task<IActionResult> ProductDetails_AttributeChange(ProductModel model)
     {
         var product = await _productService.GetProductById(model.ProductId);
         if (product == null)
             return new JsonResult("");
 
         var modelProduct = await _mediator.Send(new GetProductDetailsAttributeChange {
-            Currency = _contextAccessor.WorkContext.WorkingCurrency,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Currency = _workContext.WorkingCurrency,
+            Customer = _workContext.CurrentCustomer,
+            Store = _workContext.CurrentStore,
             Model = model,
             Product = product
         });
@@ -381,7 +378,7 @@ public class ProductController : BasePublicController
     }
 
     [HttpPost]
-    public virtual async Task<IActionResult> UploadFileProductAttribute(string attributeId, string productId, IFormFile file,
+    public virtual async Task<IActionResult> UploadFileProductAttribute(string attributeId, string productId,
         [FromServices] IDownloadService downloadService)
     {
         var product = await _productService.GetProductById(productId);
@@ -396,28 +393,35 @@ public class ProductController : BasePublicController
                 success = false,
                 downloadGuid = Guid.Empty
             });
-
-        if (file == null)
+        var form = await HttpContext.Request.ReadFormAsync();
+        var httpPostedFile = form.Files.FirstOrDefault();
+        if (httpPostedFile == null)
             return Json(new {
                 success = false,
                 message = "No file uploaded",
                 downloadGuid = Guid.Empty
             });
-        var fileName = file.FileName;
-        var contentType = file.ContentType;
+        var fileBinary = httpPostedFile.GetDownloadBits();
+        var fileName = httpPostedFile.FileName;
+
+        var contentType = httpPostedFile.ContentType;
+
         var fileExtension = Path.GetExtension(fileName);
+        if (!string.IsNullOrEmpty(fileExtension))
+            fileExtension = fileExtension.ToLowerInvariant();
 
         if (!string.IsNullOrEmpty(attribute.ValidationFileAllowedExtensions))
         {
-            var allowedFileExtensions = attribute.ValidationFileAllowedExtensions.Split([','], StringSplitOptions.RemoveEmptyEntries);
-            if (!allowedFileExtensions.IsAllowedMediaFileType(fileExtension))
+            var allowedFileExtensions = attribute.ValidationFileAllowedExtensions.ToLowerInvariant()
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
+            if (!allowedFileExtensions.Contains(fileExtension.ToLowerInvariant()))
                 return Json(new {
                     success = false,
                     message = _translationService.GetResource("ShoppingCart.ValidationFileAllowed"),
                     downloadGuid = Guid.Empty
                 });
         }
-        var fileBinary = file.GetDownloadBits();
 
         if (attribute.ValidationFileMaximumSize.HasValue)
         {
@@ -436,7 +440,7 @@ public class ProductController : BasePublicController
 
         var download = new Download {
             DownloadGuid = Guid.NewGuid(),
-            CustomerId = _contextAccessor.WorkContext.CurrentCustomer.Id,
+            CustomerId = _workContext.CurrentCustomer.Id,
             UseDownloadUrl = false,
             DownloadUrl = "",
             DownloadBinary = fileBinary,
@@ -470,7 +474,7 @@ public class ProductController : BasePublicController
                 message = "No product found with the specified ID"
             });
 
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         //published?
         if (!_catalogSettings.AllowViewUnpublishedProductPage)
@@ -490,7 +494,7 @@ public class ProductController : BasePublicController
             });
 
         //Store access
-        if (!_aclService.Authorize(product, _contextAccessor.StoreContext.CurrentStore.Id))
+        if (!_aclService.Authorize(product, _workContext.CurrentStore.Id))
             return Json(new {
                 success = false,
                 message = "No product found with the specified ID"
@@ -513,13 +517,13 @@ public class ProductController : BasePublicController
                     redirect = Url.RouteUrl("HomePage")
                 });
             return Json(new {
-                redirect = Url.RouteUrl("Product", new { SeName = product.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id) })
+                redirect = Url.RouteUrl("Product", new { SeName = product.GetSeName(_workContext.WorkingLanguage.Id) })
             });
         }
 
         //prepare the model
         var model = await _mediator.Send(new GetProductDetailsPage {
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Store = _workContext.CurrentStore,
             Product = product,
             IsAssociatedProduct = false,
             UpdateCartItem = null
@@ -561,8 +565,8 @@ public class ProductController : BasePublicController
         if (ModelState.IsValid)
         {
             var productReview = await _mediator.Send(new InsertProductReviewCommand {
-                Customer = _contextAccessor.WorkContext.CurrentCustomer,
-                Store = _contextAccessor.StoreContext.CurrentStore,
+                Customer = _workContext.CurrentCustomer,
+                Store = _workContext.CurrentStore,
                 Model = model,
                 Product = product
             });
@@ -575,10 +579,10 @@ public class ProductController : BasePublicController
                 await _mediator.Publish(new ProductReviewApprovedEvent(productReview));
 
             model = await _mediator.Send(new GetProductReviews {
-                Customer = _contextAccessor.WorkContext.CurrentCustomer,
-                Language = _contextAccessor.WorkContext.WorkingLanguage,
+                Customer = _workContext.CurrentCustomer,
+                Language = _workContext.WorkingLanguage,
                 Product = product,
-                Store = _contextAccessor.StoreContext.CurrentStore,
+                Store = _workContext.CurrentStore,
                 Size = _catalogSettings.NumberOfReview
             });
 
@@ -595,8 +599,8 @@ public class ProductController : BasePublicController
                 model.AddProductReview.Result = _translationService.GetResource("Reviews.SuccessfullyAdded");
                 model.ProductReviewOverviewModel = await _mediator.Send(new GetProductReviewOverview {
                     Product = product,
-                    Language = _contextAccessor.WorkContext.WorkingLanguage,
-                    Store = _contextAccessor.StoreContext.CurrentStore
+                    Language = _workContext.WorkingLanguage,
+                    Store = _workContext.CurrentStore
                 });
             }
 
@@ -605,10 +609,10 @@ public class ProductController : BasePublicController
 
         //If we got this far, something failed, redisplay form
         var newmodel = await _mediator.Send(new GetProductReviews {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
             Product = product,
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Store = _workContext.CurrentStore,
             Size = _catalogSettings.NumberOfReview
         });
 
@@ -633,7 +637,7 @@ public class ProductController : BasePublicController
         if (productReview == null)
             throw new ArgumentException("No product review found with the specified id");
 
-        if (await groupService.IsGuest(_contextAccessor.WorkContext.CurrentCustomer) &&
+        if (await groupService.IsGuest(_workContext.CurrentCustomer) &&
             !_catalogSettings.AllowAnonymousUsersToReviewProduct)
             return Json(new {
                 Result = _translationService.GetResource("Reviews.Helpfulness.OnlyRegistered"),
@@ -642,7 +646,7 @@ public class ProductController : BasePublicController
             });
 
         //customers aren't allowed to vote for their own reviews
-        if (productReview.CustomerId == _contextAccessor.WorkContext.CurrentCustomer.Id)
+        if (productReview.CustomerId == _workContext.CurrentCustomer.Id)
             return Json(new {
                 Result = _translationService.GetResource("Reviews.Helpfulness.YourOwnReview"),
                 TotalYes = productReview.HelpfulYesTotal,
@@ -651,7 +655,7 @@ public class ProductController : BasePublicController
 
         //delete previous helpfulness
         var prh = productReview.ProductReviewHelpfulnessEntries
-            .FirstOrDefault(x => x.CustomerId == _contextAccessor.WorkContext.CurrentCustomer.Id);
+            .FirstOrDefault(x => x.CustomerId == _workContext.CurrentCustomer.Id);
         if (prh != null)
         {
             //existing one
@@ -662,13 +666,13 @@ public class ProductController : BasePublicController
             //insert new helpfulness
             prh = new ProductReviewHelpfulness {
                 ProductReviewId = productReview.Id,
-                CustomerId = _contextAccessor.WorkContext.CurrentCustomer.Id,
+                CustomerId = _workContext.CurrentCustomer.Id,
                 WasHelpful = washelpful
             };
             productReview.ProductReviewHelpfulnessEntries.Add(prh);
             await productReviewService.UpdateProductReview(productReview);
-            if (!_contextAccessor.WorkContext.CurrentCustomer.HasContributions)
-                await customerService.UpdateContributions(_contextAccessor.WorkContext.CurrentCustomer);
+            if (!_workContext.CurrentCustomer.HasContributions)
+                await customerService.UpdateContributions(_workContext.CurrentCustomer);
         }
 
         //new totals

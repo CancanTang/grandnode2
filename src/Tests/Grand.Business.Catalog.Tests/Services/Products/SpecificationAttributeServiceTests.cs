@@ -88,7 +88,7 @@ public class SpecificationAttributeServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]
@@ -179,8 +179,9 @@ public class SpecificationAttributeServiceTests
         await service.DeleteSpecificationAttributeOption(attr);
 
         //Assert
-        Assert.IsEmpty(
-            _repository.Table.FirstOrDefault(x => x.Id == specificationAttribute.Id).SpecificationAttributeOptions);
+        Assert.AreEqual(0,
+            _repository.Table.FirstOrDefault(x => x.Id == specificationAttribute.Id).SpecificationAttributeOptions
+                .Count);
     }
 
     [TestMethod]
@@ -196,8 +197,8 @@ public class SpecificationAttributeServiceTests
         await service.InsertProductSpecificationAttribute(attr, product.Id);
 
         //Assert
-        Assert.HasCount(1,
-            _repositoryProduct.Table.FirstOrDefault(x => x.Id == product.Id).ProductSpecificationAttributes);
+        Assert.AreEqual(1,
+            _repositoryProduct.Table.FirstOrDefault(x => x.Id == product.Id).ProductSpecificationAttributes.Count);
     }
 
     [TestMethod]
@@ -233,8 +234,8 @@ public class SpecificationAttributeServiceTests
         await service.DeleteProductSpecificationAttribute(attr, product.Id);
 
         //Assert
-        Assert.IsEmpty(
-            _repositoryProduct.Table.FirstOrDefault(x => x.Id == product.Id).ProductSpecificationAttributes);
+        Assert.AreEqual(0,
+            _repositoryProduct.Table.FirstOrDefault(x => x.Id == product.Id).ProductSpecificationAttributes.Count);
     }
 
     [TestMethod]

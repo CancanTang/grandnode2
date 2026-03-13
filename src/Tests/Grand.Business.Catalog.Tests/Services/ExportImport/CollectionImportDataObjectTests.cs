@@ -2,7 +2,6 @@
 using Grand.Business.Catalog.Services.Collections;
 using Grand.Business.Catalog.Services.ExportImport;
 using Grand.Business.Common.Services.Security;
-using Grand.Business.Common.Services.Seo;
 using Grand.Business.Core.Dto;
 using Grand.Business.Core.Interfaces.Catalog.Collections;
 using Grand.Business.Core.Interfaces.Common.Localization;
@@ -41,8 +40,8 @@ public class CollectionImportDataObjectTests
 
     private IRepository<Collection> _repository;
     private Mock<ISlugService> _slugServiceMock;
-    private Mock<IContextAccessor> _workContextMock;
-    private ISeNameService _seNameService;
+    private Mock<IWorkContext> _workContextMock;
+
     [TestInitialize]
     public void Init()
     {
@@ -54,18 +53,19 @@ public class CollectionImportDataObjectTests
         _collectionLayoutServiceMock = new Mock<ICollectionLayoutService>();
         _slugServiceMock = new Mock<ISlugService>();
         _languageServiceMock = new Mock<ILanguageService>();
-        _workContextMock = new Mock<IContextAccessor>();
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock = new Mock<IWorkContext>();
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
 
         _mediatorMock = new Mock<IMediator>();
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
             new CacheConfig { DefaultCacheTimeMinutes = 1 });
         _collectionService = new CollectionService(_cacheBase, _repository, _workContextMock.Object,
             _mediatorMock.Object, new AclService(new AccessControlConfig()), new AccessControlConfig());
-        _seNameService = new SeNameService(_slugServiceMock.Object, _languageServiceMock.Object, new SeoSettings());
+
         _collectionImportDataObject = new CollectionImportDataObject(_collectionService, _pictureServiceMock.Object,
-            _collectionLayoutServiceMock.Object, _slugServiceMock.Object, _seNameService);
+            _collectionLayoutServiceMock.Object, _slugServiceMock.Object, _languageServiceMock.Object,
+            new SeoSettings());
     }
 
     [TestMethod]
@@ -88,8 +88,8 @@ public class CollectionImportDataObjectTests
         await _collectionImportDataObject.Execute(collections);
 
         //Assert
-        Assert.IsNotEmpty(_repository.Table);
-        Assert.HasCount(3, _repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
+        Assert.AreEqual(3, _repository.Table.Count());
     }
 
     [TestMethod]
@@ -130,11 +130,11 @@ public class CollectionImportDataObjectTests
         await _collectionImportDataObject.Execute(collections);
 
         //Assert
-        Assert.IsNotEmpty(_repository.Table);
-        Assert.HasCount(3, _repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
+        Assert.AreEqual(3, _repository.Table.Count());
         Assert.AreEqual("update3", _repository.Table.FirstOrDefault(x => x.Id == collection3.Id).Name);
         Assert.AreEqual(3, _repository.Table.FirstOrDefault(x => x.Id == collection3.Id).DisplayOrder);
-        Assert.IsFalse(_repository.Table.FirstOrDefault(x => x.Id == collection3.Id).Published);
+        Assert.AreEqual(false, _repository.Table.FirstOrDefault(x => x.Id == collection3.Id).Published);
     }
 
     [TestMethod]
@@ -164,11 +164,11 @@ public class CollectionImportDataObjectTests
         await _collectionImportDataObject.Execute(collections);
 
         //Assert
-        Assert.IsNotEmpty(_repository.Table);
-        Assert.HasCount(3, _repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
+        Assert.AreEqual(3, _repository.Table.Count());
         Assert.AreEqual("update3", _repository.Table.FirstOrDefault(x => x.Id == collection3.Id).Name);
         Assert.AreEqual(3, _repository.Table.FirstOrDefault(x => x.Id == collection3.Id).DisplayOrder);
-        Assert.IsFalse(_repository.Table.FirstOrDefault(x => x.Id == collection3.Id).Published);
+        Assert.AreEqual(false, _repository.Table.FirstOrDefault(x => x.Id == collection3.Id).Published);
     }
 
     private void InitAutoMapper()

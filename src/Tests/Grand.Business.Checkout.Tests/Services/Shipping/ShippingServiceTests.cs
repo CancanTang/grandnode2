@@ -44,7 +44,7 @@ public class ShippingServiceTests
         _rateProviderMock.Setup(c => c.LimitedToStores).Returns(new List<string>());
         _rateProviderMock.Setup(c => c.LimitedToGroups).Returns(new List<string>());
         var result = await _service.LoadActiveShippingRateCalculationProviders(new Customer(), "storeId");
-        Assert.IsEmpty(result);
+        Assert.IsTrue(result.Count == 0);
     }
 
     [TestMethod]
@@ -54,7 +54,7 @@ public class ShippingServiceTests
         _rateProviderMock.Setup(c => c.LimitedToGroups).Returns(new List<string>());
         _rateProviderMock.Setup(c => c.HideShipmentMethods(It.IsAny<IList<ShoppingCartItem>>())).ReturnsAsync(true);
         var result = await _service.LoadActiveShippingRateCalculationProviders(new Customer(), "storeId");
-        Assert.IsEmpty(result);
+        Assert.IsTrue(result.Count == 0);
     }
 
     [TestMethod]
@@ -66,7 +66,7 @@ public class ShippingServiceTests
         _rateProviderMock.Setup(c => c.SystemName).Returns("sysname");
         _rateProviderMock.Setup(c => c.HideShipmentMethods(It.IsAny<IList<ShoppingCartItem>>())).ReturnsAsync(false);
         var result = await _service.LoadActiveShippingRateCalculationProviders(new Customer(), "storeId");
-        Assert.HasCount(1, result);
+        Assert.IsTrue(result.Count == 1);
         Assert.AreEqual(result.First().SystemName, _rateProviderMock.Object.SystemName);
     }
 
@@ -89,9 +89,9 @@ public class ShippingServiceTests
 
         var result = await _service.CreateShippingOptionRequests(customer, cart, shippingAddress, store);
 
-        Assert.AreEqual(shippingAddress, result.ShippingAddress);
-        Assert.AreEqual("id", result.StoreId);
-        Assert.AreEqual(customer, result.Customer);
+        Assert.AreEqual(result.ShippingAddress, shippingAddress);
+        Assert.AreEqual(result.StoreId, "id");
+        Assert.AreEqual(result.Customer, customer);
     }
 
     [TestMethod]
@@ -112,6 +112,6 @@ public class ShippingServiceTests
         };
 
         var result = await _service.CreateShippingOptionRequests(customer, cart, shippingAddress, store);
-        Assert.IsNotNull(result);
+        Assert.IsTrue(result != null);
     }
 }

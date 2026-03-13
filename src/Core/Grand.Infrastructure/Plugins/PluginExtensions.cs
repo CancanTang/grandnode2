@@ -1,33 +1,7 @@
+using Grand.SharedKernel.Extensions;
 using System.Text.Json;
 
 namespace Grand.Infrastructure.Plugins;
-
-
-public sealed class PluginPaths
-{
-    private static PluginPaths _instance;
-    private static readonly Lock _lock = new();
-    public static PluginPaths Instance => _instance ?? throw new InvalidOperationException("PluginPaths has not been initialized. Call Initialize first.");
-    private readonly string _pluginPath;
-
-    public string InstalledPluginsFile => _pluginPath;
-
-    public static void Initialize(string settingsPath)
-    {
-        if (_instance == null)
-        {
-            lock (_lock)
-            {
-                _instance ??= new PluginPaths(settingsPath);
-            }
-        }
-    }
-
-    private PluginPaths(string pluginPath)
-    {
-        _pluginPath = pluginPath;
-    }
-}
 
 public static class PluginExtensions
 {
@@ -45,7 +19,8 @@ public static class PluginExtensions
         var text = File.ReadAllText(filePath);
         return string.IsNullOrEmpty(text) ? new List<string>() : JsonSerializer.Deserialize<List<string>>(text);
     }
-    private static async Task SaveInstalledPluginsFile(IList<string> pluginSystemNames, string filePath)
+
+    public static async Task SaveInstalledPluginsFile(IList<string> pluginSystemNames, string filePath)
     {
         //serialize
         var result = JsonSerializer.Serialize(pluginSystemNames, new JsonSerializerOptions { WriteIndented = true });
@@ -60,9 +35,10 @@ public static class PluginExtensions
     /// <param name="systemName">Plugin system name</param>
     public static async Task MarkPluginAsInstalled(string systemName)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(systemName);
+        if (string.IsNullOrEmpty(systemName))
+            throw new ArgumentNullException(nameof(systemName));
 
-        var filePath = PluginPaths.Instance.InstalledPluginsFile;
+        var filePath = CommonPath.InstalledPluginsFilePath;
         if (!File.Exists(filePath))
             await using (File.Create(filePath))
             {
@@ -86,13 +62,13 @@ public static class PluginExtensions
     /// <param name="systemName">Plugin system name</param>
     public static async Task MarkPluginAsUninstalled(string systemName)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(systemName);
+        if (string.IsNullOrEmpty(systemName))
+            throw new ArgumentNullException(nameof(systemName));
 
-        var filePath = PluginPaths.Instance.InstalledPluginsFile;
+        var filePath = CommonPath.InstalledPluginsFilePath;
         if (!File.Exists(filePath))
             await using (File.Create(filePath))
             {
-                //we use 'using' to close the file after it's created
             }
 
         var installedPluginSystemNames = ParseInstalledPluginsFile(filePath);

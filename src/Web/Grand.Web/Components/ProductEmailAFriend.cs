@@ -1,9 +1,9 @@
 ﻿using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Domain.Catalog;
-using Grand.Domain.Common;
 using Grand.Infrastructure;
 using Grand.Web.Common.Components;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Models.Catalog;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,12 +15,12 @@ public class ProductEmailAFriendViewComponent : BaseViewComponent
 
     public ProductEmailAFriendViewComponent(
         IProductService productService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         CatalogSettings catalogSettings,
         CaptchaSettings captchaSettings)
     {
         _productService = productService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _catalogSettings = catalogSettings;
         _captchaSettings = captchaSettings;
     }
@@ -37,9 +37,9 @@ public class ProductEmailAFriendViewComponent : BaseViewComponent
 
         var model = new ProductEmailAFriendModel {
             ProductId = product.Id,
-            ProductName = product.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            ProductSeName = product.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id),
-            YourEmailAddress = _contextAccessor.WorkContext.CurrentCustomer.Email,
+            ProductName = product.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id),
+            ProductSeName = product.GetSeName(_workContext.WorkingLanguage.Id),
+            YourEmailAddress = _workContext.CurrentCustomer.Email,
             DisplayCaptcha = _captchaSettings.Enabled && _captchaSettings.ShowOnEmailProductToFriendPage
         };
 
@@ -51,7 +51,7 @@ public class ProductEmailAFriendViewComponent : BaseViewComponent
     #region Fields
 
     private readonly IProductService _productService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly CatalogSettings _catalogSettings;
     private readonly CaptchaSettings _captchaSettings;
 

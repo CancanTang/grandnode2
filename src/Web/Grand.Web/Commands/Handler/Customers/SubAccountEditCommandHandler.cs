@@ -24,7 +24,8 @@ public class SubAccountEditCommandHandler : IRequestHandler<SubAccountEditComman
 
     public async Task<bool> Handle(SubAccountEditCommand request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.CurrentCustomer);
+        if (request.CurrentCustomer == null) throw new ArgumentNullException(nameof(request.CurrentCustomer));
+
         var customer = await _customerService.GetCustomerById(request.EditModel.Id);
 
         //update email

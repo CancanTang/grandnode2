@@ -3,5 +3,6 @@
 public interface IMigrationProcess
 {
     void RunMigrationProcess();
+    void InstallApplication();
     MigrationResult RunProcess(IMigration migration);
 }

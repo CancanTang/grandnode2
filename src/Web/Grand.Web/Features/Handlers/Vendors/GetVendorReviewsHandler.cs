@@ -1,10 +1,10 @@
 ﻿using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Customers;
-using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Vendors;
 using Grand.Infrastructure;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Features.Models.Vendors;
 using Grand.Web.Models.Vendors;
 using MediatR;
@@ -20,10 +20,10 @@ public class GetVendorReviewsHandler : IRequestHandler<GetVendorReviews, VendorR
     private readonly IGroupService _groupService;
     private readonly IVendorService _vendorService;
     private readonly VendorSettings _vendorSettings;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public GetVendorReviewsHandler(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IVendorService vendorService,
         ICustomerService customerService,
         IDateTimeService dateTimeService,
@@ -32,7 +32,7 @@ public class GetVendorReviewsHandler : IRequestHandler<GetVendorReviews, VendorR
         VendorSettings vendorSettings,
         CaptchaSettings captchaSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _vendorService = vendorService;
         _customerService = customerService;
         _dateTimeService = dateTimeService;
@@ -44,12 +44,13 @@ public class GetVendorReviewsHandler : IRequestHandler<GetVendorReviews, VendorR
 
     public async Task<VendorReviewsModel> Handle(GetVendorReviews request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Vendor);
+        if (request.Vendor == null)
+            throw new ArgumentNullException(nameof(request.Vendor));
 
         var model = new VendorReviewsModel {
             VendorId = request.Vendor.Id,
-            VendorName = request.Vendor.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            VendorSeName = request.Vendor.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id)
+            VendorName = request.Vendor.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id),
+            VendorSeName = request.Vendor.GetSeName(_workContext.WorkingLanguage.Id)
         };
 
         var vendorReviews = await _vendorService.GetAllVendorReviews("", true, null, null, "", request.Vendor.Id, 0,
@@ -76,7 +77,8 @@ public class GetVendorReviewsHandler : IRequestHandler<GetVendorReviews, VendorR
         }
 
         model.AddVendorReview.CanCurrentCustomerLeaveReview = _vendorSettings.AllowAnonymousUsersToReviewVendor ||
-                                                              !await _groupService.IsGuest(_contextAccessor.WorkContext.CurrentCustomer);
+                                                              !await _groupService.IsGuest(_workContext
+                                                                  .CurrentCustomer);
         model.AddVendorReview.DisplayCaptcha = _captchaSettings.Enabled && _captchaSettings.ShowOnVendorReviewPage;
 
         return model;

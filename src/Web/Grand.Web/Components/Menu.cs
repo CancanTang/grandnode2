@@ -1,5 +1,5 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Infrastructure;
 using Grand.Web.Common.Components;
 using Grand.Web.Features.Models.Catalog;
@@ -12,28 +12,28 @@ public class MenuViewComponent : BaseViewComponent
 {
     private readonly IMediator _mediator;
     private readonly IPermissionService _permissionService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public MenuViewComponent(
         IMediator mediator,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IPermissionService permissionService)
     {
         _mediator = mediator;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _permissionService = permissionService;
     }
 
     public async Task<IViewComponentResult> InvokeAsync()
     {
         if (!await _permissionService.Authorize(StandardPermission.PublicStoreAllowNavigation,
-                _contextAccessor.WorkContext.CurrentCustomer))
+                _workContext.CurrentCustomer))
             return Content("");
 
         var model = await _mediator.Send(new GetMenu {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore
         });
 
         return View(model);

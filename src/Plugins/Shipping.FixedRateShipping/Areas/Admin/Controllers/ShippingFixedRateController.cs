@@ -1,7 +1,7 @@
 ﻿using Grand.Business.Core.Interfaces.Checkout.Shipping;
 using Grand.Business.Core.Interfaces.Common.Configuration;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Web.Common.Controllers;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
@@ -44,7 +44,7 @@ public class ShippingFixedRateController : BaseShippingController
             rateModels.Add(new FixedShippingRateModel {
                 ShippingMethodId = shippingMethod.Id,
                 ShippingMethodName = shippingMethod.Name,
-                Rate = await GetShippingRate(shippingMethod.Id)
+                Rate = GetShippingRate(shippingMethod.Id)
             });
 
         var gridModel = new DataSourceResult {
@@ -67,15 +67,17 @@ public class ShippingFixedRateController : BaseShippingController
             Rate = model.Rate
         };
 
-        await _settingService.SetSetting($"ShippingRateComputationMethod.FixedRate.Rate.ShippingMethodId{shippingMethodId}", rate);
+        await _settingService.SetSetting(
+            $"ShippingRateComputationMethod.FixedRate.Rate.ShippingMethodId{shippingMethodId}", rate);
 
         return new JsonResult("");
     }
 
     [NonAction]
-    private async Task<double> GetShippingRate(string shippingMethodId)
+    private double GetShippingRate(string shippingMethodId)
     {
-        var rate = (await _settingService.GetSettingByKey<FixedShippingRate>($"ShippingRateComputationMethod.FixedRate.Rate.ShippingMethodId{shippingMethodId}"))?.Rate;
+        var rate = _settingService.GetSettingByKey<FixedShippingRate>(
+            $"ShippingRateComputationMethod.FixedRate.Rate.ShippingMethodId{shippingMethodId}")?.Rate;
         return rate ?? 0;
     }
 }

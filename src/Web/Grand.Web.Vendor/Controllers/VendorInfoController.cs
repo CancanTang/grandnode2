@@ -4,8 +4,10 @@ using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Seo;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Domain.Directory;
+using Grand.Domain.Seo;
 using Grand.Domain.Vendors;
 using Grand.Infrastructure;
+using Grand.Web.Common.Extensions;
 using Grand.Web.Vendor.Extensions;
 using Grand.Web.Vendor.Models.Common;
 using Grand.Web.Vendor.Models.Vendor;
@@ -22,30 +24,34 @@ public class VendorInfoController : BaseVendorController
         ITranslationService translationService,
         IVendorService vendorService,
         ILanguageService languageService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ICountryService countryService,
-        VendorSettings vendorSettings, 
-        ISeNameService seNameService)
+        ISlugService slugService,
+        SeoSettings seoSettings,
+        VendorSettings vendorSettings)
     {
         _translationService = translationService;
         _vendorService = vendorService;
         _languageService = languageService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _countryService = countryService;
+        _slugService = slugService;
+        _seoSettings = seoSettings;
         _vendorSettings = vendorSettings;
-        _seNameService = seNameService;
     }
 
     #endregion
 
     #region Fields
 
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly ITranslationService _translationService;
     private readonly IVendorService _vendorService;
     private readonly ILanguageService _languageService;
     private readonly ICountryService _countryService;
-    private readonly ISeNameService _seNameService;
+    private readonly ISlugService _slugService;
+
+    private readonly SeoSettings _seoSettings;
     private readonly VendorSettings _vendorSettings;
 
     #endregion
@@ -99,16 +105,18 @@ public class VendorInfoController : BaseVendorController
     private async Task UpdateVendorModel(Domain.Vendors.Vendor vendor, VendorModel model)
     {
         vendor = model.ToEntity(vendor);
-        vendor.Locales = await _seNameService.TranslationSeNameProperties(model.Locales, vendor, x => x.Name);
-        vendor.SeName = await _seNameService.ValidateSeName(vendor, model.SeName, vendor.Name, true);
-        
+        vendor.Locales =
+            await model.Locales.ToTranslationProperty(vendor, x => x.Name, _seoSettings, _slugService,
+                _languageService);
+        model.SeName = await vendor.ValidateSeName(model.SeName, vendor.Name, true, _seoSettings, _slugService,
+            _languageService);
         vendor.Address = model.Address.ToEntity();
         vendor.SeName = model.SeName;
 
         await _vendorService.UpdateVendor(vendor);
 
         //search engine name                
-        await _seNameService.SaveSeName(vendor);
+        await _slugService.SaveSlug(vendor, model.SeName, "");
     }
 
     #endregion
@@ -121,7 +129,7 @@ public class VendorInfoController : BaseVendorController
         if (!_vendorSettings.AllowVendorsToEditInfo)
             throw new Exception("Vendor can't edit info");
 
-        var vendor = await _vendorService.GetVendorById(_contextAccessor.WorkContext.CurrentVendor.Id);
+        var vendor = await _vendorService.GetVendorById(_workContext.CurrentVendor.Id);
         if (vendor == null || vendor.Deleted)
             throw new ArgumentNullException(nameof(vendor));
 
@@ -151,7 +159,7 @@ public class VendorInfoController : BaseVendorController
             throw new Exception("Vendor can't edit info");
 
         var vendor = await _vendorService.GetVendorById(model.Id);
-        if (vendor == null || vendor.Deleted || vendor.Id != _contextAccessor.WorkContext.CurrentVendor.Id)
+        if (vendor == null || vendor.Deleted || vendor.Id != _workContext.CurrentVendor.Id)
             throw new ArgumentNullException(nameof(vendor));
 
         if (ModelState.IsValid)

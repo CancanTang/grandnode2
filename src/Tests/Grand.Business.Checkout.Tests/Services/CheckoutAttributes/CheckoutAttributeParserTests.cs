@@ -23,7 +23,7 @@ public class CheckoutAttributeParserTests
     private IRepository<CheckoutAttribute> _checkoutAttributeRepo;
     private ICheckoutAttributeService _checkoutAttributeService;
     private IMediator _eventPublisher;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     private CheckoutAttribute ca1, ca2, ca3;
     private Mock<ICacheBase> cacheManager;
@@ -32,8 +32,7 @@ public class CheckoutAttributeParserTests
     [TestInitialize]
     public void TestInitialize()
     {
-        var settingsPath = Path.Combine("", CommonPath.AppData, CommonPath.SettingsFile);
-        DataSettingsManager.Initialize(settingsPath);
+        CommonPath.BaseDirectory = "";
 
         //color choosing via DropDownList
         ca1 = new CheckoutAttribute {
@@ -119,7 +118,7 @@ public class CheckoutAttributeParserTests
         }
 
         cacheManager = new Mock<ICacheBase>();
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
 
         _checkoutAttributeService = new CheckoutAttributeService(cacheManager.Object, _checkoutAttributeRepo,
             _eventPublisher, _workContextMock.Object, new AccessControlConfig());
@@ -146,12 +145,12 @@ public class CheckoutAttributeParserTests
         //custom text
         attributes = _checkoutAttributeParser.AddCheckoutAttribute(attributes, ca3, "absolutely any value").ToList();
 
-        Assert.HasCount(4, attributes);
+        Assert.IsTrue(attributes.Count == 4);
         Assert.IsTrue(attributes.Any(c => c.Key.Equals(ca1.Id)));
         Assert.IsTrue(attributes.Any(c => c.Key.Equals(ca2.Id)));
         Assert.IsTrue(attributes.Any(c => c.Key.Equals(ca3.Id)));
         attributes = _checkoutAttributeParser.RemoveCheckoutAttribute(attributes, ca1);
-        Assert.HasCount(3, attributes);
+        Assert.IsTrue(attributes.Count == 3);
         Assert.IsFalse(attributes.Any(c => c.Key.Equals(ca1.Id)));
     }
 }

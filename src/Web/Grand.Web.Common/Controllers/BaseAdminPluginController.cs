@@ -9,4 +9,6 @@ namespace Grand.Web.Common.Controllers;
 [AuthorizeAdmin]
 [Area("Admin")]
 [AuthorizeMenu]
-public abstract class BaseAdminPluginController : BaseController;
+public abstract class BaseAdminPluginController : BaseController
+{
+}

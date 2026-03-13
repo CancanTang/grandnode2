@@ -1,8 +1,11 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Configuration;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Interfaces.Common.Stores;
+using Grand.Business.Core.Utilities.Common.Security;
+using Grand.Domain.Common;
+using Grand.Domain.Customers;
+using Grand.Infrastructure;
 using Grand.Web.Common.Controllers;
-using Grand.Web.Common.Helpers;
 using Grand.Web.Common.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Widgets.GoogleAnalytics.Models;
@@ -13,24 +16,40 @@ namespace Widgets.GoogleAnalytics.Areas.Admin.Controllers;
 public class WidgetsGoogleAnalyticsController : BaseAdminPluginController
 {
     private readonly ISettingService _settingService;
+    private readonly IStoreService _storeService;
     private readonly ITranslationService _translationService;
-    private readonly IAdminStoreService _adminStoreService;
+    private readonly IWorkContext _workContext;
 
-    public WidgetsGoogleAnalyticsController(
+    public WidgetsGoogleAnalyticsController(IWorkContext workContext,
+        IStoreService storeService,
         ISettingService settingService,
-        ITranslationService translationService,
-        IAdminStoreService adminStoreService)
+        ITranslationService translationService)
     {
+        _workContext = workContext;
+        _storeService = storeService;
         _settingService = settingService;
         _translationService = translationService;
-        _adminStoreService = adminStoreService;
+    }
+
+    protected virtual async Task<string> GetActiveStore(IStoreService storeService, IWorkContext workContext)
+    {
+        var stores = await storeService.GetAllStores();
+        if (stores.Count < 2)
+            return stores.FirstOrDefault()!.Id;
+
+        var storeId =
+            workContext.CurrentCustomer.GetUserFieldFromEntity<string>(SystemCustomerFieldNames
+                .AdminAreaStoreScopeConfiguration);
+        var store = await storeService.GetStoreById(storeId);
+
+        return store != null ? store.Id : "";
     }
 
     public async Task<IActionResult> Configure()
     {
         //load settings for a chosen store scope
-        var storeScope = await _adminStoreService.GetActiveStore();
-        var googleAnalyticsSettings = await _settingService.LoadSetting<GoogleAnalyticsEcommerceSettings>(storeScope);
+        var storeScope = await GetActiveStore(_storeService, _workContext);
+        var googleAnalyticsSettings = _settingService.LoadSetting<GoogleAnalyticsEcommerceSettings>(storeScope);
         var model = new ConfigurationModel {
             GoogleId = googleAnalyticsSettings.GoogleId,
             TrackingScript = googleAnalyticsSettings.TrackingScript,
@@ -51,8 +70,8 @@ public class WidgetsGoogleAnalyticsController : BaseAdminPluginController
     public async Task<IActionResult> Configure(ConfigurationModel model)
     {
         //load settings for a chosen store scope
-        var storeScope = await _adminStoreService.GetActiveStore();
-        var googleAnalyticsSettings = await _settingService.LoadSetting<GoogleAnalyticsEcommerceSettings>(storeScope);
+        var storeScope = await GetActiveStore(_storeService, _workContext);
+        var googleAnalyticsSettings = _settingService.LoadSetting<GoogleAnalyticsEcommerceSettings>(storeScope);
         googleAnalyticsSettings.GoogleId = model.GoogleId;
         googleAnalyticsSettings.TrackingScript = model.TrackingScript;
         googleAnalyticsSettings.EcommerceScript = model.EcommerceScript;

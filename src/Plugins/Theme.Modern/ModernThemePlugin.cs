@@ -5,4 +5,6 @@ namespace Theme.Modern;
 /// <summary>
 ///     Plugin
 /// </summary>
-public class MinimalThemePlugin : BasePlugin, IPlugin;
+public class MinimalThemePlugin : BasePlugin, IPlugin
+{
+}

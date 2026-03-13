@@ -26,11 +26,22 @@ public class CustomerActivityAttribute : TypeFilterAttribute
     /// <summary>
     ///     Represents a filter that saves last customer activity date
     /// </summary>
-    private class CustomerActivityFilter(
-        ICustomerService customerService,
-        IContextAccessor contextAccessor,
-        CustomerSettings customerSettings) : IAsyncActionFilter
+    private class CustomerActivityFilter : IAsyncActionFilter
     {
+        #region Ctor
+
+        public CustomerActivityFilter(
+            ICustomerService customerService,
+            IWorkContext workContext,
+            CustomerSettings customerSettings)
+        {
+            _customerService = customerService;
+            _workContext = workContext;
+            _customerSettings = customerSettings;
+        }
+
+        #endregion
+
         #region Methods
 
         /// <summary>
@@ -50,12 +61,12 @@ public class CustomerActivityAttribute : TypeFilterAttribute
                 return;
 
             //whether is need to store last visited page URL
-            if (!customerSettings.StoreLastVisitedPage)
+            if (!_customerSettings.StoreLastVisitedPage)
                 return;
 
             //update last activity date
-            if (contextAccessor.WorkContext.CurrentCustomer.LastActivityDateUtc.AddMinutes(3.0) < DateTime.UtcNow)
-                await customerService.UpdateCustomerField(contextAccessor.WorkContext.CurrentCustomer, x => x.LastActivityDateUtc,
+            if (_workContext.CurrentCustomer.LastActivityDateUtc.AddMinutes(3.0) < DateTime.UtcNow)
+                await _customerService.UpdateCustomerField(_workContext.CurrentCustomer, x => x.LastActivityDateUtc,
                     DateTime.UtcNow);
 
             //get current IP address
@@ -63,11 +74,11 @@ public class CustomerActivityAttribute : TypeFilterAttribute
 
             //update customer's IP address
             if (!string.IsNullOrEmpty(currentIpAddress) &&
-                !currentIpAddress.Equals(contextAccessor.WorkContext.CurrentCustomer.LastIpAddress,
+                !currentIpAddress.Equals(_workContext.CurrentCustomer.LastIpAddress,
                     StringComparison.OrdinalIgnoreCase))
             {
-                contextAccessor.WorkContext.CurrentCustomer.LastIpAddress = currentIpAddress;
-                await customerService.UpdateCustomerField(contextAccessor.WorkContext.CurrentCustomer, x => x.LastIpAddress,
+                _workContext.CurrentCustomer.LastIpAddress = currentIpAddress;
+                await _customerService.UpdateCustomerField(_workContext.CurrentCustomer, x => x.LastIpAddress,
                     currentIpAddress);
             }
 
@@ -77,12 +88,20 @@ public class CustomerActivityAttribute : TypeFilterAttribute
                 return;
 
             //save new one if don't match
-            if (!pageUrl.Equals(contextAccessor.WorkContext.CurrentCustomer.LastVisitedPage, StringComparison.OrdinalIgnoreCase))
+            if (!pageUrl.Equals(_workContext.CurrentCustomer.LastVisitedPage, StringComparison.OrdinalIgnoreCase))
             {
-                contextAccessor.WorkContext.CurrentCustomer.LastVisitedPage = pageUrl;
-                await customerService.UpdateCustomerField(contextAccessor.WorkContext.CurrentCustomer, x => x.LastVisitedPage, pageUrl);
+                _workContext.CurrentCustomer.LastVisitedPage = pageUrl;
+                await _customerService.UpdateCustomerField(_workContext.CurrentCustomer, x => x.LastVisitedPage, pageUrl);
             }
         }
+
+        #endregion
+
+        #region Fields
+
+        private readonly ICustomerService _customerService;
+        private readonly IWorkContext _workContext;
+        private readonly CustomerSettings _customerSettings;
 
         #endregion
     }

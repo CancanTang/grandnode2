@@ -3,11 +3,11 @@ using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Infrastructure;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Customers;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Customers;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
@@ -25,14 +25,14 @@ public class CustomerGroupController : BaseAdminController
         IGroupService groupService,
         ITranslationService translationService,
         IPermissionService permissionService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ICustomerGroupProductService customerGroupProductService)
     {
         _customerGroupViewModelService = customerGroupViewModelService;
         _groupService = groupService;
         _translationService = translationService;
         _permissionService = permissionService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _customerGroupProductService = customerGroupProductService;
     }
 
@@ -44,7 +44,7 @@ public class CustomerGroupController : BaseAdminController
     private readonly IGroupService _groupService;
     private readonly ITranslationService _translationService;
     private readonly IPermissionService _permissionService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly ICustomerGroupProductService _customerGroupProductService;
 
     #endregion
@@ -263,7 +263,7 @@ public class CustomerGroupController : BaseAdminController
         foreach (var pr in permissionRecords)
             model.Add(new CustomerGroupPermissionModel {
                 Id = pr.Id,
-                Name = _translationService.GetResource(pr.GetTranslationPermissionName(), _contextAccessor.WorkContext.WorkingLanguage.Id),
+                Name = pr.GetTranslationPermissionName(_translationService, _workContext),
                 SystemName = pr.SystemName,
                 Actions = pr.Actions.ToList(),
                 Access = pr.CustomerGroups.Contains(customerGroupId)

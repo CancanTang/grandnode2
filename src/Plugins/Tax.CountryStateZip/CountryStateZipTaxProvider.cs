@@ -15,18 +15,18 @@ public class CountryStateZipTaxProvider : ITaxProvider
     private readonly CountryStateZipTaxSettings _countryStateZipTaxSettings;
     private readonly ITaxRateService _taxRateService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
 
     public CountryStateZipTaxProvider(ITranslationService translationService,
         ICacheBase cacheBase,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ITaxRateService taxRateService,
         CountryStateZipTaxSettings countryStateZipTaxSettings)
     {
         _translationService = translationService;
         _cacheBase = cacheBase;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _taxRateService = taxRateService;
         _countryStateZipTaxSettings = countryStateZipTaxSettings;
     }
@@ -74,11 +74,13 @@ public class CountryStateZipTaxProvider : ITaxProvider
             });
         });
 
-        var storeId = _contextAccessor.StoreContext.CurrentStore.Id;
+        var storeId = _workContext.CurrentStore.Id;
         var taxCategoryId = calculateTaxRequest.TaxCategoryId;
         var countryId = calculateTaxRequest.Address.CountryId;
         var stateProvinceId = calculateTaxRequest.Address.StateProvinceId;
-        var zip = calculateTaxRequest.Address.ZipPostalCode?.Trim() ?? string.Empty;
+        var zip = calculateTaxRequest.Address.ZipPostalCode ?? string.Empty;
+
+        zip = zip.Trim();
 
         var existingRates = allTaxRates
             .Where(taxRate => taxRate.CountryId == countryId && taxRate.TaxCategoryId == taxCategoryId).ToList();
@@ -100,15 +102,14 @@ public class CountryStateZipTaxProvider : ITaxProvider
                 string.IsNullOrEmpty(taxRate.StateProvinceId)));
 
         //filter by zip
-        if(!string.IsNullOrEmpty(zip))
-        {
-            var matchedByZip = matchedByStateProvince.Where(taxRate => zip.Equals(taxRate.Zip, StringComparison.OrdinalIgnoreCase)).ToList();
-            if (matchedByZip.Any())
-            {
-                result.TaxRate = matchedByZip[0].Percentage;
-                return result;
-            }
-        }
+        var matchedByZip = matchedByStateProvince.Where(taxRate =>
+            (string.IsNullOrEmpty(zip) && string.IsNullOrEmpty(taxRate.Zip)) ||
+            zip.Equals(taxRate.Zip, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (!matchedByZip.Any())
+            matchedByZip.AddRange(matchedByStateProvince.Where(taxRate => string.IsNullOrWhiteSpace(taxRate.Zip)));
+
+        if (matchedByZip.Any())
+            result.TaxRate = matchedByZip[0].Percentage;
 
         return result;
     }

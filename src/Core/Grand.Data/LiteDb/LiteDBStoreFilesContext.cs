@@ -5,7 +5,7 @@ namespace Grand.Data.LiteDb;
 
 public class LiteDBStoreFilesContext : IStoreFilesContext
 {
-    private readonly LiteDatabase _database;
+    protected LiteDatabase _database;
 
     public LiteDBStoreFilesContext(LiteDatabase database)
     {
@@ -17,13 +17,14 @@ public class LiteDBStoreFilesContext : IStoreFilesContext
         var fs = _database.FileStorage;
         var file = fs.FindById(id);
 
-        ArgumentNullException.ThrowIfNull(file);
+        if (file == null)
+            throw new ArgumentNullException(nameof(file));
 
         using (var stream = file.OpenRead())
         using (MemoryStream mstream = new())
         {
-            await stream.CopyToAsync(mstream);
-            return mstream.ToArray();
+            stream.CopyTo(mstream);
+            return await Task.FromResult(mstream.ToArray());
         }
     }
 

@@ -16,7 +16,6 @@ using Grand.Domain.Orders;
 using Grand.Domain.Payments;
 using Grand.Domain.Shipping;
 using Grand.Domain.Tax;
-using Grand.Web.Common.Localization;
 using Grand.Web.Extensions;
 using Grand.Web.Features.Models.Common;
 using Grand.Web.Features.Models.Orders;
@@ -45,8 +44,7 @@ public class GetOrderDetailsHandler : IRequestHandler<GetOrderDetails, OrderDeta
     private readonly IShipmentService _shipmentService;
     private readonly TaxSettings _taxSettings;
     private readonly ITranslationService _translationService;
-    private readonly IEnumTranslationService _enumTranslationService;
-    
+
     private Currency _orderCurrency;
 
     public GetOrderDetailsHandler(
@@ -66,8 +64,7 @@ public class GetOrderDetailsHandler : IRequestHandler<GetOrderDetails, OrderDeta
         CatalogSettings catalogSettings,
         OrderSettings orderSettings,
         PdfSettings pdfSettings,
-        TaxSettings taxSettings, 
-        IEnumTranslationService enumTranslationService)
+        TaxSettings taxSettings)
     {
         _dateTimeService = dateTimeService;
         _productService = productService;
@@ -86,7 +83,6 @@ public class GetOrderDetailsHandler : IRequestHandler<GetOrderDetails, OrderDeta
         _catalogSettings = catalogSettings;
         _pdfSettings = pdfSettings;
         _taxSettings = taxSettings;
-        _enumTranslationService = enumTranslationService;
     }
 
     public async Task<OrderDetailsModel> Handle(GetOrderDetails request, CancellationToken cancellationToken)
@@ -160,7 +156,8 @@ public class GetOrderDetailsHandler : IRequestHandler<GetOrderDetails, OrderDeta
 
     private async Task PrepareShippingInfo(GetOrderDetails request, OrderDetailsModel model)
     {
-        model.ShippingStatus = _enumTranslationService.GetTranslationEnum(request.Order.ShippingStatusId);
+        model.ShippingStatus =
+            request.Order.ShippingStatusId.GetTranslationEnum(_translationService, request.Language.Id);
         if (request.Order.ShippingStatusId != ShippingStatus.ShippingNotRequired)
         {
             model.IsShippable = true;
@@ -212,7 +209,8 @@ public class GetOrderDetailsHandler : IRequestHandler<GetOrderDetails, OrderDeta
         var paymentMethod = _paymentService.LoadPaymentMethodBySystemName(request.Order.PaymentMethodSystemName);
         model.PaymentMethod =
             paymentMethod != null ? paymentMethod.FriendlyName : request.Order.PaymentMethodSystemName;
-        model.PaymentMethodStatus = _enumTranslationService.GetTranslationEnum(request.Order.PaymentStatusId);
+        model.PaymentMethodStatus =
+            request.Order.PaymentStatusId.GetTranslationEnum(_translationService, request.Language.Id);
         var paymentTransaction = await _paymentTransactionService.GetOrderByGuid(request.Order.OrderGuid);
         model.CanRePostProcessPayment = paymentTransaction != null &&
                                         await _paymentService.CanRePostRedirectPayment(paymentTransaction);

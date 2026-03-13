@@ -26,7 +26,7 @@ public class HostFilteringStartup : IStartupApplication
 
         //configuration[
         var hosts = securityConfig.AllowedHosts?
-            .Split([';'], StringSplitOptions.RemoveEmptyEntries);
+            .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
         if (hosts?.Length > 0) services.Configure<HostFilteringOptions>(options => options.AllowedHosts = hosts);
     }
 
@@ -35,7 +35,7 @@ public class HostFilteringStartup : IStartupApplication
     /// </summary>
     /// <param name="application">Builder for configuring an application's request pipeline</param>
     /// <param name="webHostEnvironment">WebHostEnvironment</param>
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
         //check whether database is installed
         if (!DataSettingsManager.DatabaseIsInstalled())

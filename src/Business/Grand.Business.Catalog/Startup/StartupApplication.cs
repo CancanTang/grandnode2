@@ -17,7 +17,6 @@ using Grand.Business.Core.Interfaces.Catalog.Prices;
 using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Catalog.Tax;
 using Grand.Business.Core.Interfaces.ExportImport;
-using Grand.Business.Core.Interfaces.System.Reports;
 using Grand.Domain.Catalog;
 using Grand.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -37,14 +36,14 @@ public class StartupApplication : IStartupApplication
         RegisterExportImport(services);
     }
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 
     public int Priority => 100;
     public bool BeforeConfigure => false;
 
-    private static void RegisterCatalogService(IServiceCollection serviceCollection)
+    private void RegisterCatalogService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IOutOfStockSubscriptionService, OutOfStockSubscriptionService>();
         serviceCollection.AddScoped<ICategoryService, CategoryService>();
@@ -68,7 +67,6 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<ICategoryLayoutService, CategoryLayoutService>();
         serviceCollection.AddScoped<ICollectionLayoutService, CollectionLayoutService>();
         serviceCollection.AddScoped<IProductTagService, ProductTagService>();
-        serviceCollection.AddScoped<IProductsReportService, ProductsReportService>();
         serviceCollection.AddScoped<ICustomerGroupProductService, CustomerGroupProductService>();
         serviceCollection.AddScoped<IInventoryManageService, InventoryManageService>();
         serviceCollection.AddScoped<IStockQuantityService, StockQuantityService>();
@@ -77,22 +75,21 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<IMeasureService, MeasureService>();
     }
 
-    private static void RegisterDiscountsService(IServiceCollection serviceCollection)
+    private void RegisterDiscountsService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IDiscountService, DiscountService>();
         serviceCollection.AddScoped<IDiscountValidationService, DiscountValidationService>();
         serviceCollection.AddScoped<IDiscountProviderLoader, DiscountProviderLoader>();
-        serviceCollection.AddScoped<IDiscountHandlerService, DiscountHandlerService>();
     }
 
-    private static void RegisterTaxService(IServiceCollection serviceCollection)
+    private void RegisterTaxService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ITaxService, TaxService>();
         serviceCollection.AddScoped<IVatService, VatService>();
         serviceCollection.AddScoped<ITaxCategoryService, TaxCategoryService>();
     }
 
-    private static void RegisterExportImport(IServiceCollection serviceCollection)
+    private void RegisterExportImport(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ISchemaProperty<Brand>, BrandSchemaProperty>();
         serviceCollection.AddScoped<ISchemaProperty<Category>, CategorySchemaProperty>();

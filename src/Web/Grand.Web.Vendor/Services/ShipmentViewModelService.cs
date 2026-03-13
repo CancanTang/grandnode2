@@ -32,11 +32,11 @@ public class ShipmentViewModelService : IShipmentViewModelService
     private readonly IStockQuantityService _stockQuantityService;
     private readonly ITranslationService _translationService;
     private readonly IWarehouseService _warehouseService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public ShipmentViewModelService(
         IOrderService orderService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IGroupService groupService,
         IProductService productService,
         IShipmentService shipmentService,
@@ -51,7 +51,7 @@ public class ShipmentViewModelService : IShipmentViewModelService
         ShippingProviderSettings shippingProviderSettings)
     {
         _orderService = orderService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _groupService = groupService;
         _productService = productService;
         _shipmentService = shipmentService;
@@ -75,7 +75,7 @@ public class ShipmentViewModelService : IShipmentViewModelService
         var baseDimension = await _measureService.GetMeasureDimensionById(_measureSettings.BaseDimensionId);
         var baseDimensionIn = baseDimension != null ? baseDimension.Name : "";
         var order = await _orderService.GetOrderById(shipment.OrderId);
-        
+
         var model = new ShipmentModel {
             Id = shipment.Id,
             ShipmentNumber = shipment.ShipmentNumber,
@@ -100,11 +100,11 @@ public class ShipmentViewModelService : IShipmentViewModelService
         if (prepareProducts)
             foreach (var shipmentItem in shipment.ShipmentItems)
             {
-                var orderItem = order?.OrderItems.FirstOrDefault(x => x.Id == shipmentItem.OrderItemId);
+                var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == shipmentItem.OrderItemId);
                 if (orderItem == null)
                     continue;
 
-                if (orderItem.VendorId != _contextAccessor.WorkContext.CurrentVendor.Id)
+                if (orderItem.VendorId != _workContext.CurrentVendor.Id)
                     continue;
 
                 //quantities
@@ -142,7 +142,8 @@ public class ShipmentViewModelService : IShipmentViewModelService
 
         if (prepareShipmentEvent && !string.IsNullOrEmpty(shipment.TrackingNumber))
         {
-            var srcm = _shippingService.LoadShippingRateCalculationProviderBySystemName(order?.ShippingRateProviderSystemName);
+            var srcm = _shippingService.LoadShippingRateCalculationProviderBySystemName(
+                order.ShippingRateProviderSystemName);
             if (srcm != null &&
                 srcm.IsShippingRateMethodActive(_shippingProviderSettings))
             {
@@ -260,7 +261,7 @@ public class ShipmentViewModelService : IShipmentViewModelService
 
         //load shipments
         var shipments = await _shipmentService.GetAllShipments(
-            vendorId: _contextAccessor.WorkContext.CurrentVendor.Id,
+            vendorId: _workContext.CurrentVendor.Id,
             warehouseId: model.WarehouseId,
             shippingCity: model.City,
             trackingNumber: model.TrackingNumber,
@@ -300,8 +301,8 @@ public class ShipmentViewModelService : IShipmentViewModelService
 
         var orderItems = order.OrderItems;
         //a vendor should have access only to his products
-        if (_contextAccessor.WorkContext.CurrentVendor != null && !await _groupService.IsStoreManager(_contextAccessor.WorkContext.CurrentCustomer))
-            orderItems = orderItems.Where(_contextAccessor.WorkContext.HasAccessToOrderItem).ToList();
+        if (_workContext.CurrentVendor != null && !await _groupService.IsStaff(_workContext.CurrentCustomer))
+            orderItems = orderItems.Where(_workContext.HasAccessToOrderItem).ToList();
 
         foreach (var orderItem in orderItems)
         {
@@ -497,7 +498,7 @@ public class ShipmentViewModelService : IShipmentViewModelService
             DeliveryDateUtc = null,
             AdminComment = model.AdminComment,
             StoreId = order.StoreId,
-            VendorId = _contextAccessor.WorkContext.CurrentVendor.Id
+            VendorId = _workContext.CurrentVendor.Id
         };
         double? totalWeight = null;
         foreach (var orderItem in orderItems)

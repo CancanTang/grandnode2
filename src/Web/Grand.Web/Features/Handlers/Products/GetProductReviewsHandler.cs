@@ -3,8 +3,8 @@ using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Domain.Catalog;
-using Grand.Domain.Common;
 using Grand.Domain.Customers;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Features.Models.Products;
 using Grand.Web.Models.Catalog;
 using MediatR;
@@ -41,7 +41,8 @@ public class GetProductReviewsHandler : IRequestHandler<GetProductReviews, Produ
 
     public async Task<ProductReviewsModel> Handle(GetProductReviews request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Product);
+        if (request.Product == null)
+            throw new ArgumentNullException(nameof(request.Product));
 
         var model = new ProductReviewsModel {
             ProductId = request.Product.Id,
@@ -56,7 +57,7 @@ public class GetProductReviewsHandler : IRequestHandler<GetProductReviews, Produ
             var customer = await _customerService.GetCustomerById(pr.CustomerId);
             model.Items.Add(new ProductReviewModel {
                 Id = pr.Id,
-                CustomerId = pr.CustomerId,
+                CustomerId = pr?.CustomerId,
                 CustomerName = customer?.FormatUserName(_customerSettings.CustomerNameFormat),
                 Title = pr.Title,
                 ReviewText = pr.ReviewText,

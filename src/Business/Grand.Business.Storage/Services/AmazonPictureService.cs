@@ -40,9 +40,12 @@ public class AmazonPictureService : PictureService
         _config = config;
 
         //Arguments guard
-        ArgumentNullException.ThrowIfNullOrEmpty(_config.AmazonAwsAccessKeyId);
-        ArgumentNullException.ThrowIfNullOrEmpty(_config.AmazonAwsSecretAccessKey);
-        ArgumentNullException.ThrowIfNullOrEmpty(_config.AmazonBucketName);
+        if (string.IsNullOrEmpty(_config.AmazonAwsAccessKeyId))
+            throw new ArgumentNullException("AmazonAwsAccessKeyId");
+        if (string.IsNullOrEmpty(_config.AmazonAwsSecretAccessKey))
+            throw new ArgumentNullException("AmazonAwsSecretAccessKey");
+        if (string.IsNullOrEmpty(_config.AmazonBucketName))
+            throw new ArgumentNullException("AmazonBucketName");
 
         //Region guard
         var regionEndpoint = RegionEndpoint.GetBySystemName(_config.AmazonRegion);
@@ -108,7 +111,7 @@ public class AmazonPictureService : PictureService
     /// </summary>
     /// <param name="actualResponse">Actual Response</param>
     /// <param name="expectedHttpStatusCode">Expected Status Code</param>
-    private static void EnsureValidResponse(AmazonWebServiceResponse actualResponse, HttpStatusCode expectedHttpStatusCode)
+    private void EnsureValidResponse(AmazonWebServiceResponse actualResponse, HttpStatusCode expectedHttpStatusCode)
     {
         if (actualResponse.HttpStatusCode != expectedHttpStatusCode)
             throw new Exception("Http Status Codes Aren't Consistent");
@@ -152,18 +155,19 @@ public class AmazonPictureService : PictureService
     /// </summary>
     /// <param name="thumbFileName">Thumb file name</param>
     /// <returns>Result</returns>
-    private async Task<bool> GeneratedThumbExists(string thumbFileName)
+    private Task<bool> GeneratedThumbExists(string thumbFileName)
     {
         try
         {
-            var getObjectResponse = await _s3Client.GetObjectAsync(_bucketName, thumbFileName);
+            var getObjectResponse = _s3Client.GetObjectAsync(_bucketName, thumbFileName).GetAwaiter().GetResult();
             EnsureValidResponse(getObjectResponse, HttpStatusCode.OK);
 
-            return getObjectResponse.BucketName == _bucketName || getObjectResponse.Key == thumbFileName;
+            return Task.FromResult(
+                getObjectResponse.BucketName == _bucketName || getObjectResponse.Key == thumbFileName);
         }
         catch
         {
-            return false;
+            return Task.FromResult(false);
         }
     }
 

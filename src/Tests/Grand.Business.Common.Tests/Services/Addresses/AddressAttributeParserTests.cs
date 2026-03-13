@@ -37,8 +37,8 @@ public class AddressAttributeParserTests
         _atrService.Setup(c => c.GetAddressAttributeById("key2"))
             .Returns(Task.FromResult(new AddressAttribute { Id = "key2" }));
         var result = await _parser.ParseAddressAttributes(customAtr);
-        Assert.HasCount(2, result);
-        Assert.AreEqual("key1", result.First().Id);
+        Assert.IsTrue(result.Count == 2);
+        Assert.IsTrue(result.First().Id.Equals("key1"));
     }
 
     [TestMethod]
@@ -46,7 +46,7 @@ public class AddressAttributeParserTests
     {
         var atr = new AddressAttribute { Id = "added" };
         var result = _parser.AddAddressAttribute(customAtr, atr, "new-added-value");
-        Assert.HasCount(5, result);
+        Assert.IsTrue(result.Count == 5);
         Assert.IsTrue(result.Any(c => c.Key.Equals("added")));
     }
 }

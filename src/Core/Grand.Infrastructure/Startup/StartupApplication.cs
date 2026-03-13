@@ -18,7 +18,7 @@ public class StartupApplication : IStartupApplication
     public bool BeforeConfigure => false;
 
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 
@@ -34,7 +34,10 @@ public class StartupApplication : IStartupApplication
         var dbConfig = new DatabaseConfig();
         configuration.GetSection("Database").Bind(dbConfig);
 
-        var dataProviderSettings = DataSettingsManager.Instance.LoadSettings();
+        var applicationInsights = new ApplicationInsightsConfig();
+        configuration.GetSection("ApplicationInsights").Bind(applicationInsights);
+
+        var dataProviderSettings = DataSettingsManager.LoadSettings();
         if (string.IsNullOrEmpty(dataProviderSettings.ConnectionString))
         {
             serviceCollection.AddTransient(_ => dataProviderSettings);
@@ -51,6 +54,13 @@ public class StartupApplication : IStartupApplication
                 var mongoUrl = new MongoUrl(connectionString);
                 var databaseName = mongoUrl.DatabaseName;
                 var clientSettings = MongoClientSettings.FromConnectionString(connectionString);
+
+                if (applicationInsights.TrackDependencyMongoDb)
+                    clientSettings.ClusterConfigurator = builder =>
+                    {
+                        builder.Subscribe(new ApplicationInsightsSubscriber(serviceCollection));
+                    };
+
                 serviceCollection.AddScoped(_ => new MongoClient(clientSettings).GetDatabase(databaseName));
             }
             else

@@ -24,7 +24,7 @@ public class HistoryServiceTests
     [TestMethod]
     public void SaveObject_NullObject_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _historyService.SaveObject<Product>(null),
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _historyService.SaveObject<Product>(null),
             "entity");
     }
 

@@ -1,5 +1,7 @@
 ﻿using Grand.Business.Cms.Services;
 using Grand.Business.Core.Interfaces.Cms;
+using Grand.Business.Core.Interfaces.Common.Directory;
+using Grand.Domain;
 using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Stores;
@@ -33,8 +35,8 @@ public class CookiePreferenceTests
     public void GetConsentCookies_ReturnCorectOrder()
     {
         var result = _cookiePreferences.GetConsentCookies();
-        Assert.AreEqual(1, result.First().DisplayOrder);
-        Assert.AreEqual(2, result.Last().DisplayOrder);
+        Assert.IsTrue(result.First().DisplayOrder == 1);
+        Assert.IsTrue(result.Last().DisplayOrder == 2);
     }
 
     [TestMethod]

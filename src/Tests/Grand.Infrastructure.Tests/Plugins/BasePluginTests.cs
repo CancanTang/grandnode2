@@ -13,11 +13,9 @@ public class BasePluginTests
     [TestInitialize]
     public void Init()
     {
-        var pluginPaths = Path.Combine(TestContext.CurrentContext.TestDirectory, CommonPath.AppData, CommonPath.InstalledPluginsFile);
-        PluginPaths.Initialize(pluginPaths);
-
-        if (File.Exists(PluginPaths.Instance.InstalledPluginsFile))
-            File.Delete(PluginPaths.Instance.InstalledPluginsFile);
+        CommonPath.BaseDirectory = TestContext.CurrentContext.TestDirectory;
+        if (File.Exists(CommonPath.InstalledPluginsFilePath))
+            File.Delete(CommonPath.InstalledPluginsFilePath);
 
         sampleBasePlugin = new SampleBasePlugin();
     }
@@ -32,7 +30,7 @@ public class BasePluginTests
     public async Task InstallTest()
     {
         await sampleBasePlugin.Install();
-        var plugins = PluginExtensions.ParseInstalledPluginsFile(PluginPaths.Instance.InstalledPluginsFile);
+        var plugins = PluginExtensions.ParseInstalledPluginsFile(CommonPath.InstalledPluginsFilePath);
         Assert.IsNotNull(plugins);
         Assert.AreEqual("SamplePlugin", plugins.FirstOrDefault());
     }
@@ -42,15 +40,15 @@ public class BasePluginTests
     {
         await sampleBasePlugin.Install();
         await sampleBasePlugin.Uninstall();
-        var plugins = PluginExtensions.ParseInstalledPluginsFile(PluginPaths.Instance.InstalledPluginsFile);
-        Assert.IsEmpty(plugins);
+        var plugins = PluginExtensions.ParseInstalledPluginsFile(CommonPath.InstalledPluginsFilePath);
+        Assert.AreEqual(0, plugins.Count);
     }
 
     [TestMethod]
     public async Task UninstallTest()
     {
         await sampleBasePlugin.Uninstall();
-        var plugins = PluginExtensions.ParseInstalledPluginsFile(PluginPaths.Instance.InstalledPluginsFile);
-        Assert.IsEmpty(plugins);
+        var plugins = PluginExtensions.ParseInstalledPluginsFile(CommonPath.InstalledPluginsFilePath);
+        Assert.AreEqual(0, plugins.Count);
     }
 }

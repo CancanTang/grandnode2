@@ -38,7 +38,7 @@ public class MessageTemplateServiceTests
     [TestMethod]
     public void CopyMessageTemplate_NullArrguemnt_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.CopyMessageTemplate(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.CopyMessageTemplate(null));
     }
 
     [TestMethod]

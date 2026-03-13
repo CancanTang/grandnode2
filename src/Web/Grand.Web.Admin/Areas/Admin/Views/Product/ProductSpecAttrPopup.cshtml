@@ -5,8 +5,8 @@
 <form id="ProductSpecificationPopup" asp-area="@Constants.AreaAdmin"
       asp-controller="Product" asp-action="ProductSpecAttrPopup"
       enctype="multipart/form-data" method="post"
-      asp-route-ProductId="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["ProductId"])"
-      asp-route-Id="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["Id"])">
+      asp-route-ProductId="@Context.Request.Query["ProductId"]"
+      asp-route-Id="@Context.Request.Query["Id"]">
 
     <div asp-validation-summary="All"></div>
     <input asp-for="ProductId" type="hidden"/>
@@ -34,7 +34,7 @@
                             <div class="form-group">
                                 <admin-label asp-for="AttributeTypeId"/>
                                 <div class="col-md-9 col-sm-9">
-                                    <admin-select asp-for="AttributeTypeId" asp-items="EnumTranslationService.ToSelectList(Model.AttributeTypeId)"/>
+                                    <admin-select asp-for="AttributeTypeId" asp-items="Model.AttributeTypeId.ToSelectList(Context)"/>
                                     <span asp-validation-for="AttributeTypeId"></span>
                                 </div>
                             </div>

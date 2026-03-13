@@ -1,6 +1,7 @@
-﻿using Grand.Business.Core.Interfaces.Marketing.Documents;
+﻿using Grand.Business.Core.Extensions;
+using Grand.Business.Core.Interfaces.Common.Localization;
+using Grand.Business.Core.Interfaces.Marketing.Documents;
 using Grand.Domain.Documents;
-using Grand.Web.Common.Localization;
 using Grand.Web.Features.Models.Customers;
 using Grand.Web.Models.Customer;
 using MediatR;
@@ -13,17 +14,17 @@ public class GetDocumentsHandler : IRequestHandler<GetDocuments, DocumentsModel>
     private readonly IDocumentService _documentService;
     private readonly DocumentSettings _documentSettings;
     private readonly IDocumentTypeService _documentTypeService;
-    private readonly IEnumTranslationService _enumTranslationService;
-    
+    private readonly ITranslationService _translationService;
+
     public GetDocumentsHandler(IDocumentService documentService,
         IDocumentTypeService documentTypeService,
-        DocumentSettings documentSettings, 
-        IEnumTranslationService enumTranslationService)
+        ITranslationService translationService,
+        DocumentSettings documentSettings)
     {
         _documentService = documentService;
         _documentTypeService = documentTypeService;
+        _translationService = translationService;
         _documentSettings = documentSettings;
-        _enumTranslationService = enumTranslationService;
     }
 
     public async Task<DocumentsModel> Handle(GetDocuments request, CancellationToken cancellationToken)
@@ -48,7 +49,7 @@ public class GetDocumentsHandler : IRequestHandler<GetDocuments, DocumentsModel>
                 Name = item.Name,
                 Number = item.Number,
                 Quantity = item.Quantity,
-                Status = _enumTranslationService.GetTranslationEnum(item.StatusId),
+                Status = item.StatusId.GetTranslationEnum(_translationService, request.Language.Id),
                 Description = item.Description,
                 DocDate = item.DocDate,
                 DueDate = item.DueDate,

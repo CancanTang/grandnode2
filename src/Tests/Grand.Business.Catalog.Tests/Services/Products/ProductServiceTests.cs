@@ -12,6 +12,7 @@ using Grand.Infrastructure;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Tests.Caching;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -26,15 +27,17 @@ public class ProductServiceTests
     private Mock<IMediator> _mediatorMock;
     private IRepository<Product> _productRepository;
     private ProductService _productService;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void InitializeTests()
     {
+        CommonPath.BaseDirectory = "";
+
         _productRepository = new MongoDBRepositoryTest<Product>();
-        _workContextMock = new Mock<IContextAccessor>();
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock = new Mock<IWorkContext>();
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         _mediatorMock = new Mock<IMediator>();
 
         _mediatorMock.Setup(x => x.Send(It.IsAny<GetProductArchByIdQuery>(), default))
@@ -83,7 +86,7 @@ public class ProductServiceTests
         var result = await _productService.GetAllProductsDisplayedOnHomePage();
 
         //Assert
-        Assert.HasCount(2, result);
+        Assert.IsTrue(result.Count == 2);
     }
 
     [TestMethod]
@@ -96,7 +99,7 @@ public class ProductServiceTests
         var result = await _productService.GetAllProductsDisplayedOnBestSeller();
 
         //Assert
-        Assert.HasCount(2, result);
+        Assert.IsTrue(result.Count == 2);
     }
 
     [TestMethod]
@@ -143,7 +146,7 @@ public class ProductServiceTests
         var result = await _productService.GetProductsByIds(["1"]);
 
         //Assert
-        Assert.IsNotEmpty(result);
+        Assert.IsTrue(result.Count > 0);
     }
 
     [TestMethod]
@@ -156,7 +159,7 @@ public class ProductServiceTests
         var result = await _productService.GetProductsByDiscount("1");
 
         //Assert
-        Assert.IsNotEmpty(result);
+        Assert.IsTrue(result.Count > 0);
     }
 
     [TestMethod]
@@ -187,7 +190,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.AreEqual("test2", result.Name);
+        Assert.IsTrue(result.Name == "test2");
     }
 
     [TestMethod]
@@ -227,10 +230,10 @@ public class ProductServiceTests
         //Arrange 
         await insertSampleProducts();
         //Act
-        var result = _productService.GetCategoryProductNumber(new Customer(), ["1"]);
+        var result = _productService.GetCategoryProductNumber(new Customer(), new[] { "1" });
 
         //Assert
-        Assert.AreEqual(1, result);
+        Assert.IsTrue(result == 1);
     }
 
     [TestMethod]
@@ -248,7 +251,7 @@ public class ProductServiceTests
         var result = await _productService.GetProductsByProductAttributeId("1");
 
         //Assert
-        Assert.IsNotEmpty(result);
+        Assert.IsTrue(result.Count > 0);
     }
 
     [TestMethod]
@@ -260,7 +263,7 @@ public class ProductServiceTests
         var result = await _productService.GetAssociatedProducts("1");
 
         //Assert
-        Assert.IsNotEmpty(result);
+        Assert.IsTrue(result.Count > 0);
     }
 
     [TestMethod]
@@ -339,7 +342,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.RelatedProducts);
+        Assert.AreEqual(1, result.RelatedProducts.Count);
     }
 
     [TestMethod]
@@ -357,7 +360,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.RelatedProducts);
+        Assert.AreEqual(0, result.RelatedProducts.Count);
     }
 
     [TestMethod]
@@ -376,7 +379,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.RelatedProducts);
+        Assert.AreEqual(1, result.RelatedProducts.Count);
         Assert.AreEqual(10, result.RelatedProducts.FirstOrDefault().DisplayOrder);
     }
 
@@ -396,7 +399,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.SimilarProducts);
+        Assert.AreEqual(1, result.SimilarProducts.Count);
     }
 
     [TestMethod]
@@ -415,7 +418,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.SimilarProducts);
+        Assert.AreEqual(1, result.SimilarProducts.Count);
         Assert.AreEqual(10, result.SimilarProducts.FirstOrDefault().DisplayOrder);
     }
 
@@ -434,7 +437,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.SimilarProducts);
+        Assert.AreEqual(0, result.SimilarProducts.Count);
     }
 
     [TestMethod]
@@ -452,7 +455,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.BundleProducts);
+        Assert.AreEqual(1, result.BundleProducts.Count);
     }
 
     [TestMethod]
@@ -471,7 +474,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.BundleProducts);
+        Assert.AreEqual(1, result.BundleProducts.Count);
         Assert.AreEqual(10, result.BundleProducts.FirstOrDefault().Quantity);
     }
 
@@ -490,7 +493,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.BundleProducts);
+        Assert.AreEqual(0, result.BundleProducts.Count);
     }
 
     [TestMethod]
@@ -510,7 +513,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.CrossSellProduct);
+        Assert.AreEqual(1, result.CrossSellProduct.Count);
     }
 
     [TestMethod]
@@ -532,7 +535,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.CrossSellProduct);
+        Assert.AreEqual(0, result.CrossSellProduct.Count);
     }
 
     [TestMethod]
@@ -562,7 +565,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(2, result);
+        Assert.AreEqual(2, result.Count);
     }
 
     [TestMethod]
@@ -579,7 +582,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.RecommendedProduct);
+        Assert.AreEqual(1, result.RecommendedProduct.Count);
     }
 
     [TestMethod]
@@ -596,7 +599,7 @@ public class ProductServiceTests
         var result = await _productService.GetProductById(product.Id);
 
         //Assert
-        Assert.IsEmpty(result.RecommendedProduct);
+        Assert.AreEqual(0, result.RecommendedProduct.Count);
     }
 
     [TestMethod]
@@ -613,7 +616,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.TierPrices);
+        Assert.AreEqual(1, result.TierPrices.Count);
     }
 
     [TestMethod]
@@ -632,7 +635,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.TierPrices);
+        Assert.AreEqual(1, result.TierPrices.Count);
         Assert.AreEqual(10, result.TierPrices.FirstOrDefault().Quantity);
     }
 
@@ -651,7 +654,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.TierPrices);
+        Assert.AreEqual(0, result.TierPrices.Count);
     }
 
     [TestMethod]
@@ -669,7 +672,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.ProductPrices);
+        Assert.AreEqual(1, result.ProductPrices.Count);
     }
 
     [TestMethod]
@@ -689,7 +692,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.ProductPrices);
+        Assert.AreEqual(1, result.ProductPrices.Count);
         Assert.AreEqual("EUR", result.ProductPrices.FirstOrDefault().CurrencyCode);
     }
 
@@ -709,7 +712,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.ProductPrices);
+        Assert.AreEqual(0, result.ProductPrices.Count);
     }
 
     [TestMethod]
@@ -727,7 +730,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.ProductPictures);
+        Assert.AreEqual(1, result.ProductPictures.Count);
     }
 
     [TestMethod]
@@ -747,7 +750,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.ProductPictures);
+        Assert.AreEqual(1, result.ProductPictures.Count);
         Assert.AreEqual("2", result.ProductPictures.FirstOrDefault().PictureId);
     }
 
@@ -767,7 +770,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.ProductPictures);
+        Assert.AreEqual(0, result.ProductPictures.Count);
     }
 
     [TestMethod]
@@ -785,7 +788,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.ProductWarehouseInventory);
+        Assert.AreEqual(1, result.ProductWarehouseInventory.Count);
     }
 
     [TestMethod]
@@ -805,7 +808,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.ProductWarehouseInventory);
+        Assert.AreEqual(1, result.ProductWarehouseInventory.Count);
         Assert.AreEqual("2", result.ProductWarehouseInventory.FirstOrDefault().WarehouseId);
     }
 
@@ -825,7 +828,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.ProductWarehouseInventory);
+        Assert.AreEqual(0, result.ProductWarehouseInventory.Count);
     }
 
     [TestMethod]
@@ -843,7 +846,7 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.IsEmpty(result.AppliedDiscounts);
+        Assert.AreEqual(0, result.AppliedDiscounts.Count);
     }
 
     [TestMethod]
@@ -860,6 +863,6 @@ public class ProductServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result.AppliedDiscounts);
+        Assert.AreEqual(1, result.AppliedDiscounts.Count);
     }
 }

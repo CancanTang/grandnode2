@@ -1,9 +1,9 @@
 ﻿@using Grand.Domain.Blogs
 @model SearchBoxModel
 @inject BlogSettings blogSettings
-@inject IContextAccessor contextAccessor
+@inject IWorkContext workContext
 @{
-    var lang = contextAccessor.WorkContext.WorkingLanguage.LanguageCulture;
+    var lang = workContext.WorkingLanguage.LanguageCulture;
 }
 <ul class="search-item">
     <li>

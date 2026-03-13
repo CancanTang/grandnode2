@@ -4,7 +4,7 @@ using Grand.Business.Core.Interfaces.Catalog.Tax;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Storage;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
 using Grand.Domain.Common;
 using Grand.Domain.Media;
@@ -175,7 +175,7 @@ public class GetProductDetailsAttributeChangeHandler : IRequestHandler<GetProduc
         return model;
     }
 
-    private static List<string> PrepareNotAvailableAttributeMapping(GetProductDetailsAttributeChange request,
+    private List<string> PrepareNotAvailableAttributeMapping(GetProductDetailsAttributeChange request,
         IList<CustomAttribute> customAttributes)
     {
         var model = new List<string>();

@@ -1,5 +1,4 @@
-﻿using Grand.SharedKernel.Attributes;
-using Grand.Web.Commands.Models.Newsletter;
+﻿using Grand.Web.Commands.Models.Newsletter;
 using Grand.Web.Common.Controllers;
 using Grand.Web.Common.Filters;
 using Grand.Web.Models.Newsletter;
@@ -9,7 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace Grand.Web.Controllers;
 
 [DenySystemAccount]
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class NewsletterController : BasePublicController
 {
     private readonly IMediator _mediator;

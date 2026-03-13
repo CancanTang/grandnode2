@@ -29,10 +29,13 @@ public class MigrationManager
     ///     Get current migrations
     /// </summary>
     /// <returns></returns>
-    public IEnumerable<IMigration> GetCurrentMigrations(DbVersion installedVersion)
+    public IEnumerable<IMigration> GetCurrentMigrations()
     {
+        var currentDbVersion =
+            new DbVersion(int.Parse(GrandVersion.MajorVersion), int.Parse(GrandVersion.MinorVersion));
+
         return GetAllMigrations()
-            .Where(x => x.Version.CompareTo(installedVersion) > 0)
+            .Where(x => currentDbVersion.CompareTo(x.Version) >= 0)
             .OrderBy(mg => mg.Version.ToString())
             .ThenBy(mg => mg.Priority)
             .ToList();

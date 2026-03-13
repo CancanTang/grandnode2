@@ -11,15 +11,15 @@ public class CollectionNavigationViewComponent : BaseViewComponent
 {
     private readonly CatalogSettings _catalogSettings;
     private readonly IMediator _mediator;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public CollectionNavigationViewComponent(
         IMediator mediator,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         CatalogSettings catalogSettings)
     {
         _mediator = mediator;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _catalogSettings = catalogSettings;
     }
 
@@ -30,9 +30,9 @@ public class CollectionNavigationViewComponent : BaseViewComponent
 
         var model = await _mediator.Send(new GetCollectionNavigation {
             CurrentCollectionId = currentCollectionId,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore
         });
 
         return !model.Collections.Any() ? Content("") : View(model);

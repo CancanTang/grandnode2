@@ -72,7 +72,7 @@ public class SlugRouteTransformer : DynamicRouteValueTransformer
             if (urlLanguage != null && !string.IsNullOrEmpty(urlLanguage.ToString()))
             {
                 var language = (await _languageService.GetAllLanguages()).FirstOrDefault(x =>
-                                   x.UniqueSeoCode.Equals(urlLanguage.ToString(), StringComparison.InvariantCultureIgnoreCase)) ??
+                                   x.UniqueSeoCode.ToLowerInvariant() == urlLanguage.ToString()?.ToLowerInvariant()) ??
                                (await _languageService.GetAllLanguages()).FirstOrDefault();
 
                 var slugForCurrentLanguage = await GetSeName(entityUrl.EntityId, entityUrl.EntityName, language?.Id);

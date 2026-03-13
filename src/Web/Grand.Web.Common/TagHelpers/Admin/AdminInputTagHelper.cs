@@ -156,10 +156,12 @@ public class AdminInputTagHelper : TagHelper
     }
 
 
-    private static object GetPrivateFieldValue(object target, string fieldName)
+    private object GetPrivateFieldValue(object target, string fieldName)
     {
-        ArgumentNullException.ThrowIfNull(target);
-        ArgumentNullException.ThrowIfNullOrEmpty(fieldName);
+        if (target == null) throw new ArgumentNullException(nameof(target), "The assignment target cannot be null.");
+
+        if (string.IsNullOrEmpty(fieldName))
+            throw new ArgumentException("fieldName", "The field name cannot be null or empty.");
 
         var t = target.GetType();
         FieldInfo fi = null;

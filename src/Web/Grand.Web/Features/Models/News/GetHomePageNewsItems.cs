@@ -3,4 +3,6 @@ using MediatR;
 
 namespace Grand.Web.Features.Models.News;
 
-public class GetHomePageNewsItems : IRequest<HomePageNewsItemsModel>;
+public class GetHomePageNewsItems : IRequest<HomePageNewsItemsModel>
+{
+}

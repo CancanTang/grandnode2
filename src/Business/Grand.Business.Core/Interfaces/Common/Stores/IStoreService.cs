@@ -1,5 +1,3 @@
-#nullable enable
-
 using Grand.Domain.Stores;
 
 namespace Grand.Business.Core.Interfaces.Common.Stores;
@@ -14,6 +12,12 @@ public interface IStoreService
     /// </summary>
     /// <returns>Stores</returns>
     Task<IList<Store>> GetAllStores();
+
+    /// <summary>
+    ///     Gets all stores
+    /// </summary>
+    /// <returns>Stores</returns>
+    IList<Store> GetAll();
 
     /// <summary>
     ///     Gets a store
@@ -39,11 +43,4 @@ public interface IStoreService
     /// </summary>
     /// <param name="store">Store</param>
     Task DeleteStore(Store store);
-
-    /// <summary>
-    /// Get store by host
-    /// </summary>
-    /// <param name="host"></param>
-    /// <returns></returns>
-    Task<Store?> GetStoreByHost(string host);
 }

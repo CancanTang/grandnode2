@@ -25,7 +25,7 @@ public class PageServiceTests
     private PageService _pageService;
 
     private IRepository<Page> _repository;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
@@ -33,15 +33,15 @@ public class PageServiceTests
         _repository = new MongoDBRepositoryTest<Page>();
 
         _mediatorMock = new Mock<IMediator>();
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
 
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
             new CacheConfig { DefaultCacheTimeMinutes = 1 });
 
         _aclService = new AclService(new AccessControlConfig());
 
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
 
         _pageService = new PageService(_repository, _workContextMock.Object, _aclService, _mediatorMock.Object,
             _cacheBase, new AccessControlConfig());
@@ -104,7 +104,7 @@ public class PageServiceTests
         page.SystemName = "test";
         await _pageService.UpdatePage(page);
         //Assert
-        Assert.AreEqual("test", _repository.Table.FirstOrDefault(x => x.Id == page.Id).SystemName);
+        Assert.IsTrue(_repository.Table.FirstOrDefault(x => x.Id == page.Id).SystemName == "test");
     }
 
     [TestMethod]

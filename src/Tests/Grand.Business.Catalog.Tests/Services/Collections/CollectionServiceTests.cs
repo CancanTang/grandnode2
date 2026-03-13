@@ -22,14 +22,14 @@ public class CollectionServiceTests
     private Mock<IMediator> _mediatorMock;
     private Mock<IRepository<Collection>> _repositoryMock;
     private CatalogSettings _settings;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
     {
         _cacheMock = new Mock<ICacheBase>();
         _repositoryMock = new Mock<IRepository<Collection>>();
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
         _mediatorMock = new Mock<IMediator>();
         _aclMock = new Mock<IAclService>();
         _settings = new CatalogSettings();
@@ -76,18 +76,18 @@ public class CollectionServiceTests
     [TestMethod]
     public void DeleteCollection_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _collectionService.DeleteCollection(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _collectionService.DeleteCollection(null));
     }
 
     [TestMethod]
     public void InsertCollection_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _collectionService.InsertCollection(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _collectionService.InsertCollection(null));
     }
 
     [TestMethod]
     public void UpdateCollection_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _collectionService.UpdateCollection(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _collectionService.UpdateCollection(null));
     }
 }

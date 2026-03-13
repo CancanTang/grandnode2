@@ -1,18 +1,22 @@
 ﻿using Grand.Business.Core.Dto;
 using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Brands;
+using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Stores;
 using Grand.Business.Core.Interfaces.ExportImport;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
-using Grand.Domain.Permissions;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Catalog;
-using Grand.Web.AdminShared.Models.Common;
+using Grand.Infrastructure;
+using Grand.Web.Admin.Extensions;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Catalog;
+using Grand.Web.Admin.Models.Common;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -26,17 +30,35 @@ public class BrandController : BaseAdminController
     public BrandController(
         IBrandViewModelService brandViewModelService,
         IBrandService brandService,
+        IWorkContext workContext,
         IStoreService storeService,
         ILanguageService languageService,
         ITranslationService translationService,
+        IGroupService groupService,
         IPictureViewModelService pictureViewModelService)
     {
         _brandViewModelService = brandViewModelService;
         _brandService = brandService;
+        _workContext = workContext;
         _storeService = storeService;
         _languageService = languageService;
         _translationService = translationService;
+        _groupService = groupService;
         _pictureViewModelService = pictureViewModelService;
+    }
+
+    #endregion
+
+    #region Utilities
+
+    protected async Task<(bool allow, string message)> CheckAccessToBrand(Brand brand)
+    {
+        if (brand == null) return (false, "Brand not exists");
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            if (!(!brand.LimitedToStores || (brand.Stores.Contains(_workContext.CurrentCustomer.StaffStoreId) &&
+                                             brand.LimitedToStores)))
+                return (false, "This is not your collection");
+        return (true, null);
     }
 
     #endregion
@@ -45,9 +67,11 @@ public class BrandController : BaseAdminController
 
     private readonly IBrandViewModelService _brandViewModelService;
     private readonly IBrandService _brandService;
+    private readonly IWorkContext _workContext;
     private readonly IStoreService _storeService;
     private readonly ILanguageService _languageService;
     private readonly ITranslationService _translationService;
+    private readonly IGroupService _groupService;
     private readonly IPictureViewModelService _pictureViewModelService;
 
     #endregion
@@ -61,9 +85,12 @@ public class BrandController : BaseAdminController
 
     public async Task<IActionResult> List()
     {
+        var storeId = _workContext.CurrentCustomer.StaffStoreId;
         var model = new BrandListModel();
-        model.AvailableStores.Add(new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
-        foreach (var s in (await _storeService.GetAllStores()))
+        model.AvailableStores.Add(new SelectListItem
+            { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
+        foreach (var s in (await _storeService.GetAllStores()).Where(x =>
+                     x.Id == storeId || string.IsNullOrWhiteSpace(storeId)))
             model.AvailableStores.Add(new SelectListItem { Text = s.Shortcut, Value = s.Id });
 
         return View(model);
@@ -73,6 +100,8 @@ public class BrandController : BaseAdminController
     [HttpPost]
     public async Task<IActionResult> List(DataSourceRequest command, BrandListModel model)
     {
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            model.SearchStoreId = _workContext.CurrentCustomer.StaffStoreId;
         var brands = await _brandService.GetAllBrands(model.SearchBrandName,
             model.SearchStoreId, command.Page - 1, command.PageSize, true);
         var gridModel = new DataSourceResult {
@@ -98,8 +127,8 @@ public class BrandController : BaseAdminController
         //discounts
         await _brandViewModelService.PrepareDiscountModel(model, null, true);
         //default values
-        model.PageSize = catalogSettings.DefaultPageSize;
-        model.PageSizeOptions = catalogSettings.DefaultPageSizeOptions;
+        model.PageSize = catalogSettings.DefaultCollectionPageSize;
+        model.PageSizeOptions = catalogSettings.DefaultCollectionPageSizeOptions;
         model.Published = true;
         model.AllowCustomersToSelectPageSize = true;
         //sort options
@@ -115,6 +144,9 @@ public class BrandController : BaseAdminController
     {
         if (ModelState.IsValid)
         {
+            if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+                model.Stores = [_workContext.CurrentCustomer.StaffStoreId];
+
             var collection = await _brandViewModelService.InsertBrandModel(model);
             Success(_translationService.GetResource("Admin.Catalog.Brands.Added"));
             return continueEditing ? RedirectToAction("Edit", new { id = collection.Id }) : RedirectToAction("List");
@@ -138,6 +170,21 @@ public class BrandController : BaseAdminController
         if (brand == null)
             //No collection found with the specified id
             return RedirectToAction("List");
+
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+        {
+            if (!brand.LimitedToStores || (brand.LimitedToStores &&
+                                           brand.Stores.Contains(_workContext.CurrentCustomer.StaffStoreId) &&
+                                           brand.Stores.Count > 1))
+            {
+                Warning(_translationService.GetResource("Admin.Catalog.Brands.Permissions"));
+            }
+            else
+            {
+                if (!brand.AccessToEntityByStore(_workContext.CurrentCustomer.StaffStoreId))
+                    return RedirectToAction("List");
+            }
+        }
 
         var model = brand.ToModel();
         //locales
@@ -171,8 +218,13 @@ public class BrandController : BaseAdminController
             //No collection found with the specified id
             return RedirectToAction("List");
 
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            if (!brand.AccessToEntityByStore(_workContext.CurrentCustomer.StaffStoreId))
+                return RedirectToAction("Edit", new { id = brand.Id });
         if (ModelState.IsValid)
         {
+            if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+                model.Stores = [_workContext.CurrentCustomer.StaffStoreId];
             brand = await _brandViewModelService.UpdateBrandModel(brand, model);
             Success(_translationService.GetResource("Admin.Catalog.Brands.Updated"));
 
@@ -208,6 +260,10 @@ public class BrandController : BaseAdminController
             //No collection found with the specified id
             return RedirectToAction("List");
 
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            if (!brand.AccessToEntityByStore(_workContext.CurrentCustomer.StaffStoreId))
+                return RedirectToAction("Edit", new { id = brand.Id });
+
         if (ModelState.IsValid)
         {
             await _brandViewModelService.DeleteBrand(brand);
@@ -234,6 +290,10 @@ public class BrandController : BaseAdminController
         if (string.IsNullOrEmpty(brand.PictureId))
             return Content("Picture not exist");
 
+        var permission = await CheckAccessToBrand(brand);
+        if (!permission.allow)
+            return Content(permission.message);
+
         return View("Partials/PicturePopup",
             await _pictureViewModelService.PreparePictureModel(brand.PictureId, brand.Id));
     }
@@ -247,6 +307,10 @@ public class BrandController : BaseAdminController
             var brand = await _brandService.GetBrandById(model.ObjectId);
             if (brand == null)
                 throw new ArgumentException("No brand found with the specified id");
+
+            var permission = await CheckAccessToBrand(brand);
+            if (!permission.allow)
+                return Content(permission.message);
 
             if (string.IsNullOrEmpty(brand.PictureId))
                 throw new ArgumentException("No picture found with the specified id");
@@ -273,7 +337,8 @@ public class BrandController : BaseAdminController
     {
         try
         {
-            var bytes = await exportManager.Export(await _brandService.GetAllBrands(showHidden: true));
+            var bytes = await exportManager.Export(await _brandService.GetAllBrands(showHidden: true,
+                storeId: _workContext.CurrentCustomer.StaffStoreId));
             return File(bytes, "text/xls", "brands.xlsx");
         }
         catch (Exception exc)

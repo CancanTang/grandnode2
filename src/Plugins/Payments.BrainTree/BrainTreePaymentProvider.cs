@@ -123,7 +123,7 @@ public class BrainTreePaymentProvider : IPaymentProvider
             Environment = useSandBox ? Environment.SANDBOX : Environment.PRODUCTION,
             MerchantId = merchantId,
             PublicKey = publicKey,
-            PrivateKey = privateKey,
+            PrivateKey = privateKey
         };
 
         //new transaction request
@@ -156,7 +156,6 @@ public class BrainTreePaymentProvider : IPaymentProvider
             PostalCode = customer.BillingAddress.ZipPostalCode
         };
         transactionRequest.BillingAddress = addressRequest;
-        transactionRequest.CurrencyIsoCode = paymentTransaction.CurrencyCode;
 
         //transaction options request
         var transactionOptionsRequest = new TransactionOptionsRequest {
@@ -194,10 +193,10 @@ public class BrainTreePaymentProvider : IPaymentProvider
     ///     Post redirect payment (used by payment gateways that redirecting to a another URL)
     /// </summary>
     /// <param name="paymentTransaction">Payment transaction</param>
-    public Task<string> PostRedirectPayment(PaymentTransaction paymentTransaction)
+    public Task PostRedirectPayment(PaymentTransaction paymentTransaction)
     {
         //nothing
-        return Task.FromResult(string.Empty);
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -242,7 +241,7 @@ public class BrainTreePaymentProvider : IPaymentProvider
 
         if (!(result > 0)) return await Task.FromResult(result);
         var currencyService = _httpContextAccessor.HttpContext!.RequestServices.GetRequiredService<ICurrencyService>();
-        var workContext = _httpContextAccessor.HttpContext!.RequestServices.GetRequiredService<IContextAccessor>().WorkContext;
+        var workContext = _httpContextAccessor.HttpContext!.RequestServices.GetRequiredService<IWorkContext>();
         result = await currencyService.ConvertFromPrimaryStoreCurrency(result, workContext.WorkingCurrency);
 
         //return result;

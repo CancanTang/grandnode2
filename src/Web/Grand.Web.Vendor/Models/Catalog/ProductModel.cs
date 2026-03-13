@@ -373,7 +373,9 @@ public class ProductModel : BaseEntityModel, ILocalizedModel<ProductLocalizedMod
     }
 
 
-    public class AddRequiredProductModel : AddProductModel;
+    public class AddRequiredProductModel : AddProductModel
+    {
+    }
 
     public class AddProductSpecificationAttributeModel : BaseModel, IProductValidVendor
     {
@@ -424,10 +426,7 @@ public class ProductModel : BaseEntityModel, ILocalizedModel<ProductLocalizedMod
 
         [GrandResourceDisplayName("Vendor.Catalog.Products.Pictures.Fields.DisplayOrder")]
         public int DisplayOrder { get; set; }
-        
-        [GrandResourceDisplayName("Admin.Catalog.Products.Pictures.Fields.IsDefault")]
-        public bool IsDefault { get; set; }
-        
+
         [GrandResourceDisplayName("Vendor.Catalog.Products.Pictures.Fields.OverrideAltAttribute")]
         public string AltAttribute { get; set; }
 

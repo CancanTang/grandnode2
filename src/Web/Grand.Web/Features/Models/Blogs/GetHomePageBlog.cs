@@ -3,4 +3,6 @@ using MediatR;
 
 namespace Grand.Web.Features.Models.Blogs;
 
-public class GetHomePageBlog : IRequest<HomePageBlogItemsModel>;
+public class GetHomePageBlog : IRequest<HomePageBlogItemsModel>
+{
+}

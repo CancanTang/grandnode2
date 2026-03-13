@@ -1,11 +1,11 @@
 ﻿using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Authentication;
 using Grand.Business.Core.Interfaces.Common.Configuration;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Customers;
 using Grand.Infrastructure.Plugins;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Models.ExternalAuthentication;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Models.ExternalAuthentication;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;

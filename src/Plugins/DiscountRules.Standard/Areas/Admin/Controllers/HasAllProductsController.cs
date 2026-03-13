@@ -5,13 +5,13 @@ using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Common.Stores;
 using Grand.Business.Core.Interfaces.Customers;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
 using Grand.Domain.Discounts;
-using Grand.Domain.Permissions;
 using Grand.Infrastructure;
 using Grand.Web.Common.Controllers;
 using Grand.Web.Common.DataSource;
-using Grand.Web.Common.Localization;
+using Grand.Web.Common.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -25,35 +25,31 @@ public class HasAllProductsController : BaseAdminPluginController
     private readonly IStoreService _storeService;
     private readonly ITranslationService _translationService;
     private readonly IVendorService _vendorService;
-    private readonly IContextAccessor _contextAccessor;
-    private readonly IEnumTranslationService _enumTranslationService;
-
+    private readonly IWorkContext _workContext;
 
     public HasAllProductsController(IDiscountService discountService,
         IPermissionService permissionService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ITranslationService translationService,
         IStoreService storeService,
         IVendorService vendorService,
-        IProductService productService,
-        IEnumTranslationService enumTranslationService)
+        IProductService productService)
     {
         _discountService = discountService;
         _permissionService = permissionService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _translationService = translationService;
         _storeService = storeService;
         _vendorService = vendorService;
         _productService = productService;
-        _enumTranslationService = enumTranslationService;
     }
 
     public async Task<IActionResult> Configure(string discountId, string discountRequirementId)
     {
-        if (!await AuthorizeManageDiscounts())
+        if (!await _permissionService.Authorize(StandardPermission.ManageDiscounts))
             return Content("Access denied");
 
-        var discount = await GetDiscountById(discountId);
+        var discount = await _discountService.GetDiscountById(discountId);
         if (discount == null)
             throw new ArgumentException("Discount could not be loaded");
 
@@ -85,10 +81,10 @@ public class HasAllProductsController : BaseAdminPluginController
     [AutoValidateAntiforgeryToken]
     public async Task<IActionResult> Configure(string discountId, string discountRequirementId, string productIds)
     {
-        if (!await AuthorizeManageDiscounts())
+        if (!await _permissionService.Authorize(StandardPermission.ManageDiscounts))
             return Content("Access denied");
 
-        var discount = await GetDiscountById(discountId);
+        var discount = await _discountService.GetDiscountById(discountId);
         if (discount == null)
             throw new ArgumentException("Discount could not be loaded");
 
@@ -119,26 +115,28 @@ public class HasAllProductsController : BaseAdminPluginController
 
     public async Task<IActionResult> ProductAddPopup(string btnId, string productIdsInput)
     {
-        if (!await AuthorizeManageProducts())
+        if (!await _permissionService.Authorize(StandardPermission.ManageProducts))
             return Content("Access denied");
 
         var model = new RequirementAllProductsModel.AddProductModel {
             //a vendor should have access only to his products
-            IsLoggedInAsVendor = _contextAccessor.WorkContext.CurrentVendor != null
+            IsLoggedInAsVendor = _workContext.CurrentVendor != null
         };
 
         //stores
-        model.AvailableStores.Add(new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
+        model.AvailableStores.Add(new SelectListItem
+            { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
         foreach (var s in await _storeService.GetAllStores())
             model.AvailableStores.Add(new SelectListItem { Text = s.Shortcut, Value = s.Id });
 
         //vendors
-        model.AvailableVendors.Add(new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
+        model.AvailableVendors.Add(new SelectListItem
+            { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
         foreach (var v in await _vendorService.GetAllVendors(showHidden: true))
             model.AvailableVendors.Add(new SelectListItem { Text = v.Name, Value = v.Id });
 
         //product types
-        model.AvailableProductTypes = _enumTranslationService.ToSelectList(ProductType.SimpleProduct, false).ToList();
+        model.AvailableProductTypes = ProductType.SimpleProduct.ToSelectList(HttpContext, false).ToList();
         model.AvailableProductTypes.Insert(0,
             new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
 
@@ -154,11 +152,11 @@ public class HasAllProductsController : BaseAdminPluginController
     public async Task<IActionResult> ProductAddPopupList(DataSourceRequest command,
         RequirementAllProductsModel.AddProductModel model)
     {
-        if (!await AuthorizeManageProducts())
+        if (!await _permissionService.Authorize(StandardPermission.ManageProducts))
             return Content("Access denied");
 
         //a vendor should have access only to his products
-        if (_contextAccessor.WorkContext.CurrentVendor != null) model.SearchVendorId = _contextAccessor.WorkContext.CurrentVendor.Id;
+        if (_workContext.CurrentVendor != null) model.SearchVendorId = _workContext.CurrentVendor.Id;
         var searchCategoryIds = new List<string>();
         if (!string.IsNullOrEmpty(model.SearchCategoryId))
             searchCategoryIds.Add(model.SearchCategoryId);
@@ -192,13 +190,13 @@ public class HasAllProductsController : BaseAdminPluginController
     {
         var result = "";
 
-        if (!await AuthorizeManageProducts())
+        if (!await _permissionService.Authorize(StandardPermission.ManageProducts))
             return new JsonResult(new { Text = result });
 
         if (string.IsNullOrWhiteSpace(productIds)) return new JsonResult(new { Text = result });
         var ids = new List<string>();
         var rangeArray = productIds
-            .Split([','], StringSplitOptions.RemoveEmptyEntries)
+            .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(x => x.Trim())
             .ToList();
 
@@ -228,20 +226,5 @@ public class HasAllProductsController : BaseAdminPluginController
         }
 
         return new JsonResult(new { Text = result });
-    }
-
-    private async Task<bool> AuthorizeManageDiscounts()
-    {
-        return await _permissionService.Authorize(StandardPermission.ManageDiscounts);
-    }
-
-    private async Task<bool> AuthorizeManageProducts()
-    {
-        return await _permissionService.Authorize(StandardPermission.ManageProducts);
-    }
-
-    private async Task<Discount> GetDiscountById(string discountId)
-    {
-        return await _discountService.GetDiscountById(discountId);
     }
 }

@@ -5,7 +5,6 @@ using Grand.Domain.Customers;
 using Grand.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Net.Http.Headers;
 
@@ -16,6 +15,8 @@ public class ApiAuthenticationService : IApiAuthenticationService
     private readonly ICustomerService _customerService;
     private readonly IGroupService _groupService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private Customer _cachedCustomer;
+
 
     public ApiAuthenticationService(
         ICustomerService customerService,
@@ -28,6 +29,10 @@ public class ApiAuthenticationService : IApiAuthenticationService
 
     public virtual async Task<Customer> GetAuthenticatedCustomer()
     {
+        //whether there is a cached customer
+        if (_cachedCustomer != null)
+            return _cachedCustomer;
+
         Customer customer = null;
         if (_httpContextAccessor.HttpContext == null) return null;
 
@@ -35,13 +40,17 @@ public class ApiAuthenticationService : IApiAuthenticationService
         if (string.IsNullOrEmpty(authHeader))
             return null;
 
-        if (IsApiFrontAuthenticated())
+        if (_httpContextAccessor.HttpContext.Request.Path.Value != null
+            && !_httpContextAccessor.HttpContext.Request.Path.Value.StartsWith("/odata"))
         {
             customer = await ApiCustomer();
-            return customer;
+            if (customer == null) return null;
+            _cachedCustomer = customer;
+            return _cachedCustomer;
         }
 
-        var authenticateResult = await _httpContextAccessor.HttpContext.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
+        var authenticateResult =
+            await _httpContextAccessor.HttpContext.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
         if (!authenticateResult.Succeeded)
             return null;
 
@@ -54,34 +63,37 @@ public class ApiAuthenticationService : IApiAuthenticationService
         if (customer is not { Active: true } || customer.Deleted || !await _groupService.IsRegistered(customer))
             return null;
 
-        return customer;
-    }
-    private bool IsApiFrontAuthenticated()
-    {
-        var endpoint = _httpContextAccessor.HttpContext.GetEndpoint();
-        if (endpoint == null) return false;
+        //cache authenticated customer
+        _cachedCustomer = customer;
 
-        var authorizeAttributes = endpoint.Metadata.GetOrderedMetadata<AuthorizeAttribute>();
-        return authorizeAttributes.Any(attr => attr.AuthenticationSchemes?.Contains(FrontendAPIConfig.AuthenticationScheme) == true);
+        return _cachedCustomer;
     }
-    
 
     private async Task<Customer> ApiCustomer()
     {
         Customer customer = null;
-        var authResult = await _httpContextAccessor.HttpContext!.AuthenticateAsync(FrontendAPIConfig.AuthenticationScheme);
+        var authResult =
+            await _httpContextAccessor.HttpContext!.AuthenticateAsync(FrontendAPIConfig.AuthenticationScheme);
         if (!authResult.Succeeded)
+        {
+            _httpContextAccessor.HttpContext.Response.StatusCode = 400;
+            _httpContextAccessor.HttpContext.Response.ContentType = "text/plain";
+            if (authResult.Failure != null)
+                await _httpContextAccessor.HttpContext.Response.WriteAsync(authResult.Failure.Message);
             return await _customerService.GetCustomerBySystemName(SystemCustomerNames.Anonymous);
+        }
 
-        var email = authResult.Principal.Claims.FirstOrDefault(x => x.Type == "Email")?.Value;
+        var email = authResult.Principal.Claims.ToList().FirstOrDefault(x => x.Type == "Email")?.Value;
         if (email is null)
         {
             //guest
-            var id = authResult.Principal.Claims.FirstOrDefault(x => x.Type == "Guid")?.Value;
+            var id = authResult.Principal.Claims.ToList().FirstOrDefault(x => x.Type == "Guid")?.Value;
             if (id != null) customer = await _customerService.GetCustomerByGuid(Guid.Parse(id));
         }
         else
+        {
             customer = await _customerService.GetCustomerByEmail(email);
+        }
 
         return customer;
     }

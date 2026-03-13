@@ -28,7 +28,8 @@ public class MarkAsPaidCommandHandler : IRequestHandler<MarkAsPaidCommand, bool>
     public async Task<bool> Handle(MarkAsPaidCommand request, CancellationToken cancellationToken)
     {
         var paymentTransaction = request.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(request.PaymentTransaction));
 
         var canMarkOrderAsPaid =
             await _mediator.Send(new CanMarkPaymentTransactionAsPaidQuery { PaymentTransaction = paymentTransaction },
@@ -41,7 +42,8 @@ public class MarkAsPaidCommandHandler : IRequestHandler<MarkAsPaidCommand, bool>
 
         await _paymentTransactionService.UpdatePaymentTransaction(paymentTransaction);
         var order = await _orderService.GetOrderByGuid(paymentTransaction.OrderGuid);
-        ArgumentNullException.ThrowIfNull(order);
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
 
         order.PaidAmount = paymentTransaction.PaidAmount;
         order.PaymentStatusId = PaymentStatus.Paid;

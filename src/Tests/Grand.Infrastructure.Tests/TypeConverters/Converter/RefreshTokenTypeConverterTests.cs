@@ -60,7 +60,7 @@ public class RefreshTokenTypeConverterTests
             ValidTo = DateTime.UtcNow.AddDays(1)
         };
 
-        Assert.ThrowsExactly<NotSupportedException>(() =>
+        Assert.ThrowsException<NotSupportedException>(() =>
             _ = refreshTokenTypeConverter.ConvertTo(refreshToken, typeof(decimal)));
     }
 }

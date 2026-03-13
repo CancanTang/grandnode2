@@ -3,7 +3,7 @@ using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Marketing.Courses;
 using Grand.Business.Core.Interfaces.Storage;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Courses;
 using Grand.Domain.Customers;
 using Grand.Infrastructure;
@@ -12,11 +12,9 @@ using Grand.Web.Common.Controllers;
 using Grand.Web.Features.Models.Courses;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Grand.SharedKernel.Attributes;
 
 namespace Grand.Web.Controllers;
 
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class CourseController : BasePublicController
 {
     private readonly IAclService _aclService;
@@ -28,12 +26,12 @@ public class CourseController : BasePublicController
     private readonly IMediator _mediator;
     private readonly IPermissionService _permissionService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public CourseController(
         IPermissionService permissionService,
         IAclService aclService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IGroupService groupService,
         ITranslationService translationService,
         ICourseService courseService,
@@ -44,7 +42,7 @@ public class CourseController : BasePublicController
     {
         _permissionService = permissionService;
         _aclService = aclService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _groupService = groupService;
         _translationService = translationService;
         _courseService = courseService;
@@ -72,20 +70,20 @@ public class CourseController : BasePublicController
         //ACL (access control list)
         return _aclService.Authorize(course, customer) &&
                //Store access
-               _aclService.Authorize(course, _contextAccessor.StoreContext.CurrentStore.Id);
+               _aclService.Authorize(course, _workContext.CurrentStore.Id);
     }
 
     [HttpGet]
     public virtual async Task<IActionResult> Details(string courseId)
     {
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         var course = await _courseService.GetById(courseId);
         if (course == null)
-            return NotFound();
+            return InvokeHttp404();
 
         if (!await CheckPermission(course, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //display "edit" (manage) link
         if (await _permissionService.Authorize(StandardPermission.ManageAccessAdminPanel, customer) &&
@@ -95,8 +93,8 @@ public class CourseController : BasePublicController
         //model
         var model = await _mediator.Send(new GetCourse {
             Course = course,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage
         });
 
         return View(model);
@@ -105,18 +103,18 @@ public class CourseController : BasePublicController
     [HttpGet]
     public virtual async Task<IActionResult> Lesson(string id)
     {
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         var lesson = await _courseLessonService.GetById(id);
         if (lesson == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var course = await _courseService.GetById(lesson.CourseId);
         if (course == null)
-            return NotFound();
+            return InvokeHttp404();
 
         if (!await CheckPermission(course, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         //display "edit" (manage) link
         if (await _permissionService.Authorize(StandardPermission.ManageAccessAdminPanel, customer) &&
@@ -126,8 +124,8 @@ public class CourseController : BasePublicController
         //model
         var model = await _mediator.Send(new GetLesson {
             Course = course,
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
             Lesson = lesson
         });
 
@@ -137,18 +135,18 @@ public class CourseController : BasePublicController
     [HttpGet]
     public virtual async Task<IActionResult> DownloadFile(string id)
     {
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         var lesson = await _courseLessonService.GetById(id);
         if (lesson == null || string.IsNullOrEmpty(lesson.AttachmentId))
-            return NotFound();
+            return InvokeHttp404();
 
         var course = await _courseService.GetById(lesson.CourseId);
         if (course == null)
-            return NotFound();
+            return InvokeHttp404();
 
         if (!await CheckPermission(course, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         var download = await _downloadService.GetDownloadById(lesson.AttachmentId);
         if (download == null)
@@ -173,18 +171,18 @@ public class CourseController : BasePublicController
     [HttpGet]
     public virtual async Task<IActionResult> VideoFile(string id)
     {
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         var lesson = await _courseLessonService.GetById(id);
         if (lesson == null || string.IsNullOrEmpty(lesson.VideoFile))
-            return NotFound();
+            return InvokeHttp404();
 
         var course = await _courseService.GetById(lesson.CourseId);
         if (course == null)
-            return NotFound();
+            return InvokeHttp404();
 
         if (!await CheckPermission(course, customer))
-            return NotFound();
+            return InvokeHttp404();
 
         var download = await _downloadService.GetDownloadById(lesson.VideoFile);
         if (download == null)
@@ -209,7 +207,7 @@ public class CourseController : BasePublicController
     [HttpGet]
     public virtual async Task<IActionResult> Approved(string id)
     {
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
 
         var lesson = await _courseLessonService.GetById(id);
         if (lesson == null)
@@ -223,7 +221,7 @@ public class CourseController : BasePublicController
             return Json(new { result = false });
 
         await _mediator.Send(new CourseLessonApprovedCommand
-            { Course = course, Lesson = lesson, Customer = _contextAccessor.WorkContext.CurrentCustomer });
+            { Course = course, Lesson = lesson, Customer = _workContext.CurrentCustomer });
 
         return Json(new { result = true });
     }

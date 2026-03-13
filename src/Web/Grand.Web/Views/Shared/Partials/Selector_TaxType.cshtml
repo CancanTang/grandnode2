@@ -1,12 +1,12 @@
 ﻿@inject TaxSettings taxSettings
-@inject IContextAccessor contextAccessor
+@inject IWorkContext workContext
 @if (taxSettings.AllowCustomersToSelectTaxDisplayType)
 {
     var text = "";
     var className = "";
     var returnUrl = Context?.Request?.GetEncodedPathAndQuery();
 
-    if (contextAccessor.WorkContext.TaxDisplayType == TaxDisplayType.IncludingTax)
+    if (workContext.TaxDisplayType == TaxDisplayType.IncludingTax)
     {
         text = Loc["Tax.Inclusive"];
         className = "active";

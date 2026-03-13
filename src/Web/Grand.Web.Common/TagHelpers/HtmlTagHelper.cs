@@ -10,11 +10,11 @@ public class HtmlTagHelper : TagHelper
     private const string ForAttributeName = "use-lang";
 
     private readonly IPageHeadBuilder _pageHeadBuilder;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
-    public HtmlTagHelper(IContextAccessor contextAccessor, IPageHeadBuilder pageHeadBuilder)
+    public HtmlTagHelper(IWorkContext workContext, IPageHeadBuilder pageHeadBuilder)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _pageHeadBuilder = pageHeadBuilder;
     }
 
@@ -24,8 +24,8 @@ public class HtmlTagHelper : TagHelper
     {
         if (UseLanguage)
         {
-            output.Attributes.Add("lang", _contextAccessor.WorkContext.WorkingLanguage.UniqueSeoCode);
-            if (_contextAccessor.WorkContext.WorkingLanguage.Rtl)
+            output.Attributes.Add("lang", _workContext.WorkingLanguage.UniqueSeoCode);
+            if (_workContext.WorkingLanguage.Rtl)
                 output.Attributes.Add("dir", "rtl");
         }
 

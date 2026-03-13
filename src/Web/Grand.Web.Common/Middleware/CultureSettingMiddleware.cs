@@ -13,11 +13,11 @@ public class CultureSettingMiddleware
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context, IContextAccessor contextAccessor)
+    public async Task InvokeAsync(HttpContext context, IWorkContext workContext)
     {
-        if (contextAccessor.WorkContext?.WorkingLanguage != null)
+        if (workContext.WorkingLanguage != null)
         {
-            var culture = new CultureInfo(contextAccessor.WorkContext.WorkingLanguage.LanguageCulture);
+            var culture = new CultureInfo(workContext.WorkingLanguage.LanguageCulture);
 
             CultureInfo.CurrentCulture = culture;
             CultureInfo.CurrentUICulture = culture;

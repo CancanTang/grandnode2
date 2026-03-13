@@ -26,7 +26,7 @@ public class NewsletterCategoryServiceTests
     [TestMethod]
     public async Task DeleteNewsletterCategory_NullArgument_ThrowException()
     {
-        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+        await Assert.ThrowsExceptionAsync<ArgumentNullException>(
             async () => await _newsletterCategoryService.DeleteNewsletterCategory(null), "newslettercategory");
     }
 
@@ -48,7 +48,7 @@ public class NewsletterCategoryServiceTests
     [TestMethod]
     public async Task InsertNewsletterCategory_NullArgument_ThrowException()
     {
-        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+        await Assert.ThrowsExceptionAsync<ArgumentNullException>(
             async () => await _newsletterCategoryService.InsertNewsletterCategory(null), "newslettercategory");
     }
 
@@ -71,7 +71,7 @@ public class NewsletterCategoryServiceTests
     [TestMethod]
     public void UpdateNewsletterCategory_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(
             async () => await _newsletterCategoryService.UpdateNewsletterCategory(null), "newslettercategory");
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Grand.Business.Checkout.Services.Orders;
 using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Checkout.Orders;
+using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Utilities.Checkout;
 using Grand.Domain.Catalog;
@@ -26,24 +27,24 @@ public class ShoppingCartServiceTests
     private ShoppingCartService _shoppingCartService;
     private ShoppingCartSettings _shoppingCartSettings;
     private Mock<IShoppingCartValidator> _shoppingCartValidatorMock;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
     {
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
         _productServiceMock = new Mock<IProductService>();
         _shoppingCartSettings = new ShoppingCartSettings();
         _customerServiceMock = new Mock<ICustomerService>();
         _mediatorMock = new Mock<IMediator>();
         _shoppingCartValidatorMock = new Mock<IShoppingCartValidator>();
 
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
         var customer = new Customer();
         customer.Groups.Add("1");
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => customer);
-        _workContextMock.Setup(c => c.WorkContext.WorkingCurrency).Returns(() => new Currency());
-        _workContextMock.Setup(c => c.WorkContext.TaxDisplayType).Returns(() => TaxDisplayType.ExcludingTax);
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => customer);
+        _workContextMock.Setup(c => c.WorkingCurrency).Returns(() => new Currency());
+        _workContextMock.Setup(c => c.TaxDisplayType).Returns(() => TaxDisplayType.ExcludingTax);
 
         _shoppingCartService = new ShoppingCartService(_workContextMock.Object, _productServiceMock.Object,
             _customerServiceMock.Object, _mediatorMock.Object, _shoppingCartValidatorMock.Object, _shoppingCartSettings);
@@ -57,7 +58,7 @@ public class ShoppingCartServiceTests
         customer.Groups.Add("1");
         customer.ShoppingCartItems.Add(new ShoppingCartItem
             { ShoppingCartTypeId = ShoppingCartType.ShoppingCart, StoreId = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => customer);
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => customer);
 
         _productServiceMock.Setup(a => a.GetProductById(It.IsAny<string>(), false)).Returns(() =>
             Task.FromResult(new Product { Id = "1", Published = true, Price = 10 }));
@@ -65,7 +66,7 @@ public class ShoppingCartServiceTests
         //Act
         var result = await _shoppingCartService.GetShoppingCart();
         //Assert
-        Assert.IsNotEmpty(result);
+        Assert.IsTrue(result.Any());
     }
 
     [TestMethod]
@@ -78,7 +79,7 @@ public class ShoppingCartServiceTests
             { ShoppingCartTypeId = ShoppingCartType.ShoppingCart, StoreId = "", ProductId = "1" });
         customer.ShoppingCartItems.Add(new ShoppingCartItem
             { ShoppingCartTypeId = ShoppingCartType.ShoppingCart, StoreId = "", ProductId = "2" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => customer);
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => customer);
 
         _productServiceMock.Setup(a => a.GetProductById(It.IsAny<string>(), false)).Returns(() =>
             Task.FromResult(new Product { Id = "1", Published = true, Price = 10 }));
@@ -97,7 +98,7 @@ public class ShoppingCartServiceTests
         //Arrange
         var customer = new Customer();
         customer.Groups.Add("1");
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => customer);
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => customer);
 
         _productServiceMock.Setup(a => a.GetProductById(It.IsAny<string>(), false)).Returns(() =>
             Task.FromResult(new Product { Id = "1", Published = true, Price = 10 }));
@@ -122,7 +123,7 @@ public class ShoppingCartServiceTests
         //Arrange
         var customer = new Customer();
         customer.Groups.Add("1");
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => customer);
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => customer);
 
         _productServiceMock.Setup(a => a.GetProductById(It.IsAny<string>(), false)).Returns(() =>
             Task.FromResult(new Product { Id = "1", Published = true, Price = 10 }));
@@ -138,7 +139,7 @@ public class ShoppingCartServiceTests
         var result = await _shoppingCartService.AddToCart(customer, "2", ShoppingCartType.ShoppingCart, "");
 
         //Assert
-        Assert.HasCount(1, result.warnings);
+        Assert.AreEqual(1, result.warnings.Count);
     }
 
     [TestMethod]
@@ -147,7 +148,7 @@ public class ShoppingCartServiceTests
         //Arrange
         var customer = new Customer();
         customer.Groups.Add("1");
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => customer);
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => customer);
 
         _productServiceMock.Setup(a => a.GetProductById(It.IsAny<string>(), false)).Returns(() =>
             Task.FromResult(new Product { Id = "1", Published = true, Price = 10 }));
@@ -174,7 +175,7 @@ public class ShoppingCartServiceTests
         //Arrange
         var customer = new Customer();
         customer.Groups.Add("1");
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => customer);
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => customer);
 
         _productServiceMock.Setup(a => a.GetProductById(It.IsAny<string>(), false)).Returns(() =>
             Task.FromResult(new Product { Id = "1", Published = true, Price = 10 }));
@@ -200,7 +201,7 @@ public class ShoppingCartServiceTests
         //Arrange
         var customer = new Customer();
         customer.Groups.Add("1");
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => customer);
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => customer);
 
         _productServiceMock.Setup(a => a.GetProductById(It.IsAny<string>(), false)).Returns(() =>
             Task.FromResult(new Product { Id = "1", Published = true, Price = 10 }));
@@ -217,7 +218,7 @@ public class ShoppingCartServiceTests
         //Act
         await _shoppingCartService.MigrateShoppingCart(customer, customer2, false);
         //Assert
-        Assert.IsNotEmpty(customer2.ShoppingCartItems);
-        Assert.IsEmpty(customer.ShoppingCartItems);
+        Assert.IsTrue(customer2.ShoppingCartItems.Any());
+        Assert.IsFalse(customer.ShoppingCartItems.Any());
     }
 }

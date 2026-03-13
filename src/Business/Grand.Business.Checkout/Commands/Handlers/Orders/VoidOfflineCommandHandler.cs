@@ -28,13 +28,15 @@ public class VoidOfflineCommandHandler : IRequestHandler<VoidOfflineCommand, boo
     public async Task<bool> Handle(VoidOfflineCommand request, CancellationToken cancellationToken)
     {
         var paymentTransaction = request.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(request.PaymentTransaction));
 
         paymentTransaction.TransactionStatus = TransactionStatus.Voided;
         await _paymentTransactionService.UpdatePaymentTransaction(paymentTransaction);
 
         var order = await _orderService.GetOrderByGuid(paymentTransaction.OrderGuid);
-        ArgumentNullException.ThrowIfNull(order);
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
 
         if (!await _mediator.Send(new CanVoidOfflineQuery { PaymentTransaction = paymentTransaction },
                 cancellationToken))

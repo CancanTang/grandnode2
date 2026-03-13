@@ -26,7 +26,7 @@ public class CourseActionServiceTests
     [TestMethod]
     public void InsertAsync_NullArgument_ThrowExcepiton()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _courseActionService.InsertAsync(null),
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _courseActionService.InsertAsync(null),
             "courseAction");
     }
 
@@ -41,7 +41,7 @@ public class CourseActionServiceTests
     [TestMethod]
     public void Update_NullArgument_ThrowExcepiton()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _courseActionService.Update(null),
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _courseActionService.Update(null),
             "courseAction");
     }
 

@@ -2,4 +2,6 @@
 
 namespace Grand.Web.Models.Common;
 
-public class PagerModel : BasePageableModel;
+public class PagerModel : BasePageableModel
+{
+}

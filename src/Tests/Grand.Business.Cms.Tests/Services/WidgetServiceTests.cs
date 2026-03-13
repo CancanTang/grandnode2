@@ -33,7 +33,7 @@ public class WidgetServiceTests
     {
         _settings.ActiveWidgetSystemNames = [];
         var result = _widgedService.LoadActiveWidgets();
-        Assert.IsEmpty(result);
+        Assert.IsTrue(result.Count == 0);
     }
 
     [TestMethod]
@@ -41,14 +41,14 @@ public class WidgetServiceTests
     {
         _settings.ActiveWidgetSystemNames = ["name1", "name2"];
         var result = _widgedService.LoadActiveWidgets();
-        Assert.HasCount(_settings.ActiveWidgetSystemNames.Count, result);
+        Assert.IsTrue(result.Count == _settings.ActiveWidgetSystemNames.Count);
     }
 
     [TestMethod]
     public async Task LoadActiveWidgetsByWidgetZone_EmptyWidgetZone_ReturnEmptyList()
     {
         var result = await _widgedService.LoadActiveWidgetsByWidgetZone("");
-        Assert.IsEmpty(result);
+        Assert.IsTrue(result.Count == 0);
     }
 
     [TestMethod]
@@ -56,7 +56,7 @@ public class WidgetServiceTests
     {
         _settings.ActiveWidgetSystemNames = ["name1", "name2"];
         var result = await _widgedService.LoadActiveWidgetsByWidgetZone("widgetZone1");
-        Assert.HasCount(1, result);
+        Assert.IsTrue(result.Count == 1);
     }
 
     [TestMethod]

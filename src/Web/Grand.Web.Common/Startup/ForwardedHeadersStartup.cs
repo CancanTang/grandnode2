@@ -25,13 +25,14 @@ public class ForwardedHeadersStartup : IStartupApplication
     /// </summary>
     /// <param name="application">Builder for configuring an application's request pipeline</param>
     /// <param name="webHostEnvironment">WebHostEnvironment</param>
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
         //check whether database is installed
         if (!DataSettingsManager.DatabaseIsInstalled())
             return;
 
-        var securityConfig = application.Services.GetRequiredService<SecurityConfig>();
+        var serviceProvider = application.ApplicationServices;
+        var securityConfig = serviceProvider.GetRequiredService<SecurityConfig>();
         if (securityConfig.ForceUseHTTPS)
             application.Use((context, next) =>
             {

@@ -1,8 +1,10 @@
-﻿using Grand.Business.Core.Interfaces.Common.Localization;
+﻿using Grand.Business.Core.Interfaces.Common.Directory;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Customers;
-using Grand.Domain.Permissions;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Vendors;
+using Grand.Business.Core.Utilities.Common.Security;
+using Grand.Infrastructure;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Vendors;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
@@ -18,11 +20,15 @@ public class VendorReviewController : BaseAdminController
     public VendorReviewController(
         IVendorViewModelService vendorViewModelService,
         IVendorService vendorService,
-        ITranslationService translationService)
+        ITranslationService translationService,
+        IGroupService groupService,
+        IWorkContext workContext)
     {
         _vendorViewModelService = vendorViewModelService;
         _vendorService = vendorService;
         _translationService = translationService;
+        _groupService = groupService;
+        _workContext = workContext;
     }
 
     #endregion
@@ -32,6 +38,8 @@ public class VendorReviewController : BaseAdminController
     private readonly IVendorViewModelService _vendorViewModelService;
     private readonly IVendorService _vendorService;
     private readonly ITranslationService _translationService;
+    private readonly IWorkContext _workContext;
+    private readonly IGroupService _groupService;
 
     #endregion Fields
 
@@ -151,11 +159,10 @@ public class VendorReviewController : BaseAdminController
             keywords: term);
 
         var result = (from p in vendors
-                      select new
-                      {
-                          label = p.Name,
-                          vendorid = p.Id
-                      })
+                select new {
+                    label = p.Name,
+                    vendorid = p.Id
+                })
             .ToList();
         return Json(result);
     }

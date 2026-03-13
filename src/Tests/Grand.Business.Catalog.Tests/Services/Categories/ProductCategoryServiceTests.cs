@@ -8,6 +8,7 @@ using Grand.Infrastructure;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Tests.Caching;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -21,15 +22,17 @@ public class ProductCategoryServiceTests
     private Mock<IMediator> _mediatorMock;
     private ProductCategoryService _productCategoryService;
     private IRepository<Product> _repository;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void InitializeTests()
     {
+        CommonPath.BaseDirectory = "";
+
         _repository = new MongoDBRepositoryTest<Product>();
-        _workContextMock = new Mock<IContextAccessor>();
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock = new Mock<IWorkContext>();
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         _mediatorMock = new Mock<IMediator>();
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
             new CacheConfig { DefaultCacheTimeMinutes = 1 });
@@ -56,8 +59,8 @@ public class ProductCategoryServiceTests
         var pc2 = await _productCategoryService.GetProductCategoriesByCategoryId("2");
 
         //Assert
-        Assert.HasCount(1, pc1);
-        Assert.HasCount(2, pc2);
+        Assert.AreEqual(1, pc1.Count);
+        Assert.AreEqual(2, pc2.Count);
     }
 
     [TestMethod]
@@ -77,7 +80,7 @@ public class ProductCategoryServiceTests
         var pc1 = await _productCategoryService.GetProductCategoriesByCategoryId("1");
 
         //Assert
-        Assert.HasCount(1, pc1);
+        Assert.AreEqual(1, pc1.Count);
         Assert.AreEqual(10, pc1.FirstOrDefault().DisplayOrder);
     }
 
@@ -102,7 +105,7 @@ public class ProductCategoryServiceTests
         var pc1 = await _productCategoryService.GetProductCategoriesByCategoryId("10");
 
         //Assert
-        Assert.HasCount(1, pc1);
+        Assert.AreEqual(1, pc1.Count);
         Assert.AreEqual(5, pc1.FirstOrDefault().DisplayOrder);
     }
 
@@ -125,6 +128,6 @@ public class ProductCategoryServiceTests
         var pc1 = await _productCategoryService.GetProductCategoriesByCategoryId("1");
 
         //Assert
-        Assert.IsEmpty(pc1);
+        Assert.AreEqual(0, pc1.Count);
     }
 }

@@ -28,14 +28,14 @@ public class ProductService : IProductService
     /// </summary>
     public ProductService(ICacheBase cacheBase,
         IRepository<Product> productRepository,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IMediator mediator,
         IAclService aclService
     )
     {
         _cacheBase = cacheBase;
         _productRepository = productRepository;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _mediator = mediator;
         _aclService = aclService;
     }
@@ -46,7 +46,7 @@ public class ProductService : IProductService
 
     private readonly IRepository<Product> _productRepository;
     private readonly ICacheBase _cacheBase;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IAclService _aclService;
     private readonly IMediator _mediator;
 
@@ -130,8 +130,8 @@ public class ProductService : IProductService
         foreach (var id in productIds)
         {
             var product = await GetProductById(id);
-            if (product != null && (showHidden || (_aclService.Authorize(product, _contextAccessor.WorkContext.CurrentCustomer) &&
-                                                   _aclService.Authorize(product, _contextAccessor.StoreContext.CurrentStore.Id) &&
+            if (product != null && (showHidden || (_aclService.Authorize(product, _workContext.CurrentCustomer) &&
+                                                   _aclService.Authorize(product, _workContext.CurrentStore.Id) &&
                                                    product.IsAvailable())))
                 products.Add(product);
         }
@@ -150,8 +150,8 @@ public class ProductService : IProductService
         int pageSize = int.MaxValue)
     {
         var query = from c in _productRepository.Table
-                    where c.AppliedDiscounts.Any(x => x == discountId)
-                    select c;
+            where c.AppliedDiscounts.Any(x => x == discountId)
+            select c;
 
         return await PagedList<Product>.Create(query, pageIndex, pageSize);
     }
@@ -187,7 +187,6 @@ public class ProductService : IProductService
         //update
         var update = UpdateBuilder<Product>.Create()
             .Set(x => x.AdditionalShippingCharge, product.AdditionalShippingCharge)
-            .Set(x => x.AppliedDiscounts, product.AppliedDiscounts)
             .Set(x => x.AdminComment, product.AdminComment)
             .Set(x => x.AllowOutOfStockSubscriptions, product.AllowOutOfStockSubscriptions)
             .Set(x => x.AllowCustomerReviews, product.AllowCustomerReviews)
@@ -422,7 +421,7 @@ public class ProductService : IProductService
             categoryIds.Remove("");
 
         var query = from p in _productRepository.Table
-                    select p;
+            select p;
 
         query = query.Where(p => p.Published && p.VisibleIndividually);
 
@@ -435,15 +434,15 @@ public class ProductService : IProductService
             //ACL (access control list)
             var allowedCustomerGroupsIds = customer.GetCustomerGroupIds();
             query = from p in query
-                    where !p.LimitedToGroups || allowedCustomerGroupsIds.Any(x => p.CustomerGroups.Contains(x))
-                    select p;
+                where !p.LimitedToGroups || allowedCustomerGroupsIds.Any(x => p.CustomerGroups.Contains(x))
+                select p;
         }
 
         if (!string.IsNullOrEmpty(storeId) && !ignoreStore)
             //Limited to stores rules
             query = from p in query
-                    where !p.LimitedToStores || p.Stores.Contains(storeId)
-                    select p;
+                where !p.LimitedToStores || p.Stores.Contains(storeId)
+                select p;
 
         return Convert.ToInt32(query.Count());
     }
@@ -524,7 +523,7 @@ public class ProductService : IProductService
             bool? overridePublished = null)
     {
         var model = await _mediator.Send(new GetSearchProductsQuery {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
+            Customer = _workContext.CurrentCustomer,
             LoadFilterableSpecificationAttributeOptionIds = loadFilterableSpecificationAttributeOptionIds,
             PageIndex = pageIndex,
             PageSize = pageSize,
@@ -561,20 +560,15 @@ public class ProductService : IProductService
     ///     Gets products by product attribute
     /// </summary>
     /// <param name="productAttributeId">Product attribute identifier</param>
-    /// <param name="storeId">Store ident</param>
     /// <param name="pageIndex">Page index</param>
     /// <param name="pageSize">Page size</param>
     /// <returns>Products</returns>
-    public virtual async Task<IPagedList<Product>> GetProductsByProductAttributeId(string productAttributeId, string storeId = "",
+    public virtual async Task<IPagedList<Product>> GetProductsByProductAttributeId(string productAttributeId,
         int pageIndex = 0, int pageSize = int.MaxValue)
     {
         var query = from p in _productRepository.Table
-                    select p;
+            select p;
         query = query.Where(x => x.ProductAttributeMappings.Any(y => y.ProductAttributeId == productAttributeId));
-
-        if (!string.IsNullOrEmpty(storeId))
-            query = query.Where(x => x.LimitedToStores || x.Stores.Contains(storeId));
-
         query = query.OrderBy(x => x.Name);
 
         return await PagedList<Product>.Create(query, pageIndex, pageSize);
@@ -592,7 +586,7 @@ public class ProductService : IProductService
         string storeId = "", string vendorId = "", bool showHidden = false)
     {
         var query = from p in _productRepository.Table
-                    select p;
+            select p;
 
         query = query.Where(p => p.ParentGroupedProductId == parentGroupedProductId);
 
@@ -613,7 +607,7 @@ public class ProductService : IProductService
 
         //ACL mapping
         if (!showHidden)
-            products = products.Where(x => _aclService.Authorize(x, _contextAccessor.WorkContext.CurrentCustomer)).ToList();
+            products = products.Where(x => _aclService.Authorize(x, _workContext.CurrentCustomer)).ToList();
         //Store acl
         if (!showHidden && !string.IsNullOrEmpty(storeId))
             products = products.Where(x => _aclService.Authorize(x, storeId)).ToList();
@@ -895,13 +889,13 @@ public class ProductService : IProductService
             foreach (var crossSell in crossSells)
             {
                 //validate that this product is not added to result yet
-                if (result.FirstOrDefault(p => p.Id == crossSell) != null ||
+                if (result.Find(p => p.Id == crossSell) != null ||
                     cartProductIds.Contains(crossSell)) continue;
                 var productToAdd = await GetProductById(crossSell);
                 //validate product
                 if (productToAdd is not { Published: true }
-                    || !_aclService.Authorize(productToAdd, _contextAccessor.WorkContext.CurrentCustomer) ||
-                    !_aclService.Authorize(productToAdd, _contextAccessor.StoreContext.CurrentStore.Id)
+                    || !_aclService.Authorize(productToAdd, _workContext.CurrentCustomer) ||
+                    !_aclService.Authorize(productToAdd, _workContext.CurrentStore.Id)
                     || !productToAdd.IsAvailable())
                     continue;
 
@@ -1186,8 +1180,8 @@ public class ProductService : IProductService
 
     public virtual async Task DeleteDiscount(string discountId, string productId)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(discountId);
-        ArgumentNullException.ThrowIfNullOrEmpty(productId);
+        if (string.IsNullOrEmpty(discountId))
+            throw new ArgumentNullException(nameof(discountId));
 
         await _productRepository.Pull(productId, x => x.AppliedDiscounts, discountId);
 

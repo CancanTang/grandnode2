@@ -19,7 +19,7 @@ public class NewsServiceTests
     private NewsService _newsService;
 
     private IRepository<NewsItem> _repository;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
@@ -27,10 +27,10 @@ public class NewsServiceTests
         _repository = new MongoDBRepositoryTest<NewsItem>();
 
         _mediatorMock = new Mock<IMediator>();
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
 
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
 
         _newsService = new NewsService(_repository, _mediatorMock.Object, _workContextMock.Object,
             new AccessControlConfig());
@@ -81,7 +81,7 @@ public class NewsServiceTests
         newsItem.Title = "test";
         await _newsService.UpdateNews(newsItem);
         //Assert
-        Assert.AreEqual("test", _repository.Table.FirstOrDefault(x => x.Id == newsItem.Id).Title);
+        Assert.IsTrue(_repository.Table.FirstOrDefault(x => x.Id == newsItem.Id).Title == "test");
     }
 
     [TestMethod]

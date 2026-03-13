@@ -2,7 +2,7 @@
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Customers;
 using Grand.Domain.News;
 using Grand.Infrastructure;
@@ -13,18 +13,18 @@ using Grand.Web.Events;
 using Grand.Web.Features.Models.News;
 using Grand.Web.Models.News;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Grand.SharedKernel.Attributes;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Grand.Web.Controllers;
 
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class NewsController : BasePublicController
 {
     #region Constructors
 
     public NewsController(INewsService newsService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ITranslationService translationService,
         IAclService aclService,
         IPermissionService permissionService,
@@ -32,7 +32,7 @@ public class NewsController : BasePublicController
         NewsSettings newsSettings)
     {
         _newsService = newsService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _translationService = translationService;
         _aclService = aclService;
         _permissionService = permissionService;
@@ -45,7 +45,7 @@ public class NewsController : BasePublicController
     #region Fields
 
     private readonly INewsService _newsService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly ITranslationService _translationService;
     private readonly IAclService _aclService;
     private readonly IPermissionService _permissionService;
@@ -57,7 +57,8 @@ public class NewsController : BasePublicController
     #region Methods
 
     [HttpGet]
-    public virtual async Task<ActionResult<NewsItemListModel>> List(NewsPagingFilteringModel command)
+    [ProducesResponseType(typeof(NewsItemListModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> List(NewsPagingFilteringModel command)
     {
         if (!_newsSettings.Enabled)
             return RedirectToRoute("HomePage");
@@ -67,7 +68,8 @@ public class NewsController : BasePublicController
     }
 
     [HttpGet]
-    public virtual async Task<ActionResult<NewsItemModel>> NewsItem(string newsItemId)
+    [ProducesResponseType(typeof(NewsItemModel), StatusCodes.Status200OK)]
+    public virtual async Task<IActionResult> NewsItem(string newsItemId)
     {
         if (!_newsSettings.Enabled)
             return RedirectToRoute("HomePage");
@@ -77,7 +79,7 @@ public class NewsController : BasePublicController
             (newsItem.StartDateUtc.HasValue && newsItem.StartDateUtc.Value >= DateTime.UtcNow) ||
             (newsItem.EndDateUtc.HasValue && newsItem.EndDateUtc.Value <= DateTime.UtcNow) ||
             //Store acl
-            !_aclService.Authorize(newsItem, _contextAccessor.StoreContext.CurrentStore.Id))
+            !_aclService.Authorize(newsItem, _workContext.CurrentStore.Id))
             return RedirectToRoute("HomePage");
 
         var model = await _mediator.Send(new GetNewsItem { NewsItem = newsItem });
@@ -121,7 +123,7 @@ public class NewsController : BasePublicController
                     newsComment.CommentTitle,
                     CreatedOn = HttpContext.RequestServices.GetService<IDateTimeService>()
                         .ConvertToUserTime(newsComment.CreatedOnUtc, DateTimeKind.Utc),
-                    CustomerName = _contextAccessor.WorkContext.CurrentCustomer.FormatUserName(HttpContext.RequestServices
+                    CustomerName = _workContext.CurrentCustomer.FormatUserName(HttpContext.RequestServices
                         .GetService<CustomerSettings>().CustomerNameFormat)
                 }
             });

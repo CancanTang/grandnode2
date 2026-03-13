@@ -18,7 +18,7 @@ public class TranslationServiceTests
     private IRepository<TranslationResource> _repository;
 
     private TranslationService _translationService;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
@@ -26,10 +26,10 @@ public class TranslationServiceTests
         _repository = new MongoDBRepositoryTest<TranslationResource>();
 
         _mediatorMock = new Mock<IMediator>();
-        _workContextMock = new Mock<IContextAccessor>();
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store());
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
-        _workContextMock.Setup(c => c.WorkContext.WorkingLanguage).Returns(() => new Language { Id = "1" });
+        _workContextMock = new Mock<IWorkContext>();
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store());
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock.Setup(c => c.WorkingLanguage).Returns(() => new Language { Id = "1" });
 
         _translationService = new TranslationService(_workContextMock.Object, _repository, _mediatorMock.Object);
     }
@@ -79,7 +79,7 @@ public class TranslationServiceTests
         var result = _translationService.GetAllResources("1");
 
         //Assert
-        Assert.HasCount(2, result);
+        Assert.AreEqual(2, result.Count);
     }
 
     [TestMethod]

@@ -32,8 +32,7 @@ public class CurrencyServiceTests
     [TestInitialize]
     public void TestInitialize()
     {
-        var settingsPath = Path.Combine("", CommonPath.AppData, CommonPath.SettingsFile);
-        DataSettingsManager.Initialize(settingsPath);
+        CommonPath.BaseDirectory = "";
 
         currencyUSD = new Currency {
             Id = "1",
@@ -144,7 +143,7 @@ public class CurrencyServiceTests
         _cacheManager.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<Func<Task<Currency>>>()))
             .Returns(Task.FromResult(currencyUSD));
         currencyEUR.Rate = 0;
-        Assert.ThrowsExactlyAsync<GrandException>(async () =>
+        Assert.ThrowsExceptionAsync<GrandException>(async () =>
             await _currencyService.ConvertToPrimaryExchangeRateCurrency(100, currencyEUR));
     }
 
@@ -153,7 +152,7 @@ public class CurrencyServiceTests
     {
         _cacheManager.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<Func<Task<Currency>>>()))
             .Returns(Task.FromResult<Currency>(null));
-        Assert.ThrowsExactlyAsync<Exception>(async () =>
+        Assert.ThrowsExceptionAsync<Exception>(async () =>
             await _currencyService.ConvertToPrimaryExchangeRateCurrency(100, currencyEUR));
     }
 

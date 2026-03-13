@@ -38,7 +38,7 @@ public class LiquidObjectBuilderTests
             .BuildAsync();
 
 
-        Assert.IsNotNull(liquidObject.Vendor);
+        Assert.IsTrue(liquidObject.Vendor != null);
         Assert.IsTrue((liquidObject.Vendor as LiquidVendor).Name.Equals(vendor.Name));
         Assert.IsNotNull(liquidObject.VendorReview as LiquidVendorReview);
         Assert.IsTrue((liquidObject.VendorReview as LiquidVendorReview).VendorName.Equals(vendor.Name));

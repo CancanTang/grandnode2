@@ -1,4 +1,5 @@
-﻿using Grand.Business.Core.Interfaces.Catalog.Directory;
+﻿using Grand.Business.Core.Extensions;
+using Grand.Business.Core.Interfaces.Catalog.Directory;
 using Grand.Business.Core.Interfaces.Catalog.Prices;
 using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Checkout.Orders;
@@ -8,21 +9,20 @@ using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Common.Stores;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.System.Reports;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Business.Core.Utilities.System;
 using Grand.Domain.Orders;
 using Grand.Domain.Payments;
-using Grand.Domain.Permissions;
 using Grand.Domain.Shipping;
 using Grand.Infrastructure;
 using Grand.Web.Admin.Extensions;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Catalog;
-using Grand.Web.AdminShared.Models.Common;
-using Grand.Web.AdminShared.Models.Customers;
-using Grand.Web.AdminShared.Models.Orders;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Catalog;
+using Grand.Web.Admin.Models.Common;
+using Grand.Web.Admin.Models.Customers;
+using Grand.Web.Admin.Models.Orders;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Extensions;
-using Grand.Web.Common.Localization;
 using Grand.Web.Common.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -37,6 +37,7 @@ public class ReportsController : BaseAdminController
     private readonly ICustomerReportService _customerReportService;
     private readonly ICustomerReportViewModelService _customerReportViewModelService;
     private readonly IDateTimeService _dateTimeService;
+    private readonly IGroupService _groupService;
     private readonly IOrderReportService _orderReportService;
     private readonly IOrderService _orderService;
     private readonly IOrderStatusService _orderStatusService;
@@ -50,15 +51,15 @@ public class ReportsController : BaseAdminController
     private readonly IStoreService _storeService;
     private readonly ITranslationService _translationService;
     private readonly IVendorService _vendorService;
-    private readonly IContextAccessor _contextAccessor;
-    private readonly IEnumTranslationService _enumTranslationService;
+    private readonly IWorkContext _workContext;
+
     public ReportsController(IOrderService orderService,
         IOrderReportService orderReportService,
         IProductsReportService productsReportService,
         ICustomerReportService customerReportService,
         ICustomerReportViewModelService customerReportViewModelService,
         IPermissionService permissionService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IPriceFormatter priceFormatter,
         IProductService productService,
         IProductAttributeFormatter productAttributeFormatter,
@@ -69,9 +70,9 @@ public class ReportsController : BaseAdminController
         IVendorService vendorService,
         IDateTimeService dateTimeService,
         ISearchTermService searchTermService,
+        IGroupService groupService,
         IOrderStatusService orderStatusService,
-        ICurrencyService currencyService,
-        IEnumTranslationService enumTranslationService)
+        ICurrencyService currencyService)
     {
         _orderService = orderService;
         _orderReportService = orderReportService;
@@ -79,7 +80,7 @@ public class ReportsController : BaseAdminController
         _customerReportService = customerReportService;
         _customerReportViewModelService = customerReportViewModelService;
         _permissionService = permissionService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _priceFormatter = priceFormatter;
         _productService = productService;
         _productAttributeFormatter = productAttributeFormatter;
@@ -90,16 +91,21 @@ public class ReportsController : BaseAdminController
         _vendorService = vendorService;
         _dateTimeService = dateTimeService;
         _searchTermService = searchTermService;
+        _groupService = groupService;
         _orderStatusService = orderStatusService;
         _currencyService = currencyService;
-        _enumTranslationService = enumTranslationService;
     }
 
     [NonAction]
     protected async Task<DataSourceResult> GetBestsellersBriefReportModel(int pageIndex,
         int pageSize, int orderBy)
     {
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
         var items = await _orderReportService.BestSellersReport(
+            storeId,
             orderBy: orderBy,
             pageIndex: pageIndex,
             pageSize: pageSize,
@@ -131,7 +137,7 @@ public class ReportsController : BaseAdminController
     {
         var report = new List<OrderPeriodReportLineModel>();
         var reportperiod7days =
-            await _orderReportService.GetOrderPeriodReport(7, _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId);
+            await _orderReportService.GetOrderPeriodReport(7, _workContext.CurrentCustomer.StaffStoreId);
         report.Add(new OrderPeriodReportLineModel {
             Period = _translationService.GetResource("Admin.Reports.Period.7days"),
             Count = reportperiod7days.Count,
@@ -139,7 +145,7 @@ public class ReportsController : BaseAdminController
         });
 
         var reportperiod14days =
-            await _orderReportService.GetOrderPeriodReport(14, _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId);
+            await _orderReportService.GetOrderPeriodReport(14, _workContext.CurrentCustomer.StaffStoreId);
         report.Add(new OrderPeriodReportLineModel {
             Period = _translationService.GetResource("Admin.Reports.Period.14days"),
             Count = reportperiod14days.Count,
@@ -147,7 +153,7 @@ public class ReportsController : BaseAdminController
         });
 
         var reportperiodmonth =
-            await _orderReportService.GetOrderPeriodReport(30, _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId);
+            await _orderReportService.GetOrderPeriodReport(30, _workContext.CurrentCustomer.StaffStoreId);
         report.Add(new OrderPeriodReportLineModel {
             Period = _translationService.GetResource("Admin.Reports.Period.month"),
             Count = reportperiodmonth.Count,
@@ -155,7 +161,7 @@ public class ReportsController : BaseAdminController
         });
 
         var reportperiodyear =
-            await _orderReportService.GetOrderPeriodReport(365, _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId);
+            await _orderReportService.GetOrderPeriodReport(365, _workContext.CurrentCustomer.StaffStoreId);
         report.Add(new OrderPeriodReportLineModel {
             Period = _translationService.GetResource("Admin.Reports.Period.year"),
             Count = reportperiodyear.Count,
@@ -193,9 +199,16 @@ public class ReportsController : BaseAdminController
     public async Task<IActionResult> BestsellersReport()
     {
         var model = new BestsellersReportModel();
+
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
         //stores
-        model.AvailableStores.Add(new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
-        foreach (var s in await _storeService.GetAllStores())
+        model.AvailableStores.Add(new SelectListItem
+            { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
+        foreach (var s in (await _storeService.GetAllStores()).Where(x =>
+                     x.Id == storeId || string.IsNullOrWhiteSpace(storeId)))
             model.AvailableStores.Add(new SelectListItem { Text = s.Shortcut, Value = s.Id });
 
         var status = await _orderStatusService.GetAll();
@@ -206,7 +219,7 @@ public class ReportsController : BaseAdminController
             new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
 
         //payment statuses
-        model.AvailablePaymentStatuses = _enumTranslationService.ToSelectList(PaymentStatus.Pending, false).ToList();
+        model.AvailablePaymentStatuses = PaymentStatus.Pending.ToSelectList(HttpContext, false).ToList();
         model.AvailablePaymentStatuses.Insert(0,
             new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
 
@@ -217,7 +230,8 @@ public class ReportsController : BaseAdminController
             new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
 
         //vendors
-        model.AvailableVendors.Add(new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
+        model.AvailableVendors.Add(new SelectListItem
+            { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
         var vendors = await _vendorService.GetAllVendors(showHidden: true);
         foreach (var v in vendors)
             model.AvailableVendors.Add(new SelectListItem { Text = v.Name, Value = v.Id });
@@ -228,6 +242,9 @@ public class ReportsController : BaseAdminController
     [HttpPost]
     public async Task<IActionResult> BestsellersReportList(DataSourceRequest command, BestsellersReportModel model)
     {
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            model.StoreId = _workContext.CurrentCustomer.StaffStoreId;
+
         DateTime? startDateValue = model.StartDate == null
             ? null
             : _dateTimeService.ConvertToUtcTime(model.StartDate.Value, _dateTimeService.CurrentTimeZone);
@@ -298,7 +315,11 @@ public class ReportsController : BaseAdminController
         if (!await _permissionService.Authorize(StandardPermission.ManageOrders))
             return Content("");
 
-        var model = await _orderReportService.GetOrderByTimeReport("", startDate, endDate);
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
+        var model = await _orderReportService.GetOrderByTimeReport(storeId, startDate, endDate);
         var gridModel = new DataSourceResult {
             Data = model
         };
@@ -322,7 +343,11 @@ public class ReportsController : BaseAdminController
             ? null
             : _dateTimeService.ConvertToUtcTime(model.EndDate.Value, _dateTimeService.CurrentTimeZone).AddDays(1);
 
-        var items = await _orderReportService.ProductsNeverSold("", "",
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
+        var items = await _orderReportService.ProductsNeverSold(storeId, "",
             startDateValue, endDateValue,
             command.Page - 1, command.PageSize, true);
         var gridModel = new DataSourceResult {
@@ -343,11 +368,15 @@ public class ReportsController : BaseAdminController
         if (!await _permissionService.Authorize(StandardPermission.ManageOrders))
             return Content("");
 
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
         var report = new List<OrderAverageReportLineSummary> {
-            await _orderReportService.OrderAverageReport("", (int)OrderStatusSystem.Pending),
-            await _orderReportService.OrderAverageReport("", (int)OrderStatusSystem.Processing),
-            await _orderReportService.OrderAverageReport("", (int)OrderStatusSystem.Complete),
-            await _orderReportService.OrderAverageReport("", (int)OrderStatusSystem.Cancelled)
+            await _orderReportService.OrderAverageReport(storeId, (int)OrderStatusSystem.Pending),
+            await _orderReportService.OrderAverageReport(storeId, (int)OrderStatusSystem.Processing),
+            await _orderReportService.OrderAverageReport(storeId, (int)OrderStatusSystem.Complete),
+            await _orderReportService.OrderAverageReport(storeId, (int)OrderStatusSystem.Cancelled)
         };
 
         var statuses = await _orderStatusService.GetAll();
@@ -380,9 +409,13 @@ public class ReportsController : BaseAdminController
     {
         if (!await _permissionService.Authorize(StandardPermission.ManageOrders))
             return Content("");
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
 
         //load orders
         var orders = await _orderService.SearchOrders(
+            storeId,
             createdFromUtc: startDate,
             createdToUtc: endDate,
             pageIndex: command.Page - 1,
@@ -401,8 +434,8 @@ public class ReportsController : BaseAdminController
                 OrderTotal =
                     _priceFormatter.FormatPrice(x.OrderTotal, await _currencyService.GetPrimaryStoreCurrency()),
                 OrderStatus = statuses.FirstOrDefault(y => y.StatusId == x.OrderStatusId)?.Name,
-                PaymentStatus = _enumTranslationService.GetTranslationEnum(x.PaymentStatusId),
-                ShippingStatus = _enumTranslationService.GetTranslationEnum(x.ShippingStatusId),
+                PaymentStatus = x.PaymentStatusId.GetTranslationEnum(_translationService, _workContext),
+                ShippingStatus = x.ShippingStatusId.GetTranslationEnum(_translationService, _workContext),
                 CustomerEmail = x.BillingAddress.Email,
                 CustomerFullName = $"{x.BillingAddress.FirstName} {x.BillingAddress.LastName}",
                 CreatedOn = _dateTimeService.ConvertToUserTime(x.CreatedOnUtc, DateTimeKind.Utc)
@@ -422,10 +455,15 @@ public class ReportsController : BaseAdminController
         if (!await _permissionService.Authorize(StandardPermission.ManageOrders))
             return Content("");
 
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
+
         var model = new List<OrderIncompleteReportLineModel>();
         //not paid
         var psPending =
-            await _orderReportService.GetOrderAverageReportLine("", ps: PaymentStatus.Pending,
+            await _orderReportService.GetOrderAverageReportLine(storeId, ps: PaymentStatus.Pending,
                 ignoreCancelledOrders: true);
         model.Add(new OrderIncompleteReportLineModel {
             Item = _translationService.GetResource("Admin.Reports.Incomplete.TotalUnpaidOrders"),
@@ -436,7 +474,7 @@ public class ReportsController : BaseAdminController
         });
         //not shipped
         var ssPending =
-            await _orderReportService.GetOrderAverageReportLine("", ss: ShippingStatus.Pending,
+            await _orderReportService.GetOrderAverageReportLine(storeId, ss: ShippingStatus.Pending,
                 ignoreCancelledOrders: true);
         model.Add(new OrderIncompleteReportLineModel {
             Item = _translationService.GetResource("Admin.Reports.Incomplete.TotalNotShippedOrders"),
@@ -446,7 +484,7 @@ public class ReportsController : BaseAdminController
                 new { shippingStatusId = ((int)ShippingStatus.Pending).ToString(), area = Constants.AreaAdmin })
         });
         //pending
-        var osPending = await _orderReportService.GetOrderAverageReportLine("", os: (int)OrderStatusSystem.Pending,
+        var osPending = await _orderReportService.GetOrderAverageReportLine(storeId, os: (int)OrderStatusSystem.Pending,
             ignoreCancelledOrders: true);
         model.Add(new OrderIncompleteReportLineModel {
             Item = _translationService.GetResource("Admin.Reports.Incomplete.TotalIncompleteOrders"),
@@ -480,7 +518,7 @@ public class ReportsController : BaseAdminController
             new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
 
         //payment statuses
-        model.AvailablePaymentStatuses = _enumTranslationService.ToSelectList(PaymentStatus.Pending, false).ToList();
+        model.AvailablePaymentStatuses = PaymentStatus.Pending.ToSelectList(HttpContext, false).ToList();
         model.AvailablePaymentStatuses.Insert(0,
             new SelectListItem { Text = _translationService.GetResource("Admin.Common.All"), Value = "" });
 
@@ -501,7 +539,12 @@ public class ReportsController : BaseAdminController
         int? orderStatus = model.OrderStatusId > 0 ? model.OrderStatusId : null;
         var paymentStatus = model.PaymentStatusId > 0 ? (PaymentStatus?)model.PaymentStatusId : null;
 
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
         var items = await _orderReportService.GetCountryReport(
+            storeId,
             os: orderStatus,
             ps: paymentStatus,
             startTimeUtc: startDateValue,
@@ -553,7 +596,11 @@ public class ReportsController : BaseAdminController
     [HttpPost]
     public async Task<IActionResult> LowStockReportList(DataSourceRequest command)
     {
-        var lowStockProducts = await _productsReportService.LowStockProducts();
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
+        var lowStockProducts = await _productsReportService.LowStockProducts(storeId: storeId);
 
         var models = new List<LowStockProductModel>();
         //products
@@ -562,7 +609,9 @@ public class ReportsController : BaseAdminController
             var lowStockModel = new LowStockProductModel {
                 Id = product.Id,
                 Name = product.Name,
-                ManageInventoryMethod = _enumTranslationService.GetTranslationEnum(product.ManageInventoryMethodId),
+                ManageInventoryMethod =
+                    product.ManageInventoryMethodId.GetTranslationEnum(_translationService,
+                        _workContext.WorkingLanguage.Id),
                 StockQuantity = _stockQuantityService.GetTotalStockQuantity(product, total: true),
                 Published = product.Published
             };
@@ -577,8 +626,10 @@ public class ReportsController : BaseAdminController
                 Id = product.Id,
                 Name = product.Name,
                 Attributes = await _productAttributeFormatter.FormatAttributes(product, combination.Attributes,
-                    _contextAccessor.WorkContext.CurrentCustomer, "<br />", true, true, true, false),
-                ManageInventoryMethod = _enumTranslationService.GetTranslationEnum(product.ManageInventoryMethodId),
+                    _workContext.CurrentCustomer, "<br />", true, true, true, false),
+                ManageInventoryMethod =
+                    product.ManageInventoryMethodId.GetTranslationEnum(_translationService,
+                        _workContext.WorkingLanguage.Id),
                 StockQuantity = combination.StockQuantity,
                 Published = product.Published
             };
@@ -610,6 +661,9 @@ public class ReportsController : BaseAdminController
     public async Task<IActionResult> ReportBestCustomersByOrderTotalList(DataSourceRequest command,
         BestCustomersReportModel model)
     {
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            model.StoreId = _workContext.CurrentCustomer.StaffStoreId;
+
         var (bestCustomerReportLineModels, totalCount) =
             await _customerReportViewModelService.PrepareBestCustomerReportLineModel(model, 1, command.Page,
                 command.PageSize);
@@ -624,6 +678,9 @@ public class ReportsController : BaseAdminController
     public async Task<IActionResult> ReportBestCustomersByNumberOfOrdersList(DataSourceRequest command,
         BestCustomersReportModel model)
     {
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            model.StoreId = _workContext.CurrentCustomer.StaffStoreId;
+
         var (bestCustomerReportLineModels, totalCount) =
             await _customerReportViewModelService.PrepareBestCustomerReportLineModel(model, 2, command.Page,
                 command.PageSize);
@@ -637,7 +694,11 @@ public class ReportsController : BaseAdminController
     [HttpPost]
     public async Task<IActionResult> ReportRegisteredCustomersList(DataSourceRequest command)
     {
-        var model = await _customerReportViewModelService.GetReportRegisteredCustomersModel("");
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
+        var model = await _customerReportViewModelService.GetReportRegisteredCustomersModel(storeId);
         var gridModel = new DataSourceResult {
             Data = model,
             Total = model.Count
@@ -650,7 +711,11 @@ public class ReportsController : BaseAdminController
     public async Task<IActionResult> ReportCustomerTimeChart(DataSourceRequest command, DateTime? startDate,
         DateTime? endDate)
     {
-        var model = await _customerReportService.GetCustomerByTimeReport("", startDate, endDate);
+        var storeId = "";
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            storeId = _workContext.CurrentCustomer.StaffStoreId;
+
+        var model = await _customerReportService.GetCustomerByTimeReport(storeId, startDate, endDate);
         var gridModel = new DataSourceResult {
             Data = model
         };

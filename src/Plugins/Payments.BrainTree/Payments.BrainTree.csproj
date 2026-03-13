@@ -2,7 +2,6 @@
 	<Import Project="..\..\Build\Grand.Common.props" />
 	<PropertyGroup>
 		<AddRazorSupportForMvc>true</AddRazorSupportForMvc>
-		<StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -16,14 +15,14 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Braintree" />
-		<PackageReference Include="System.Xml.XPath.XmlDocument" />
+		<PackageReference Include="Braintree" Version="5.26.0" />
+		<PackageReference Include="System.Xml.XPath.XmlDocument" Version="4.3.0" />
 	</ItemGroup>
 
 	<Target Name="CopyFile" AfterTargets="AfterBuild">
 		<ItemGroup>
-			<CopyFiles Include="$(NuGetPackageRoot)\braintree\5.38.0\lib\netstandard2.0\*.*" />
-			<CopyFiles Include="$(NuGetPackageRoot)\system.xml.xpath.xmldocument\4.7.0\lib\netstandard2.0\*.*" />
+			<CopyFiles Include="$(NuGetPackageRoot)\braintree\5.26.0\lib\netstandard2.0\*.*" />
+			<CopyFiles Include="$(NuGetPackageRoot)\system.xml.xpath.xmldocument\4.3.0\lib\netstandard1.3\*.*" />
 		</ItemGroup>
 		<Copy SourceFiles="@(CopyFiles)" DestinationFolder="..\..\Web\Grand.Web\Plugins\Payments.BrainTree\" />
 	</Target>

@@ -61,14 +61,7 @@
         <span class="go-forward"></span>
     </li>
 }
-@functions {
-    private bool ShouldDisplayMenu()
-    {
-        return Model.DisplaySearchMenu || Model.DisplayNewProductsMenu || Model.DisplayCustomerMenu || Model.DisplayBlogMenu || Model.DisplayContactUsMenu || Model.Pages.Any();
-    }
-}
-
-@if (ShouldDisplayMenu())
+@if (Model.DisplaySearchMenu | Model.DisplayNewProductsMenu | Model.DisplayCustomerMenu | Model.DisplayBlogMenu | Model.DisplayContactUsMenu | Model.Pages.Any())
 {
     <li class="other-links">
         <ul>

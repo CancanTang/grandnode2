@@ -3,11 +3,11 @@ using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.Storage;
-using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Media;
 using Grand.Domain.News;
 using Grand.Infrastructure;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Features.Models.News;
 using Grand.Web.Models.Media;
 using Grand.Web.Models.News;
@@ -25,13 +25,13 @@ public class GetNewsItemHandler : IRequestHandler<GetNewsItem, NewsItemModel>
     private readonly MediaSettings _mediaSettings;
     private readonly IPictureService _pictureService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
-    public GetNewsItemHandler(IContextAccessor contextAccessor, IDateTimeService dateTimeService,
+    public GetNewsItemHandler(IWorkContext workContext, IDateTimeService dateTimeService,
         IPictureService pictureService, ITranslationService translationService, ICustomerService customerService,
         MediaSettings mediaSettings, CaptchaSettings captchaSettings, CustomerSettings customerSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _dateTimeService = dateTimeService;
         _pictureService = pictureService;
         _translationService = translationService;
@@ -46,13 +46,13 @@ public class GetNewsItemHandler : IRequestHandler<GetNewsItem, NewsItemModel>
     {
         var model = new NewsItemModel {
             Id = request.NewsItem.Id,
-            MetaTitle = request.NewsItem.GetTranslation(x => x.MetaTitle, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            MetaDescription = request.NewsItem.GetTranslation(x => x.MetaDescription, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            MetaKeywords = request.NewsItem.GetTranslation(x => x.MetaKeywords, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            SeName = request.NewsItem.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id),
-            Title = request.NewsItem.GetTranslation(x => x.Title, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            Short = request.NewsItem.GetTranslation(x => x.Short, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            Full = request.NewsItem.GetTranslation(x => x.Full, _contextAccessor.WorkContext.WorkingLanguage.Id),
+            MetaTitle = request.NewsItem.GetTranslation(x => x.MetaTitle, _workContext.WorkingLanguage.Id),
+            MetaDescription = request.NewsItem.GetTranslation(x => x.MetaDescription, _workContext.WorkingLanguage.Id),
+            MetaKeywords = request.NewsItem.GetTranslation(x => x.MetaKeywords, _workContext.WorkingLanguage.Id),
+            SeName = request.NewsItem.GetSeName(_workContext.WorkingLanguage.Id),
+            Title = request.NewsItem.GetTranslation(x => x.Title, _workContext.WorkingLanguage.Id),
+            Short = request.NewsItem.GetTranslation(x => x.Short, _workContext.WorkingLanguage.Id),
+            Full = request.NewsItem.GetTranslation(x => x.Full, _workContext.WorkingLanguage.Id),
             AllowComments = request.NewsItem.AllowComments,
             CreatedOn = _dateTimeService.ConvertToUserTime(
                 request.NewsItem.StartDateUtc ?? request.NewsItem.CreatedOnUtc, DateTimeKind.Utc),

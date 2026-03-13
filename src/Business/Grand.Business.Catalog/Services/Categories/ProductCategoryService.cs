@@ -19,17 +19,17 @@ public class ProductCategoryService : IProductCategoryService
     private readonly ICacheBase _cacheBase;
     private readonly IMediator _mediator;
     private readonly IRepository<Product> _productRepository;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public ProductCategoryService(
         IRepository<Product> productRepository,
         ICacheBase cacheBase,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IMediator mediator, AccessControlConfig accessControlConfig)
     {
         _productRepository = productRepository;
         _cacheBase = cacheBase;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _mediator = mediator;
         _accessControlConfig = accessControlConfig;
     }
@@ -49,7 +49,7 @@ public class ProductCategoryService : IProductCategoryService
             return new PagedList<ProductsCategory>(new List<ProductsCategory>(), pageIndex, pageSize);
 
         var key = string.Format(CacheKey.PRODUCTCATEGORIES_ALLBYCATEGORYID_KEY, showHidden, categoryId, pageIndex,
-            pageSize, _contextAccessor.WorkContext.CurrentCustomer.Id, _contextAccessor.StoreContext.CurrentStore.Id);
+            pageSize, _workContext.CurrentCustomer.Id, _workContext.CurrentStore.Id);
         return await _cacheBase.GetAsync(key, () =>
         {
             var query = _productRepository.Table.Where(x => x.ProductCategories.Any(y => y.CategoryId == categoryId));
@@ -59,7 +59,7 @@ public class ProductCategoryService : IProductCategoryService
                 if (!_accessControlConfig.IgnoreAcl)
                 {
                     //Limited to customer groups
-                    var allowedCustomerGroupsIds = _contextAccessor.WorkContext.CurrentCustomer.GetCustomerGroupIds();
+                    var allowedCustomerGroupsIds = _workContext.CurrentCustomer.GetCustomerGroupIds();
                     query = from p in query
                         where !p.LimitedToGroups || allowedCustomerGroupsIds.Any(x => p.CustomerGroups.Contains(x))
                         select p;
@@ -68,7 +68,7 @@ public class ProductCategoryService : IProductCategoryService
                 if (!_accessControlConfig.IgnoreStoreLimitations)
                 {
                     //Limited to stores
-                    var currentStoreId = _contextAccessor.StoreContext.CurrentStore.Id;
+                    var currentStoreId = _workContext.CurrentStore.Id;
                     query = from p in query
                         where !p.LimitedToStores || p.Stores.Contains(currentStoreId)
                         select p;

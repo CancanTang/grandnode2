@@ -118,7 +118,8 @@
                                                 data: bodyFormData,
                                                 method: 'post',
                                                 headers: {
-                                                    'Accept': 'application/json'                                                    
+                                                    'Accept': 'application/json',
+                                                    'Content-Type': 'application/json'
                                                 }
                                             }).then(function (response) {
                                                 emailwishlist.Message.Result = response.data.Result;

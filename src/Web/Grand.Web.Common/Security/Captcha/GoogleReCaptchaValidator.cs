@@ -1,12 +1,11 @@
-﻿using Grand.Domain.Common;
-using Grand.Infrastructure.Extensions;
-using Grand.SharedKernel.Captcha;
+﻿using Grand.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Http;
+using System.Net.Http;
 using System.Text.Json;
 
 namespace Grand.Web.Common.Security.Captcha;
 
-public class GoogleReCaptchaValidator : IGoogleReCaptchaValidator
+public class GoogleReCaptchaValidator
 {
     private const string RecaptchaVerifyUrl =
         "https://www.google.com/recaptcha/api/siteverify?secret={0}&response={1}&remoteip={2}";

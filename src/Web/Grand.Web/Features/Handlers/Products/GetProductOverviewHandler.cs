@@ -6,7 +6,7 @@ using Grand.Business.Core.Interfaces.Catalog.Tax;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Storage;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
 using Grand.Domain.Media;
 using Grand.Domain.Tax;
@@ -16,6 +16,7 @@ using Grand.Web.Features.Models.Products;
 using Grand.Web.Models.Catalog;
 using Grand.Web.Models.Media;
 using MediatR;
+using Microsoft.AspNetCore.Routing;
 
 namespace Grand.Web.Features.Handlers.Products;
 
@@ -34,11 +35,11 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
     private readonly IPricingService _pricingService;
     private readonly IProductService _productService;
     private readonly ITaxService _taxService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public GetProductOverviewHandler(
         IPermissionService permissionService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IProductService productService,
         IBrandService brandService,
         IPricingService priceCalculationService,
@@ -53,7 +54,7 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
         CatalogSettings catalogSettings)
     {
         _permissionService = permissionService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _productService = productService;
         _brandService = brandService;
         _pricingService = priceCalculationService;
@@ -71,16 +72,17 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
     public async Task<IEnumerable<ProductOverviewModel>> Handle(GetProductOverview request,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Products);
+        if (request.Products == null)
+            throw new ArgumentNullException(nameof(request.Products));
 
         var displayPrices =
-            await _permissionService.Authorize(StandardPermission.DisplayPrices, _contextAccessor.WorkContext.CurrentCustomer);
+            await _permissionService.Authorize(StandardPermission.DisplayPrices, _workContext.CurrentCustomer);
         var enableShoppingCart =
-            await _permissionService.Authorize(StandardPermission.EnableShoppingCart, _contextAccessor.WorkContext.CurrentCustomer);
+            await _permissionService.Authorize(StandardPermission.EnableShoppingCart, _workContext.CurrentCustomer);
         var enableWishlist =
-            await _permissionService.Authorize(StandardPermission.EnableWishlist, _contextAccessor.WorkContext.CurrentCustomer);
+            await _permissionService.Authorize(StandardPermission.EnableWishlist, _workContext.CurrentCustomer);
         var pictureSize = request.ProductThumbPictureSize ?? _mediaSettings.ProductThumbPictureSize;
-        var priceIncludesTax = _contextAccessor.WorkContext.TaxDisplayType == TaxDisplayType.IncludingTax;
+        var priceIncludesTax = _workContext.TaxDisplayType == TaxDisplayType.IncludingTax;
 
         var tasks = new List<Task<ProductOverviewModel>>();
 
@@ -113,26 +115,26 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
         //specs
         if (request.PrepareSpecificationAttributes && product.ProductSpecificationAttributes.Any())
             model.SpecificationAttributeModels = await _mediator.Send(new GetProductSpecification
-                { Language = _contextAccessor.WorkContext.WorkingLanguage, Product = product });
+                { Language = _workContext.WorkingLanguage, Product = product });
 
         //attributes
         model.ProductAttributeModels = await PrepareAttributesModel(product);
 
         //reviews
         model.ReviewOverviewModel = await _mediator.Send(new GetProductReviewOverview
-            { Product = product, Language = _contextAccessor.WorkContext.WorkingLanguage, Store = _contextAccessor.StoreContext.CurrentStore });
+            { Product = product, Language = _workContext.WorkingLanguage, Store = _workContext.CurrentStore });
 
         return model;
     }
 
     private async Task<ProductOverviewModel> PrepareProductOverviewModel(Product product)
     {
-        var sename = product.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id);
+        var sename = product.GetSeName(_workContext.WorkingLanguage.Id);
         var model = new ProductOverviewModel {
             Id = product.Id,
-            Name = product.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            ShortDescription = product.GetTranslation(x => x.ShortDescription, _contextAccessor.WorkContext.WorkingLanguage.Id),
-            FullDescription = product.GetTranslation(x => x.FullDescription, _contextAccessor.WorkContext.WorkingLanguage.Id),
+            Name = product.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id),
+            ShortDescription = product.GetTranslation(x => x.ShortDescription, _workContext.WorkingLanguage.Id),
+            FullDescription = product.GetTranslation(x => x.FullDescription, _workContext.WorkingLanguage.Id),
             SeName = sename,
             Url = _linkGenerator.GetPathByRouteValues("Product", new { SeName = sename }),
             ProductType = product.ProductTypeId,
@@ -143,11 +145,11 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
             BrandName = string.IsNullOrEmpty(product.BrandId)
                 ? ""
                 : (await _brandService.GetBrandById(product.BrandId))?.GetTranslation(x => x.Name,
-                    _contextAccessor.WorkContext.WorkingLanguage.Id),
+                    _workContext.WorkingLanguage.Id),
             IsFreeShipping = product.IsFreeShipping,
             LowStock = product.LowStock,
             ShowSku = _catalogSettings.ShowSkuOnCatalogPages,
-            TaxDisplayType = _contextAccessor.WorkContext.TaxDisplayType,
+            TaxDisplayType = _workContext.TaxDisplayType,
             Interval = product.Interval,
             IntervalUnitId = product.IntervalUnitId,
             EndTime = product.AvailableEndDateTimeUtc,
@@ -183,7 +185,7 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                 #region Grouped product
 
                 var associatedProducts =
-                    await _productService.GetAssociatedProducts(product.Id, _contextAccessor.StoreContext.CurrentStore.Id);
+                    await _productService.GetAssociatedProducts(product.Id, _workContext.CurrentStore.Id);
 
                 //add to cart button (ignore "DisableBuyButton" property for grouped products)
                 priceModel.DisableBuyButton = !enableShoppingCart || !displayPrices;
@@ -200,8 +202,8 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                 {
                     var catalogPrice =
                         await _currencyService.ConvertFromPrimaryStoreCurrency(product.CatalogPrice,
-                            _contextAccessor.WorkContext.WorkingCurrency);
-                    priceModel.CatalogPrice = _priceFormatter.FormatPrice(catalogPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                            _workContext.WorkingCurrency);
+                    priceModel.CatalogPrice = _priceFormatter.FormatPrice(catalogPrice, _workContext.WorkingCurrency);
                 }
 
                 if (associatedProducts.Any())
@@ -218,7 +220,7 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                         {
                             //calculate for the maximum quantity (in case if we have tier prices)
                             var tmpPrice = (await _pricingService.GetFinalPrice(associatedProduct,
-                                _contextAccessor.WorkContext.CurrentCustomer, _contextAccessor.StoreContext.CurrentStore, _contextAccessor.WorkContext.WorkingCurrency,
+                                _workContext.CurrentCustomer, _workContext.CurrentStore, _workContext.WorkingCurrency,
                                 0, true,
                                 int.MaxValue)).finalPrice;
                             if (minPossiblePrice.HasValue && !(tmpPrice < minPossiblePrice.Value)) continue;
@@ -238,18 +240,18 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                                 //calculate prices
                                 var finalPrice = (await _taxService.GetProductPrice(minPriceProduct,
                                         minPossiblePrice.Value, priceIncludesTax,
-                                        _contextAccessor.WorkContext.CurrentCustomer))
+                                        _workContext.CurrentCustomer))
                                     .productprice;
 
                                 priceModel.OldPrice = null;
                                 priceModel.Price =
-                                    _priceFormatter.FormatPrice(finalPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                                    _priceFormatter.FormatPrice(finalPrice, _workContext.WorkingCurrency);
                                 priceModel.PriceValue = finalPrice;
 
                                 //PAngV base price (used in Germany)
                                 if (product.BasepriceEnabled)
                                     priceModel.BasePricePAngV = await _mediator.Send(new GetFormatBasePrice {
-                                        Currency = _contextAccessor.WorkContext.WorkingCurrency, Product = product,
+                                        Currency = _workContext.WorkingCurrency, Product = product,
                                         ProductPrice = finalPrice
                                     });
                             }
@@ -296,8 +298,8 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                 {
                     var catalogPrice =
                         await _currencyService.ConvertFromPrimaryStoreCurrency(product.CatalogPrice,
-                            _contextAccessor.WorkContext.WorkingCurrency);
-                    priceModel.CatalogPrice = _priceFormatter.FormatPrice(catalogPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                            _workContext.WorkingCurrency);
+                    priceModel.CatalogPrice = _priceFormatter.FormatPrice(catalogPrice, _workContext.WorkingCurrency);
                 }
 
                 //start price for product auction
@@ -305,8 +307,8 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                 {
                     var startPrice =
                         await _currencyService.ConvertFromPrimaryStoreCurrency(product.StartPrice,
-                            _contextAccessor.WorkContext.WorkingCurrency);
-                    priceModel.StartPrice = _priceFormatter.FormatPrice(startPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                            _workContext.WorkingCurrency);
+                    priceModel.StartPrice = _priceFormatter.FormatPrice(startPrice, _workContext.WorkingCurrency);
                     priceModel.StartPriceValue = startPrice;
                 }
 
@@ -315,8 +317,8 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                 {
                     var highestBid =
                         await _currencyService.ConvertFromPrimaryStoreCurrency(product.HighestBid,
-                            _contextAccessor.WorkContext.WorkingCurrency);
-                    priceModel.HighestBid = _priceFormatter.FormatPrice(highestBid, _contextAccessor.WorkContext.WorkingCurrency);
+                            _workContext.WorkingCurrency);
+                    priceModel.HighestBid = _priceFormatter.FormatPrice(highestBid, _workContext.WorkingCurrency);
                     priceModel.HighestBidValue = highestBid;
                 }
 
@@ -337,7 +339,7 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
 
                             //calculate for the maximum quantity (in case if we have tier prices)
                             var infoPrice = await _pricingService.GetFinalPrice(product,
-                                _contextAccessor.WorkContext.CurrentCustomer, _contextAccessor.StoreContext.CurrentStore, _contextAccessor.WorkContext.WorkingCurrency,
+                                _workContext.CurrentCustomer, _workContext.CurrentStore, _workContext.WorkingCurrency,
                                 0, true, int.MaxValue);
 
                             priceModel.AppliedDiscounts = infoPrice.appliedDiscounts;
@@ -346,21 +348,21 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                             var minPossiblePrice = infoPrice.finalPrice;
 
                             var oldPriceBase = (await _taxService.GetProductPrice(product, product.OldPrice,
-                                priceIncludesTax, _contextAccessor.WorkContext.CurrentCustomer)).productprice;
+                                priceIncludesTax, _workContext.CurrentCustomer)).productprice;
                             var finalPrice = (await _taxService.GetProductPrice(product, minPossiblePrice,
-                                priceIncludesTax, _contextAccessor.WorkContext.CurrentCustomer)).productprice;
+                                priceIncludesTax, _workContext.CurrentCustomer)).productprice;
 
                             var oldPrice =
                                 await _currencyService.ConvertFromPrimaryStoreCurrency(oldPriceBase,
-                                    _contextAccessor.WorkContext.WorkingCurrency);
+                                    _workContext.WorkingCurrency);
 
                             //do we have tier prices configured?
                             var tierPrices = new List<TierPrice>();
                             if (product.TierPrices.Any())
                                 tierPrices.AddRange(product.TierPrices.OrderBy(tp => tp.Quantity)
-                                    .FilterByStore(_contextAccessor.StoreContext.CurrentStore.Id)
-                                    .FilterByCurrency(_contextAccessor.WorkContext.WorkingCurrency.CurrencyCode)
-                                    .FilterForCustomer(_contextAccessor.WorkContext.CurrentCustomer)
+                                    .FilterByStore(_workContext.CurrentStore.Id)
+                                    .FilterByCurrency(_workContext.WorkingCurrency.CurrencyCode)
+                                    .FilterForCustomer(_workContext.CurrentCustomer)
                                     .FilterByDate()
                                     .RemoveDuplicatedQuantities());
 
@@ -372,7 +374,7 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                             {
                                 priceModel.OldPrice = null;
                                 priceModel.Price =
-                                    _priceFormatter.FormatPrice(finalPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                                    _priceFormatter.FormatPrice(finalPrice, _workContext.WorkingCurrency);
                                 priceModel.PriceValue = finalPrice;
                             }
                             else
@@ -380,17 +382,17 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                                 if (!finalPrice.Equals(oldPriceBase) && oldPriceBase != 0)
                                 {
                                     priceModel.OldPrice =
-                                        _priceFormatter.FormatPrice(oldPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                                        _priceFormatter.FormatPrice(oldPrice, _workContext.WorkingCurrency);
                                     priceModel.OldPriceValue = oldPrice;
                                     priceModel.Price =
-                                        _priceFormatter.FormatPrice(finalPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                                        _priceFormatter.FormatPrice(finalPrice, _workContext.WorkingCurrency);
                                     priceModel.PriceValue = finalPrice;
                                 }
                                 else
                                 {
                                     priceModel.OldPrice = null;
                                     priceModel.Price =
-                                        _priceFormatter.FormatPrice(finalPrice, _contextAccessor.WorkContext.WorkingCurrency);
+                                        _priceFormatter.FormatPrice(finalPrice, _workContext.WorkingCurrency);
                                     priceModel.PriceValue = finalPrice;
                                 }
                             }
@@ -398,7 +400,7 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                             //PAngV base price (used in Germany)
                             if (product.BasepriceEnabled)
                                 priceModel.BasePricePAngV = await _mediator.Send(new GetFormatBasePrice {
-                                    Currency = _contextAccessor.WorkContext.WorkingCurrency, Product = product,
+                                    Currency = _workContext.WorkingCurrency, Product = product,
                                     ProductPrice = finalPrice
                                 });
                         }
@@ -443,15 +445,15 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
                 //"title" attribute
                 Title =
                     picture != null && !string.IsNullOrEmpty(picture.GetTranslation(x => x.TitleAttribute,
-                        _contextAccessor.WorkContext.WorkingLanguage.Id))
-                        ? picture.GetTranslation(x => x.TitleAttribute, _contextAccessor.WorkContext.WorkingLanguage.Id)
+                        _workContext.WorkingLanguage.Id))
+                        ? picture.GetTranslation(x => x.TitleAttribute, _workContext.WorkingLanguage.Id)
                         : name,
                 //"alt" attribute
                 AlternateText =
                     picture != null &&
                     !string.IsNullOrEmpty(picture.GetTranslation(x => x.AltAttribute,
-                        _contextAccessor.WorkContext.WorkingLanguage.Id))
-                        ? picture.GetTranslation(x => x.AltAttribute, _contextAccessor.WorkContext.WorkingLanguage.Id)
+                        _workContext.WorkingLanguage.Id))
+                        ? picture.GetTranslation(x => x.AltAttribute, _workContext.WorkingLanguage.Id)
                         : name
             };
 
@@ -459,15 +461,12 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
         }
 
         //prepare picture model
-        result.Add(await PreparePictureModel(product.ProductPictures.OrderByDescending(p => p.IsDefault)  
-            .ThenBy(p => p.DisplayOrder) 
-            .FirstOrDefault()));
+        result.Add(await PreparePictureModel(product.ProductPictures.MinBy(x => x.DisplayOrder)));
 
         //prepare second picture model
         if (!_catalogSettings.SecondPictureOnCatalogPages) return result;
 
-        var secondPicture = product.ProductPictures.OrderByDescending(p => p.IsDefault)  
-            .ThenBy(p => p.DisplayOrder).Skip(1).Take(1)
+        var secondPicture = product.ProductPictures.OrderBy(x => x.DisplayOrder).Skip(1).Take(1)
             .FirstOrDefault();
         if (secondPicture != null)
             result.Add(await PreparePictureModel(secondPicture));
@@ -490,7 +489,7 @@ public class GetProductOverviewHandler : IRequestHandler<GetProductOverview, IEn
             if (pa == null) continue;
 
             var productAttributeModel = new ProductOverviewModel.ProductAttributeModel {
-                Name = pa.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id),
+                Name = pa.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id),
                 SeName = pa.SeName,
                 TextPrompt = attribute.TextPrompt,
                 IsRequired = attribute.IsRequired,

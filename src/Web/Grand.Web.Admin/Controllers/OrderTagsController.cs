@@ -1,7 +1,7 @@
 ﻿using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
-using Grand.Web.AdminShared.Models.Orders;
+using Grand.Business.Core.Utilities.Common.Security;
+using Grand.Web.Admin.Models.Orders;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Extensions;
 using Grand.Web.Common.Security.Authorization;
@@ -69,7 +69,8 @@ public class OrderTagsController : BaseAdminController
             });
 
         var tag = await _orderTagService.GetOrderTagById(tagId);
-        ArgumentNullException.ThrowIfNull(tag);
+        if (tag == null)
+            throw new ArgumentNullException(nameof(tag));
 
         var orders =
             (await _orderService.SearchOrders(pageIndex: command.Page - 1, pageSize: command.PageSize,

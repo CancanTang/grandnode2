@@ -9,7 +9,8 @@ public class CanRefundOfflineQueryHandler : IRequestHandler<CanRefundOfflineQuer
     public Task<bool> Handle(CanRefundOfflineQuery request, CancellationToken cancellationToken)
     {
         var paymentTransaction = request.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(request.PaymentTransaction));
 
         if (paymentTransaction.TransactionAmount == 0)
             return Task.FromResult(false);

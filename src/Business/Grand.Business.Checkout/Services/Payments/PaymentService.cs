@@ -56,7 +56,7 @@ public class PaymentService : IPaymentService
     public virtual async Task<IList<IPaymentProvider>> LoadActivePaymentMethods(Customer customer = null,
         string storeId = "", string filterByCountryId = "")
     {
-        var pm = (await LoadAllPaymentMethods(customer, storeId, filterByCountryId))
+        var pm = LoadAllPaymentMethods(customer, storeId, filterByCountryId)
             .Where(provider =>
                 _paymentSettings.ActivePaymentProviderSystemNames.Contains(provider.SystemName,
                     StringComparer.OrdinalIgnoreCase))
@@ -69,7 +69,7 @@ public class PaymentService : IPaymentService
         if (selectedShippingOption == null) return await Task.FromResult(pm);
         for (var i = pm.Count - 1; i >= 0; i--)
         {
-            var restrictedGroupIds =await  GetRestrictedShippingIds(pm[i]);
+            var restrictedGroupIds = GetRestrictedShippingIds(pm[i]);
             if (restrictedGroupIds.Contains(selectedShippingOption.Name)) pm.Remove(pm[i]);
         }
 
@@ -94,7 +94,7 @@ public class PaymentService : IPaymentService
     /// <param name="customer">Customer</param>
     /// <param name="filterByCountryId">Load records allowed only in a specified country; pass "" to load all records</param>
     /// <returns>Payment providers</returns>
-    public virtual async Task<IList<IPaymentProvider>> LoadAllPaymentMethods(Customer customer = null, string storeId = "",
+    public virtual IList<IPaymentProvider> LoadAllPaymentMethods(Customer customer = null, string storeId = "",
         string filterByCountryId = "")
     {
         var paymentMethods = _paymentProviders
@@ -102,20 +102,14 @@ public class PaymentService : IPaymentService
                 x.IsAuthenticateStore(storeId) &&
                 x.IsAuthenticateGroup(customer))
             .OrderBy(x => x.Priority).ToList();
-
-        if (string.IsNullOrEmpty(filterByCountryId))
-            return paymentMethods;
-
-        var filteredPaymentMethods = new List<IPaymentProvider>();
-        foreach (var pm in paymentMethods)
-        {
-            var restrictedCountryIds = await GetRestrictedCountryIds(pm);
-            if (!restrictedCountryIds.Contains(filterByCountryId))
-            {
-                filteredPaymentMethods.Add(pm);
-            }
-        }
-        return filteredPaymentMethods;
+        return string.IsNullOrEmpty(filterByCountryId)
+            ? paymentMethods
+            :
+            //filter by country
+            (from pm in paymentMethods
+                let restrictedCountryIds = GetRestrictedCountryIds(pm)
+                where !restrictedCountryIds.Contains(filterByCountryId)
+                select pm).ToList();
     }
 
     /// <summary>
@@ -123,12 +117,12 @@ public class PaymentService : IPaymentService
     /// </summary>
     /// <param name="paymentMethod">Payment method</param>
     /// <returns>A list of country identifiers</returns>
-    public virtual async Task<IList<string>> GetRestrictedCountryIds(IPaymentProvider paymentMethod)
+    public virtual IList<string> GetRestrictedCountryIds(IPaymentProvider paymentMethod)
     {
         ArgumentNullException.ThrowIfNull(paymentMethod);
 
         var settingKey = $"PaymentMethodRestictions.{paymentMethod.SystemName}";
-        var restrictedCountryIds = await _settingService.GetSettingByKey<PaymentRestrictedSettings>(settingKey);
+        var restrictedCountryIds = _settingService.GetSettingByKey<PaymentRestrictedSettings>(settingKey);
         return restrictedCountryIds == null ? new List<string>() : restrictedCountryIds.Ids;
     }
 
@@ -137,12 +131,12 @@ public class PaymentService : IPaymentService
     /// </summary>
     /// <param name="paymentMethod">Payment method</param>
     /// <returns>A list of role identifiers</returns>
-    public virtual async Task<IList<string>> GetRestrictedShippingIds(IPaymentProvider paymentMethod)
+    public virtual IList<string> GetRestrictedShippingIds(IPaymentProvider paymentMethod)
     {
         ArgumentNullException.ThrowIfNull(paymentMethod);
 
         var settingKey = $"PaymentMethodRestictionsShipping.{paymentMethod.SystemName}";
-        var restrictedShippingIds = await _settingService.GetSettingByKey<PaymentRestrictedSettings>(settingKey);
+        var restrictedShippingIds = _settingService.GetSettingByKey<PaymentRestrictedSettings>(settingKey);
         return restrictedShippingIds == null ? new List<string>() : restrictedShippingIds.Ids;
     }
 
@@ -229,18 +223,18 @@ public class PaymentService : IPaymentService
     ///     Post redirect payment (used by payment gateways that redirecting to a another URL)
     /// </summary>
     /// <param name="paymentTransaction">Payment Transaction</param>
-    public virtual async Task<string> PostRedirectPayment(PaymentTransaction paymentTransaction)
+    public virtual async Task PostRedirectPayment(PaymentTransaction paymentTransaction)
     {
         ArgumentNullException.ThrowIfNull(paymentTransaction);
 
         //already paid or order.OrderTotal == 0
         if (paymentTransaction.TransactionStatus == TransactionStatus.Paid)
-            return "";
+            return;
 
         var paymentMethod = LoadPaymentMethodBySystemName(paymentTransaction.PaymentMethodSystemName);
         if (paymentMethod == null)
             throw new GrandException("Payment method couldn't be loaded");
-        return await paymentMethod.PostRedirectPayment(paymentTransaction);
+        await paymentMethod.PostRedirectPayment(paymentTransaction);
     }
 
     /// <summary>

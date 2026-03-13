@@ -32,20 +32,22 @@ public class PriceFormatterTests
 
     private TaxSettings _taxSettings;
     private ITranslationService _translationService;
-    private Mock<IContextAccessor> tempWorkContext;
+    private IWorkContext _workContext;
+    private Mock<IWorkContext> tempWorkContext;
 
     [TestInitialize]
     public void TestInitialize()
     {
-        var settingsPath = Path.Combine("", CommonPath.AppData, CommonPath.SettingsFile);
-        DataSettingsManager.Initialize(settingsPath);
+        CommonPath.BaseDirectory = "";
 
         var eventPublisher = new Mock<IMediator>();
         _eventPublisher = eventPublisher.Object;
 
         var cacheManager = new Mock<ICacheBase>();
-        tempWorkContext = new Mock<IContextAccessor>();
-
+        tempWorkContext = new Mock<IWorkContext>();
+        {
+            _workContext = tempWorkContext.Object;
+        }
         _currencySettings = new CurrencySettings();
         var currency01 = new Currency {
             Id = "1",
@@ -99,7 +101,7 @@ public class PriceFormatterTests
             _translationService = tempLocalizationService.Object;
         }
 
-        _priceFormatter = new PriceFormatter(tempWorkContext.Object);
+        _priceFormatter = new PriceFormatter(_workContext);
     }
 
     [TestMethod]

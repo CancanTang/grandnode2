@@ -35,7 +35,7 @@ public interface IPaymentService
     /// <param name="customer">Customer</param>
     /// <param name="filterByCountryId">Specified country</param>
     /// <returns>Payment providers</returns>
-    Task<IList<IPaymentProvider>> LoadAllPaymentMethods(Customer customer = null, string storeId = "",
+    IList<IPaymentProvider> LoadAllPaymentMethods(Customer customer = null, string storeId = "",
         string filterByCountryId = "");
 
     /// <summary>
@@ -43,14 +43,14 @@ public interface IPaymentService
     /// </summary>
     /// <param name="paymentMethod">Payment method</param>
     /// <returns>A list of country identifiers</returns>
-    Task<IList<string>> GetRestrictedCountryIds(IPaymentProvider paymentMethod);
+    IList<string> GetRestrictedCountryIds(IPaymentProvider paymentMethod);
 
     /// <summary>
     ///     Gets a list of shipping identifiers in which a certain payment method is now allowed
     /// </summary>
     /// <param name="paymentMethod">Payment method</param>
     /// <returns>A list of role identifiers</returns>
-    Task<IList<string>> GetRestrictedShippingIds(IPaymentProvider paymentMethod);
+    IList<string> GetRestrictedShippingIds(IPaymentProvider paymentMethod);
 
     /// <summary>
     ///     Saves a list of country identifiers in which a certain payment method is now allowed
@@ -83,7 +83,7 @@ public interface IPaymentService
     ///     Post redirect payment (used by payment gateways that redirecting to a another URL)
     /// </summary>
     /// <param name="paymentTransaction">Payment transaction</param>
-    Task<string> PostRedirectPayment(PaymentTransaction paymentTransaction);
+    Task PostRedirectPayment(PaymentTransaction paymentTransaction);
 
     /// <summary>
     ///     Gets a value indicating whether customers can complete a payment after order is placed but not completed (for

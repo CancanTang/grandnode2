@@ -24,12 +24,12 @@ public class ContactAttributeService : IContactAttributeService
     public ContactAttributeService(ICacheBase cacheBase,
         IRepository<ContactAttribute> contactAttributeRepository,
         IMediator mediator,
-        IContextAccessor contextAccessor, AccessControlConfig accessControlConfig)
+        IWorkContext workContext, AccessControlConfig accessControlConfig)
     {
         _cacheBase = cacheBase;
         _contactAttributeRepository = contactAttributeRepository;
         _mediator = mediator;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _accessControlConfig = accessControlConfig;
     }
 
@@ -40,7 +40,7 @@ public class ContactAttributeService : IContactAttributeService
     private readonly IRepository<ContactAttribute> _contactAttributeRepository;
     private readonly IMediator _mediator;
     private readonly ICacheBase _cacheBase;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly AccessControlConfig _accessControlConfig;
 
     #endregion
@@ -87,7 +87,7 @@ public class ContactAttributeService : IContactAttributeService
                 (ignoreAcl || _accessControlConfig.IgnoreAcl)) return await Task.FromResult(query.ToList());
             if (!ignoreAcl && !_accessControlConfig.IgnoreAcl)
             {
-                var allowedCustomerGroupsIds = _contextAccessor.WorkContext.CurrentCustomer.GetCustomerGroupIds();
+                var allowedCustomerGroupsIds = _workContext.CurrentCustomer.GetCustomerGroupIds();
                 query = from p in query
                     where !p.LimitedToGroups || allowedCustomerGroupsIds.Any(x => p.CustomerGroups.Contains(x))
                     select p;

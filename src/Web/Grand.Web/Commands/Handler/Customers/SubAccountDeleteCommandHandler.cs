@@ -16,7 +16,7 @@ public class SubAccountDeleteCommandHandler : IRequestHandler<SubAccountDeleteCo
     public async Task<(bool success, string error)> Handle(SubAccountDeleteCommand request,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.CurrentCustomer);
+        if (request.CurrentCustomer == null) throw new ArgumentNullException(nameof(request.CurrentCustomer));
 
         var customer = await _customerService.GetCustomerById(request.CustomerId);
         if (customer == null || customer.OwnerId != request.CurrentCustomer.Id)

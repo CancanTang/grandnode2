@@ -24,7 +24,6 @@ public class CookieAuthenticationServiceTests
     private Mock<IHttpContextAccessor> _httpAccessorMock;
     private DefaultHttpContext _httpContext;
     private Mock<IServiceProvider> serviceProviderMock;
-    private CookieOptionsFactory _cookieOptionsFactory;
 
     [TestInitialize]
     public void Init()
@@ -38,9 +37,8 @@ public class CookieAuthenticationServiceTests
             CookieClaimsIssuer = "grandnode",
             CookiePrefix = ".Grand."
         };
-        _cookieOptionsFactory = new CookieOptionsFactory(_config);
         _cookieAuthService = new CookieAuthenticationService(_customerSettings, _customerServiceMock.Object,
-            _groupServiceMock.Object, _httpAccessorMock.Object, _cookieOptionsFactory, _config);
+            _groupServiceMock.Object, _httpAccessorMock.Object, _config);
         //For mock HttpContext extension methods like SignOutAsync ,SignInAsync etc..
         _authServiceMock = new Mock<IAuthenticationService>();
         serviceProviderMock = new Mock<IServiceProvider>();
@@ -66,7 +64,7 @@ public class CookieAuthenticationServiceTests
     [TestMethod]
     public async Task SignIn_NullCustomer_ThrowException()
     {
-        await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsExceptionAsync<ArgumentNullException>(async () =>
             await _cookieAuthService.SignIn(null, false));
     }
 

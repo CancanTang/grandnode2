@@ -1,6 +1,6 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Data;
 using Grand.Domain.Security;
 using Grand.Infrastructure;
@@ -32,10 +32,21 @@ public class AuthorizeAdminAttribute : TypeFilterAttribute
     /// <summary>
     ///     Represents a filter that confirms access to the admin panel
     /// </summary>
-    private class AuthorizeAdminFilter(bool ignoreFilter, IPermissionService permissionService,
-        SecuritySettings securitySettings, IContextAccessor contextAccessor, IGroupService groupService) : IAsyncAuthorizationFilter
+    private class AuthorizeAdminFilter : IAsyncAuthorizationFilter
     {
-        const string routeName = "AdminLogin";
+        #region Ctor
+
+        public AuthorizeAdminFilter(bool ignoreFilter, IPermissionService permissionService,
+            SecuritySettings securitySettings, IWorkContext workContext, IGroupService groupService)
+        {
+            _ignoreFilter = ignoreFilter;
+            _permissionService = permissionService;
+            _securitySettings = securitySettings;
+            _workContext = workContext;
+            _groupService = groupService;
+        }
+
+        #endregion
 
         #region Methods
 
@@ -53,7 +64,7 @@ public class AuthorizeAdminAttribute : TypeFilterAttribute
                 .Select(f => f.Filter).OfType<AuthorizeAdminAttribute>().FirstOrDefault();
 
             //ignore filter (the action is available even if a customer hasn't access to the admin area)
-            if (actionFilter?.IgnoreFilter ?? ignoreFilter)
+            if (actionFilter?.IgnoreFilter ?? _ignoreFilter)
                 return;
 
             if (!DataSettingsManager.DatabaseIsInstalled())
@@ -62,24 +73,17 @@ public class AuthorizeAdminAttribute : TypeFilterAttribute
             //there is AdminAuthorizeFilter, so check access
             if (filterContext.Filters.Any(filter => filter is AuthorizeAdminFilter))
             {
-                
-
                 //authorize permission of access to the admin area
-                if (!await permissionService.Authorize(StandardPermission.ManageAccessAdminPanel))
-                    filterContext.Result = new RedirectToRouteResult(routeName, new RouteValueDictionary());
+                if (!await _permissionService.Authorize(StandardPermission.ManageAccessAdminPanel))
+                    filterContext.Result = new RedirectToRouteResult("AdminLogin", new RouteValueDictionary());
 
                 //whether current customer is vendor
-                if (await groupService.IsVendor(contextAccessor.WorkContext.CurrentCustomer) ||
-                    contextAccessor.WorkContext.CurrentVendor is not null)
-                    filterContext.Result = new RedirectToRouteResult(routeName, new RouteValueDictionary());
-
-                //whether current customer is store manager
-                if (await groupService.IsStoreManager(contextAccessor.WorkContext.CurrentCustomer) ||
-                    !string.IsNullOrEmpty(contextAccessor.WorkContext.CurrentCustomer.StaffStoreId))
-                    filterContext.Result = new RedirectToRouteResult(routeName, new RouteValueDictionary());
+                if (await _groupService.IsVendor(_workContext.CurrentCustomer) ||
+                    _workContext.CurrentVendor is not null)
+                    filterContext.Result = new RedirectToRouteResult("AdminLogin", new RouteValueDictionary());
 
                 //get allowed IP addresses
-                var ipAddresses = securitySettings.AdminAreaAllowedIpAddresses;
+                var ipAddresses = _securitySettings.AdminAreaAllowedIpAddresses;
 
                 //there are no restrictions
                 if (ipAddresses == null || !ipAddresses.Any())
@@ -88,9 +92,20 @@ public class AuthorizeAdminAttribute : TypeFilterAttribute
                 //whether current IP is allowed
                 var currentIp = filterContext.HttpContext.Connection.RemoteIpAddress?.ToString();
                 if (!ipAddresses.Any(ip => ip.Equals(currentIp, StringComparison.OrdinalIgnoreCase)))
-                    filterContext.Result = new RedirectToRouteResult(routeName, new RouteValueDictionary());
+                    filterContext.Result = new RedirectToRouteResult("AdminLogin", new RouteValueDictionary());
             }
         }
+
+        #endregion
+
+        #region Fields
+
+        private readonly bool _ignoreFilter;
+        private readonly IPermissionService _permissionService;
+        private readonly IWorkContext _workContext;
+        private readonly IGroupService _groupService;
+
+        private readonly SecuritySettings _securitySettings;
 
         #endregion
     }

@@ -40,13 +40,13 @@ public class AuthorizeMenuAttribute : TypeFilterAttribute
             bool ignoreFilter,
             IPermissionService permissionService,
             IAdminSiteMapService adminSiteMapService,
-            IContextAccessor contextAccessor,
+            IWorkContext workContext,
             SecurityConfig securityConfig)
         {
             _ignoreFilter = ignoreFilter;
             _permissionService = permissionService;
             _adminSiteMapService = adminSiteMapService;
-            _contextAccessor = contextAccessor;
+            _workContext = workContext;
             _securityConfig = securityConfig;
         }
 
@@ -57,7 +57,7 @@ public class AuthorizeMenuAttribute : TypeFilterAttribute
         private readonly bool _ignoreFilter;
         private readonly IPermissionService _permissionService;
         private readonly IAdminSiteMapService _adminSiteMapService;
-        private readonly IContextAccessor _contextAccessor;
+        private readonly IWorkContext _workContext;
         private readonly SecurityConfig _securityConfig;
 
         #endregion
@@ -103,13 +103,13 @@ public class AuthorizeMenuAttribute : TypeFilterAttribute
                 if (menuSiteMap.AllPermissions)
                 {
                     if (!await menuSiteMap.PermissionNames.AllAsync(async x =>
-                            await _permissionService.Authorize(x, _contextAccessor.WorkContext.CurrentCustomer)))
+                            await _permissionService.Authorize(x, _workContext.CurrentCustomer)))
                         filterContext.Result = new ForbidResult();
                 }
                 else
                 {
                     if (!await menuSiteMap.PermissionNames.AnyAsync(async x =>
-                            await _permissionService.Authorize(x, _contextAccessor.WorkContext.CurrentCustomer)))
+                            await _permissionService.Authorize(x, _workContext.CurrentCustomer)))
                         filterContext.Result = new ForbidResult();
                 }
             }

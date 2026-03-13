@@ -1,11 +1,12 @@
 ﻿using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Products;
+using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Seo;
 using Grand.Infrastructure;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Models.Catalog;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Models.Catalog;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Filters;
 using Grand.Web.Common.Security.Authorization;
@@ -23,14 +24,16 @@ public class ProductAttributeController : BaseAdminController
         IProductAttributeService productAttributeService,
         ILanguageService languageService,
         ITranslationService translationService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
+        IGroupService groupService,
         SeoSettings seoSettings)
     {
         _productService = productService;
         _productAttributeService = productAttributeService;
         _languageService = languageService;
         _translationService = translationService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
+        _groupService = groupService;
         _seoSettings = seoSettings;
     }
 
@@ -42,7 +45,8 @@ public class ProductAttributeController : BaseAdminController
     private readonly IProductAttributeService _productAttributeService;
     private readonly ILanguageService _languageService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
+    private readonly IGroupService _groupService;
     private readonly SeoSettings _seoSettings;
 
     #endregion Fields
@@ -66,7 +70,8 @@ public class ProductAttributeController : BaseAdminController
     [HttpPost]
     public async Task<IActionResult> List(DataSourceRequest command)
     {
-        var productAttributes = await _productAttributeService.GetAllProductAttributes(pageIndex: command.Page - 1, pageSize: command.PageSize);
+        var productAttributes = await _productAttributeService
+            .GetAllProductAttributes(command.Page - 1, command.PageSize);
         var gridModel = new DataSourceResult {
             Data = productAttributes.Select(x => x.ToModel()),
             Total = productAttributes.TotalCount
@@ -97,6 +102,8 @@ public class ProductAttributeController : BaseAdminController
                 string.IsNullOrEmpty(productAttribute.SeName) ? productAttribute.Name : productAttribute.SeName,
                 _seoSettings.ConvertNonWesternChars, _seoSettings.AllowUnicodeCharsInUrls,
                 _seoSettings.SeoCharConversion);
+            if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+                model.Stores = [_workContext.CurrentCustomer.StaffStoreId];
 
             await _productAttributeService.InsertProductAttribute(productAttribute);
 
@@ -147,7 +154,8 @@ public class ProductAttributeController : BaseAdminController
                 string.IsNullOrEmpty(productAttribute.SeName) ? productAttribute.Name : productAttribute.SeName,
                 _seoSettings.ConvertNonWesternChars, _seoSettings.AllowUnicodeCharsInUrls,
                 _seoSettings.SeoCharConversion);
-
+            if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+                model.Stores = [_workContext.CurrentCustomer.StaffStoreId];
             await _productAttributeService.UpdateProductAttribute(productAttribute);
 
             Success(_translationService.GetResource("Admin.Catalog.Attributes.ProductAttributes.Updated"));
@@ -204,7 +212,6 @@ public class ProductAttributeController : BaseAdminController
     {
         var orders = await _productService.GetProductsByProductAttributeId(
             productAttributeId,
-            "",
             command.Page - 1,
             command.PageSize);
         var gridModel = new DataSourceResult {

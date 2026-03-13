@@ -4,10 +4,10 @@
     Layout = "";
 }
 <form id="ProductPicturePopup" asp-area="@Constants.AreaVendor" asp-controller="Product" asp-action="ProductPicturePopup" enctype="multipart/form-data" method="post"
-      asp-route-ProductId="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["ProductId"])"
-      asp-route-Id="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["Id"])"
-      asp-route-btnId="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["btnId"])"
-      asp-route-formId="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["formId"])">
+      asp-route-ProductId="@Context.Request.Query["ProductId"]"
+      asp-route-Id="@Context.Request.Query["Id"]"
+      asp-route-btnId="@Context.Request.Query["btnId"]"
+      asp-route-formId="@Context.Request.Query["formId"]">
 
 
     <!-- #region languages template -->
@@ -81,16 +81,6 @@
                                     <span asp-validation-for="DisplayOrder"></span>
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <admin-label asp-for="IsDefault"/>
-                                <div class="col-md-9 col-sm-9">
-                                    <label class="mt-checkbox mt-checkbox-outline control control-checkbox">
-                                        <admin-input asp-for="IsDefault"/>
-                                        <div class="control__indicator"></div>
-                                    </label>
-                                    <span asp-validation-for="IsDefault"></span>
-                                </div>
-                            </div>                            
                             <div class="form-group">
                                 <admin-label asp-for="Style"/>
                                 <div class="col-md-9 col-sm-9">

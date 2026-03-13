@@ -1,4 +1,5 @@
-﻿using Grand.Infrastructure.Migrations;
+﻿using Grand.Data;
+using Grand.Infrastructure.Migrations;
 
 namespace Grand.Infrastructure.Tests;
 
@@ -12,7 +13,7 @@ public class MigrationTest1 : IMigration
 
     public string Name => "SampleMigration";
 
-    public bool UpgradeProcess(IServiceProvider serviceProvider)
+    public bool UpgradeProcess(IDatabaseContext database, IServiceProvider serviceProvider)
     {
         return true;
     }
@@ -28,7 +29,7 @@ public class MigrationTest2 : IMigration
 
     public string Name => "SampleMigration";
 
-    public bool UpgradeProcess(IServiceProvider serviceProvider)
+    public bool UpgradeProcess(IDatabaseContext database, IServiceProvider serviceProvider)
     {
         return true;
     }

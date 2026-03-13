@@ -2,7 +2,7 @@
 using Grand.Business.Core.Interfaces.Catalog.Discounts;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Discounts;
 using Grand.Web.Common.Controllers;
 using Microsoft.AspNetCore.Mvc;
@@ -54,7 +54,7 @@ public class CustomerGroupsController : BaseAdminPluginController
         foreach (var cr in await _groupService.GetAllCustomerGroups(showHidden: true))
             model.AvailableCustomerGroups.Add(new SelectListItem {
                 Text = cr.Name, Value = cr.Id,
-                Selected = discountRequirement != null && cr.Id == discountRequirement.Metadata
+                Selected = discountRequirement != null && cr.Id == discountRequirement?.Metadata
             });
 
         //add a prefix

@@ -2,14 +2,14 @@
 using Grand.Business.Core.Interfaces.Cms;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Common;
 using Grand.Domain.News;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.News;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.News;
 
@@ -18,9 +18,9 @@ public class AddNewsCommentValidator : BaseGrandValidator<AddNewsCommentModel>
     public AddNewsCommentValidator(
         IEnumerable<IValidatorConsumer<AddNewsCommentModel>> validators,
         IEnumerable<IValidatorConsumer<ICaptchaValidModel>> validatorsCaptcha,
-        IContextAccessor contextAccessor, IGroupService groupService, INewsService newsService,
+        IWorkContext workContext, IGroupService groupService, INewsService newsService,
         CaptchaSettings captchaSettings, NewsSettings newsSettings,
-        IHttpContextAccessor httpcontextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         ITranslationService translationService)
         : base(validators)
     {
@@ -32,7 +32,7 @@ public class AddNewsCommentValidator : BaseGrandValidator<AddNewsCommentModel>
             .WithMessage(translationService.GetResource("News.Comments.CommentText.Required"));
         RuleFor(x => x).CustomAsync(async (x, context, _) =>
         {
-            if (await groupService.IsGuest(contextAccessor.WorkContext.CurrentCustomer) &&
+            if (await groupService.IsGuest(workContext.CurrentCustomer) &&
                 !newsSettings.AllowNotRegisteredUsersToLeaveComments)
                 context.AddFailure(translationService.GetResource("News.Comments.OnlyRegisteredUsersLeaveComments"));
             var newsItem = await newsService.GetNewsById(x.Id);
@@ -44,7 +44,7 @@ public class AddNewsCommentValidator : BaseGrandValidator<AddNewsCommentModel>
             RuleFor(x => x.Captcha).NotNull()
                 .WithMessage(translationService.GetResource("Account.Captcha.Required"));
             RuleFor(x => x.Captcha)
-                .SetValidator(new CaptchaValidator(validatorsCaptcha, httpcontextAccessor, googleReCaptchaValidator));
+                .SetValidator(new CaptchaValidator(validatorsCaptcha, contextAccessor, googleReCaptchaValidator));
         }
     }
 }

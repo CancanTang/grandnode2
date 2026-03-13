@@ -37,8 +37,11 @@ public class DeleteOrderItemCommandHandler : IRequestHandler<DeleteOrderItemComm
     public async Task<(bool error, string message)> Handle(DeleteOrderItemCommand request,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Order);
-        ArgumentNullException.ThrowIfNull(request.OrderItem);
+        if (request.Order == null)
+            throw new ArgumentNullException(nameof(request.Order));
+
+        if (request.OrderItem == null)
+            throw new ArgumentNullException(nameof(request.OrderItem));
 
         var product = await _productService.GetProductById(request.OrderItem.ProductId);
         if (product == null)
@@ -86,13 +89,8 @@ public class DeleteOrderItemCommandHandler : IRequestHandler<DeleteOrderItemComm
         request.Order.OrderTotal -= request.OrderItem.PriceInclTax;
 
         if (request.Order.ShippingStatusId == ShippingStatus.PartiallyShipped)
-        {
             if (!request.Order.HasItemsToAddToShipment() && shipments.All(x => x.DeliveryDateUtc != null))
                 request.Order.ShippingStatusId = ShippingStatus.Delivered;
-            if (!request.Order.HasItemsToAddToShipment() && shipments.All(x => x.ShippedDateUtc != null))
-                request.Order.ShippingStatusId = ShippingStatus.Shipped;
-        }
-
         //TODO 
         //request.Order.OrderTaxes
 

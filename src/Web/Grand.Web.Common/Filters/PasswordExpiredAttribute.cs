@@ -26,8 +26,18 @@ public class PasswordExpiredAttribute : TypeFilterAttribute
     /// <summary>
     ///     Represents a filter that validates customer password expiration
     /// </summary>
-    private class PasswordFilter(IContextAccessor contextAccessor, IMediator mediator) : IAsyncAuthorizationFilter
+    private class PasswordFilter : IAsyncAuthorizationFilter
     {
+        #region Ctor
+
+        public PasswordFilter(IWorkContext workContext, IMediator mediator)
+        {
+            _workContext = workContext;
+            _mediator = mediator;
+        }
+
+        #endregion
+
         #region Methods
 
         /// <summary>
@@ -56,13 +66,20 @@ public class PasswordExpiredAttribute : TypeFilterAttribute
                )
             {
                 //check password expiration
-                var passwordIsExpired = await mediator.Send(new GetPasswordIsExpiredQuery
-                    { Customer = contextAccessor.WorkContext.CurrentCustomer });
+                var passwordIsExpired = await _mediator.Send(new GetPasswordIsExpiredQuery
+                    { Customer = _workContext.CurrentCustomer });
                 if (passwordIsExpired)
                     //redirect to ChangePassword page if expires
                     context.Result = new RedirectToRouteResult("CustomerChangePassword", new RouteValueDictionary());
             }
         }
+
+        #endregion
+
+        #region Fields
+
+        private readonly IWorkContext _workContext;
+        private readonly IMediator _mediator;
 
         #endregion
     }

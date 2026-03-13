@@ -32,8 +32,8 @@ public class CustomerLoggedInNotificationHandlerTests
         await _handler.Handle(new CustomerLoggedInEvent(customer), CancellationToken.None);
 
         //Assert
-        Assert.AreEqual(0, customer.FailedLoginAttempts);
-        Assert.IsNull(customer.CannotLoginUntilDateUtc);
+        Assert.IsTrue(customer.FailedLoginAttempts == 0);
+        Assert.IsTrue(customer.CannotLoginUntilDateUtc == null);
         _cumstomerServiceMock.Verify(c => c.UpdateCustomerLastLoginDate(customer), Times.Once);
     }
 }

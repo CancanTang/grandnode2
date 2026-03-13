@@ -12,12 +12,18 @@ public static class ShoppingCartExtensions
     /// <returns>True if the shopping cart requires shipping; otherwise, false.</returns>
     public static bool RequiresShipping(this IList<ShoppingCartItem> shoppingCart)
     {
-        return shoppingCart.Any(shoppingCartItem => shoppingCartItem.IsShipEnabled);
+        foreach (var shoppingCartItem in shoppingCart)
+            if (shoppingCartItem.IsShipEnabled)
+                return true;
+        return false;
     }
 
     public static IEnumerable<ShoppingCartItem> LimitPerStore(this IEnumerable<ShoppingCartItem> cart,
         bool cartsSharedBetweenStores, string storeId)
     {
-        return cartsSharedBetweenStores ? cart : cart.Where(x => x.StoreId == storeId);
+        if (cartsSharedBetweenStores)
+            return cart;
+
+        return cart.Where(x => x.StoreId == storeId);
     }
 }

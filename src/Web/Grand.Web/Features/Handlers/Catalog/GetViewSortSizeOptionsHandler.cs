@@ -1,10 +1,11 @@
-﻿using Grand.Business.Core.Interfaces.Common.Localization;
+﻿using Grand.Business.Core.Extensions;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Domain.Catalog;
 using Grand.Infrastructure.Extensions;
-using Grand.Web.Common.Localization;
 using Grand.Web.Features.Models.Catalog;
 using Grand.Web.Models.Catalog;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -16,14 +17,13 @@ public class GetViewSortSizeOptionsHandler : IRequestHandler<GetViewSortSizeOpti
     private readonly CatalogSettings _catalogSettings;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ITranslationService _translationService;
-    private readonly IEnumTranslationService _enumTranslationService;
+
     public GetViewSortSizeOptionsHandler(ITranslationService translationService, CatalogSettings catalogSettings,
-        IHttpContextAccessor httpContextAccessor, IEnumTranslationService enumTranslationService)
+        IHttpContextAccessor httpContextAccessor)
     {
         _translationService = translationService;
         _catalogSettings = catalogSettings;
         _httpContextAccessor = httpContextAccessor;
-        _enumTranslationService = enumTranslationService;
     }
 
     public async Task<(CatalogPagingFilteringModel pagingFilteringModel, CatalogPagingFilteringModel command)>
@@ -38,8 +38,11 @@ public class GetViewSortSizeOptionsHandler : IRequestHandler<GetViewSortSizeOpti
 
     private void PrepareSortingOptions(GetViewSortSizeOptions request)
     {
-        ArgumentNullException.ThrowIfNull(request.PageSizeOptions);
-        ArgumentNullException.ThrowIfNull(request.Command);
+        if (request.PagingFilteringModel == null)
+            throw new ArgumentNullException(nameof(request.PagingFilteringModel));
+
+        if (request.Command == null)
+            throw new ArgumentNullException(nameof(request.Command));
 
         var allDisabled = _catalogSettings.ProductSortingEnumDisabled.Count ==
                           Enum.GetValues(typeof(ProductSortingEnum)).Length;
@@ -60,7 +63,8 @@ public class GetViewSortSizeOptionsHandler : IRequestHandler<GetViewSortSizeOpti
             var currentPageUrl = _httpContextAccessor.HttpContext?.Request.GetDisplayUrl();
             var sortUrl = CommonExtensions.ModifyQueryString(currentPageUrl, "orderby", option.Key.ToString());
 
-            var sortValue = _enumTranslationService.GetTranslationEnum((ProductSortingEnum)option.Key);
+            var sortValue =
+                ((ProductSortingEnum)option.Key).GetTranslationEnum(_translationService, request.Language.Id);
             request.PagingFilteringModel.AvailableSortOptions.Add(new SelectListItem {
                 Text = sortValue,
                 Value = sortUrl,
@@ -102,7 +106,7 @@ public class GetViewSortSizeOptionsHandler : IRequestHandler<GetViewSortSizeOpti
         if (request.AllowCustomersToSelectPageSize && request.PageSizeOptions != null)
         {
             var pageSizes =
-                request.PageSizeOptions.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries);
+                request.PageSizeOptions.Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
             if (pageSizes.Any())
             {

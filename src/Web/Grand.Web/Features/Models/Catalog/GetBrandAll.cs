@@ -8,7 +8,7 @@ namespace Grand.Web.Features.Models.Catalog;
 
 public class GetBrandAll : IRequest<BrandListModel>
 {
-    public Domain.Stores.Store Store { get; set; }
+    public Store Store { get; set; }
     public Customer Customer { get; set; }
     public Language Language { get; set; }
     public BrandPagingModel Command { get; set; }

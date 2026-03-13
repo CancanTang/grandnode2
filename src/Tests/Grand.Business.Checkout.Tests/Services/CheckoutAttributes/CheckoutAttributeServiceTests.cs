@@ -19,7 +19,7 @@ public class CheckoutAttributeServiceTests
     private Mock<IMediator> _mediatorMock;
     private Mock<IRepository<CheckoutAttribute>> _repositoryMock;
     private ICheckoutAttributeService _service;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
@@ -27,7 +27,7 @@ public class CheckoutAttributeServiceTests
         _cacheMock = new Mock<ICacheBase>();
         _repositoryMock = new Mock<IRepository<CheckoutAttribute>>();
         _mediatorMock = new Mock<IMediator>();
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
         _service = new CheckoutAttributeService(_cacheMock.Object, _repositoryMock.Object, _mediatorMock.Object,
             _workContextMock.Object, new AccessControlConfig());
     }
@@ -44,7 +44,7 @@ public class CheckoutAttributeServiceTests
     [TestMethod]
     public void InsertCheckoutAttribute_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.InsertCheckoutAttribute(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.InsertCheckoutAttribute(null));
     }
 
     [TestMethod]
@@ -59,7 +59,7 @@ public class CheckoutAttributeServiceTests
     [TestMethod]
     public void UpdateCheckoutAttribute_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.UpdateCheckoutAttribute(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.UpdateCheckoutAttribute(null));
     }
 
     [TestMethod]
@@ -74,6 +74,6 @@ public class CheckoutAttributeServiceTests
     [TestMethod]
     public void DeleteCheckoutAttribute_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.DeleteCheckoutAttribute(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.DeleteCheckoutAttribute(null));
     }
 }

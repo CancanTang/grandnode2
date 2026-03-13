@@ -1,17 +1,13 @@
 ﻿@using Grand.Business.Core.Interfaces.Checkout.Orders
 @using Grand.Business.Core.Interfaces.Common.Security
-@using Grand.Domain.Permissions
-
-@inject IContextAccessor contextAccessor
+@using Grand.Business.Core.Utilities.Common.Security
+@inject IWorkContext workContext
 @inject IPermissionService permissionService
 @inject IShoppingCartService shoppingCartService
 
 @inject ShoppingCartSettings shoppingCartSettings
 @inject CatalogSettings catalogSettings
 @{
-    var currentCustomer = contextAccessor.WorkContext.CurrentCustomer;
-    var currentStore = contextAccessor.StoreContext.CurrentStore;
-
     var shoppingCartTypes = new List<ShoppingCartType>();
     shoppingCartTypes.Add(ShoppingCartType.ShoppingCart);
     shoppingCartTypes.Add(ShoppingCartType.Auctions);
@@ -21,8 +17,16 @@
     var shoppingCartEnabled = await permissionService.Authorize(StandardPermission.EnableShoppingCart);
     var wishlistEnabled = await permissionService.Authorize(StandardPermission.EnableWishlist);
     var miniShoppingCartEnabled = shoppingCartSettings.MiniShoppingCartEnabled;
-    var shoppingCartItems = currentCustomer.ShoppingCartItems.Any() ? (await shoppingCartService.GetShoppingCart(currentStore.Id, shoppingCartTypes.ToArray())).Sum(x => x.Quantity) : 0;
-    var wishlistItems = currentCustomer.ShoppingCartItems.Any() ? (await shoppingCartService.GetShoppingCart(currentStore.Id, ShoppingCartType.Wishlist)).Sum(x => x.Quantity) : 0;
+    var shoppingCartItems =
+        workContext.CurrentCustomer.ShoppingCartItems.Any()
+            ? (await shoppingCartService.GetShoppingCart(workContext.CurrentStore.Id, shoppingCartTypes.ToArray()))
+            .Sum(x => x.Quantity)
+            : 0;
+
+    var wishlistItems = workContext.CurrentCustomer.ShoppingCartItems.Any()
+        ? (await shoppingCartService.GetShoppingCart(workContext.CurrentStore.Id, ShoppingCartType.Wishlist))
+        .Sum(x => x.Quantity)
+        : 0;
 }
 @if (catalogSettings.CompareProductsEnabled)
 {

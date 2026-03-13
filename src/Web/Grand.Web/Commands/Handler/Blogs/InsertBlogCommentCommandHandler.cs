@@ -17,14 +17,14 @@ public class InsertBlogCommentCommandHandler : IRequestHandler<InsertBlogComment
 
     private readonly LanguageSettings _languageSettings;
     private readonly IMessageProviderService _messageProviderService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
-    public InsertBlogCommentCommandHandler(IBlogService blogService, IContextAccessor contextAccessor,
+    public InsertBlogCommentCommandHandler(IBlogService blogService, IWorkContext workContext,
         ICustomerService customerService, IMessageProviderService messageProviderService,
         LanguageSettings languageSettings, BlogSettings blogSettings)
     {
         _blogService = blogService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _customerService = customerService;
         _messageProviderService = messageProviderService;
 
@@ -34,11 +34,11 @@ public class InsertBlogCommentCommandHandler : IRequestHandler<InsertBlogComment
 
     public async Task<BlogComment> Handle(InsertBlogCommentCommand request, CancellationToken cancellationToken)
     {
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
         var comment = new BlogComment {
             BlogPostId = request.BlogPost.Id,
             CustomerId = customer.Id,
-            StoreId = _contextAccessor.StoreContext.CurrentStore.Id,
+            StoreId = _workContext.CurrentStore.Id,
             CommentText = request.Model.CommentText,
             BlogPostTitle = request.BlogPost.Title
         };

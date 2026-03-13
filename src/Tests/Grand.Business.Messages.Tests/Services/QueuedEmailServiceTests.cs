@@ -41,7 +41,7 @@ public class QueuedEmailServiceTests
     [TestMethod]
     public void InsertQueuedEmail_NullArguemnt_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () =>
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () =>
             await _service.InsertQueuedEmail(new QueuedEmail()));
     }
 
@@ -56,7 +56,7 @@ public class QueuedEmailServiceTests
     [TestMethod]
     public void UpdateQueuedEmai_NullArguemnt_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () =>
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () =>
             await _service.UpdateQueuedEmail(new QueuedEmail()));
     }
 
@@ -85,7 +85,7 @@ public class QueuedEmailServiceTests
     [TestMethod]
     public void DeleteQueuedEmai_NullArguemnt_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () =>
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () =>
             await _service.DeleteQueuedEmail(new QueuedEmail()));
     }
 }

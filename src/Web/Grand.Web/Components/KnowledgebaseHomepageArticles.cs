@@ -12,13 +12,13 @@ public class KnowledgebaseHomepageArticles : BaseViewComponent
 {
     private readonly IKnowledgebaseService _knowledgebaseService;
     private readonly KnowledgebaseSettings _knowledgebaseSettings;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
-    public KnowledgebaseHomepageArticles(IKnowledgebaseService knowledgebaseService, IContextAccessor contextAccessor,
+    public KnowledgebaseHomepageArticles(IKnowledgebaseService knowledgebaseService, IWorkContext workContext,
         KnowledgebaseSettings knowledgebaseSettings)
     {
         _knowledgebaseService = knowledgebaseService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _knowledgebaseSettings = knowledgebaseSettings;
     }
 
@@ -33,8 +33,8 @@ public class KnowledgebaseHomepageArticles : BaseViewComponent
         {
             var a = new KnowledgebaseItemModel {
                 Id = article.Id,
-                Name = article.GetTranslation(y => y.Name, _contextAccessor.WorkContext.WorkingLanguage.Id),
-                SeName = article.GetTranslation(y => y.SeName, _contextAccessor.WorkContext.WorkingLanguage.Id),
+                Name = article.GetTranslation(y => y.Name, _workContext.WorkingLanguage.Id),
+                SeName = article.GetTranslation(y => y.SeName, _workContext.WorkingLanguage.Id),
                 IsArticle = true
             };
 

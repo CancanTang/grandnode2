@@ -1,9 +1,9 @@
 ﻿@inject StoreInformationSettings storeInformationSettings
-@inject IContextAccessor contextAccessor
+@inject IWorkContext workContext
 
-@if (storeInformationSettings.DisplayCookieInformation && !contextAccessor.WorkContext.CurrentCustomer.IsSystemAccount)
+@if (storeInformationSettings.DisplayCookieInformation && !workContext.CurrentCustomer.IsSystemAccount)
 {
-    if (contextAccessor.WorkContext.CurrentCustomer.GetUserFieldFromEntity<bool>(SystemCustomerFieldNames.CookieAccepted, contextAccessor.StoreContext.CurrentStore.Id))
+    if (workContext.CurrentCustomer.GetUserFieldFromEntity<bool>(SystemCustomerFieldNames.CookieAccepted, workContext.CurrentStore.Id))
         return;
 
     if (TempData["Grand.IgnoreCookieInformation"] != null && Convert.ToBoolean(TempData["Grand.IgnoreCookieInformation"]))

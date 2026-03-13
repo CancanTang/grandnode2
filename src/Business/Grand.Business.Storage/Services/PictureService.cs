@@ -61,9 +61,6 @@ public class PictureService : IPictureService
     private readonly MediaSettings _mediaSettings;
     private readonly StorageSettings _storageSettings;
 
-    private static string ImagePath => Path.Combine("assets", "images");
-    private static string ImageThumbPath => Path.Combine("assets", "images", "thumbs");
-
     #endregion
 
     #region Utilities
@@ -73,7 +70,7 @@ public class PictureService : IPictureService
     /// </summary>
     /// <param name="mimeType">Mime type</param>
     /// <returns>File extension</returns>
-    private static string GetFileExtensionFromMimeType(string mimeType)
+    private string GetFileExtensionFromMimeType(string mimeType)
     {
         if (mimeType == null)
             return null;
@@ -108,7 +105,7 @@ public class PictureService : IPictureService
         var fileName = $"{pictureId}_0.{lastPart}";
         var filePath = await GetPicturePhysicalPath(fileName);
         if (string.IsNullOrEmpty(filePath))
-            return [];
+            return Array.Empty<byte>();
 
         return await File.ReadAllBytesAsync(filePath);
     }
@@ -121,7 +118,7 @@ public class PictureService : IPictureService
     protected virtual Task DeletePictureThumbs(Picture picture)
     {
         var filter = $"{picture.Id}*.*";
-        var thumbDirectoryPath = _mediaFileStore.GetDirectoryInfo(ImageThumbPath);
+        var thumbDirectoryPath = _mediaFileStore.GetDirectoryInfo(CommonPath.ImageThumbPath);
         if (thumbDirectoryPath == null) return Task.CompletedTask;
         var currentFiles = Directory.GetFiles(thumbDirectoryPath.PhysicalPath, filter, SearchOption.AllDirectories);
         foreach (var currentFileName in currentFiles)
@@ -145,7 +142,7 @@ public class PictureService : IPictureService
     /// <returns>Local picture physical path</returns>
     protected virtual async Task<string> GetThumbPhysicalPath(string thumbFileName)
     {
-        var thumbFile = _mediaFileStore.Combine(ImageThumbPath, thumbFileName);
+        var thumbFile = _mediaFileStore.Combine(CommonPath.ImageThumbPath, thumbFileName);
         var fileInfo = await _mediaFileStore.GetFileInfo(thumbFile);
         return fileInfo?.PhysicalPath;
     }
@@ -159,7 +156,7 @@ public class PictureService : IPictureService
     protected virtual string GetThumbUrl(string thumbFileName, string storeLocation = null)
     {
         storeLocation = !string.IsNullOrEmpty(storeLocation) ? storeLocation : "";
-        return _mediaFileStore.Combine(storeLocation, ImageThumbPath, thumbFileName);
+        return _mediaFileStore.Combine(storeLocation, CommonPath.Param, CommonPath.ImageThumbPath, thumbFileName);
     }
 
     /// <summary>
@@ -169,7 +166,7 @@ public class PictureService : IPictureService
     /// <returns>Physical picture path</returns>
     protected virtual async Task<string> GetPicturePhysicalPath(string fileName)
     {
-        var fileInfo = await _mediaFileStore.GetFileInfo(_mediaFileStore.Combine(ImagePath, fileName));
+        var fileInfo = await _mediaFileStore.GetFileInfo(_mediaFileStore.Combine(CommonPath.ImagePath, fileName));
         return fileInfo?.PhysicalPath;
     }
 
@@ -199,18 +196,18 @@ public class PictureService : IPictureService
     {
         try
         {
-            var dirThumb = _mediaFileStore.GetDirectoryInfo(ImageThumbPath);
+            var dirThumb = _mediaFileStore.GetDirectoryInfo(CommonPath.ImageThumbPath);
             if (dirThumb == null)
             {
-                var result = _mediaFileStore.TryCreateDirectory(ImageThumbPath);
+                var result = _mediaFileStore.TryCreateDirectory(CommonPath.ImageThumbPath);
                 if (result)
-                    dirThumb = _mediaFileStore.GetDirectoryInfo(ImageThumbPath);
+                    dirThumb = _mediaFileStore.GetDirectoryInfo(CommonPath.ImageThumbPath);
             }
 
             if (dirThumb != null)
             {
                 var file = _mediaFileStore.Combine(dirThumb.PhysicalPath, thumbFileName);
-                File.WriteAllBytes(file, binary ?? []);
+                File.WriteAllBytes(file, binary ?? Array.Empty<byte>());
             }
             else
             {
@@ -258,11 +255,11 @@ public class PictureService : IPictureService
     public virtual async Task<string> GetDefaultPictureUrl(int targetSize = 0, string storeLocation = null)
     {
         var filePath = await GetPicturePhysicalPath(_mediaSettings.DefaultImageName);
-        if (string.IsNullOrEmpty(filePath)) return _mediaFileStore.Combine(ImagePath, "no-image.png");
+        if (string.IsNullOrEmpty(filePath)) return _mediaFileStore.Combine(CommonPath.ImagePath, "no-image.png");
         if (targetSize == 0)
             return !string.IsNullOrEmpty(storeLocation)
                 ? storeLocation
-                : _mediaFileStore.Combine(ImagePath, _mediaSettings.DefaultImageName);
+                : _mediaFileStore.Combine(CommonPath.ImagePath, _mediaSettings.DefaultImageName);
 
         var fileExtension = Path.GetExtension(filePath);
         var thumbFileName = $"{Path.GetFileNameWithoutExtension(filePath)}_{targetSize}{fileExtension}";
@@ -275,18 +272,16 @@ public class PictureService : IPictureService
         using (var mutex = new Mutex(false, thumbFileName))
         {
             mutex.WaitOne();
-            try
+            using (var image = SKBitmap.Decode(filePath))
             {
-                using var image = SKBitmap.Decode(filePath);
                 var pictureBinary = ApplyResize(image, EncodedImageFormat(fileExtension), targetSize);
                 if (pictureBinary != null)
                     await SaveThumb(thumbFileName, pictureBinary);
             }
-            finally
-            {
-                mutex.ReleaseMutex();
-            }
+
+            mutex.ReleaseMutex();
         }
+
         var url = GetThumbUrl(thumbFileName, storeLocation);
         return url;
     }
@@ -356,14 +351,8 @@ public class PictureService : IPictureService
 
             using var mutex = new Mutex(false, thumbFileName);
             mutex.WaitOne();
-            try
-            {
-                await SaveThumb(thumbFileName, pictureBinary);
-            }
-            finally
-            {
-                mutex.ReleaseMutex();
-            }
+            await SaveThumb(thumbFileName, pictureBinary);
+            mutex.ReleaseMutex();
         }
         else
         {
@@ -380,28 +369,22 @@ public class PictureService : IPictureService
 
             using var mutex = new Mutex(false, thumbFileName);
             mutex.WaitOne();
-            try
-            {
-                if (pictureBinary != null)
+            if (pictureBinary != null)
+                try
                 {
-                    try
-                    {
-                        using var image = SKBitmap.Decode(pictureBinary);
-                        var resizedBinary = ApplyResize(image, EncodedImageFormat(picture.MimeType), targetSize);
-                        if (resizedBinary != null)
-                            pictureBinary = resizedBinary;
-                    }
-                    catch
-                    {
-                        // ignored
-                    }
+                    using var image = SKBitmap.Decode(pictureBinary);
+                    var resizedBinary = ApplyResize(image, EncodedImageFormat(picture.MimeType), targetSize);
+                    if (resizedBinary != null)
+                        pictureBinary = resizedBinary;
                 }
-                await SaveThumb(thumbFileName, pictureBinary);
-            }
-            finally
-            {
-                mutex.ReleaseMutex();
-            }
+                catch
+                {
+                    // ignored
+                }
+
+            await SaveThumb(thumbFileName, pictureBinary);
+
+            mutex.ReleaseMutex();
         }
 
         return GetThumbUrl(thumbFileName, storeLocation);
@@ -497,7 +480,7 @@ public class PictureService : IPictureService
     public virtual async Task ClearThumbs()
     {
         const string searchPattern = "*.*";
-        var path = _mediaFileStore.GetDirectoryInfo(ImageThumbPath)?.PhysicalPath;
+        var path = _mediaFileStore.GetDirectoryInfo(CommonPath.ImageThumbPath)?.PhysicalPath;
 
         if (!Directory.Exists(path))
             return;
@@ -559,7 +542,7 @@ public class PictureService : IPictureService
             pictureBinary = ValidatePicture(pictureBinary, mimeType);
 
         var picture = new Picture {
-            PictureBinary = _storageSettings.PictureStoreInDb ? pictureBinary : [],
+            PictureBinary = _storageSettings.PictureStoreInDb ? pictureBinary : Array.Empty<byte>(),
             MimeType = mimeType,
             SeoFilename = seoFilename,
             AltAttribute = altAttribute,
@@ -616,7 +599,7 @@ public class PictureService : IPictureService
 
         if (pictureBinary != null)
         {
-            picture.PictureBinary = _storageSettings.PictureStoreInDb ? pictureBinary : [];
+            picture.PictureBinary = _storageSettings.PictureStoreInDb ? pictureBinary : Array.Empty<byte>();
             await _pictureRepository.UpdateField(picture.Id, x => x.PictureBinary, picture.PictureBinary);
         }
 
@@ -703,7 +686,7 @@ public class PictureService : IPictureService
     {
         var lastPart = GetFileExtensionFromMimeType(mimeType);
         var fileName = $"{pictureId}_0.{lastPart}";
-        var dirPath = _mediaFileStore.GetDirectoryInfo(ImagePath);
+        var dirPath = _mediaFileStore.GetDirectoryInfo(CommonPath.ImagePath);
         if (dirPath != null)
         {
             var filepath = _mediaFileStore.Combine(dirPath.PhysicalPath, fileName);
@@ -804,7 +787,7 @@ public class PictureService : IPictureService
     }
 
 
-    private static SKEncodedImageFormat EncodedImageFormat(string mimetype)
+    private SKEncodedImageFormat EncodedImageFormat(string mimetype)
     {
         const SKEncodedImageFormat defaultFormat = SKEncodedImageFormat.Jpeg;
         if (string.IsNullOrEmpty(mimetype))
@@ -867,7 +850,7 @@ public class PictureService : IPictureService
 
         try
         {
-            using var resized = image.Resize(new SKImageInfo((int)width, (int)height), SKSamplingOptions.Default);
+            using var resized = image.Resize(new SKImageInfo((int)width, (int)height), SKFilterQuality.High);
             using var resImage = SKImage.FromBitmap(resized);
             var skData = resImage.Encode(format, _mediaSettings.ImageQuality);
             return skData?.ToArray();

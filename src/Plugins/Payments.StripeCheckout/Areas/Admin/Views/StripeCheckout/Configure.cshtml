@@ -1,9 +1,14 @@
-﻿@inject IContextAccessor contextAccessor
+﻿@inject IUrlHelperFactory UrlHelperFactory
+@inject IActionContextAccessor ActionContextAccessor
+@inject IWorkContext WorkContext
 @{
     Layout = "_ConfigurePlugin";
-    var webhookUrl = contextAccessor.StoreContext.CurrentHost.Url.TrimEnd('/') + Url.RouteUrl(StripeCheckoutDefaults.WebHook);
+    var urlHelper = UrlHelperFactory.GetUrlHelper(ActionContextAccessor.ActionContext!);
+    var webhookUrl = WorkContext.CurrentHost.Url.TrimEnd('/') + urlHelper.RouteUrl(StripeCheckoutDefaults.WebHook);
 }
 @using Grand.Infrastructure
+@using Microsoft.AspNetCore.Mvc.Infrastructure
+@using Microsoft.AspNetCore.Mvc.Routing
 @using Payments.StripeCheckout
 @model Payments.StripeCheckout.Models.ConfigurationModel
 @await Component.InvokeAsync("StoreScope")

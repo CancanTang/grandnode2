@@ -26,7 +26,7 @@ public interface IPushNotificationsService
     /// <summary>
     ///     Gets all push receivers
     /// </summary>
-    Task<List<PushRegistration>> GetAllowedPushReceivers();
+    Task<List<PushRegistration>> GetPushReceivers();
 
     /// <summary>
     ///     Gets all push receivers

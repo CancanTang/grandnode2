@@ -23,8 +23,11 @@ public class
     public async Task<bool> Handle(ValidateMinShoppingCartSubtotalAmountCommand request,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Cart);
-        ArgumentNullException.ThrowIfNull(request.Customer);
+        if (request.Cart == null)
+            throw new ArgumentNullException(nameof(request.Cart));
+
+        if (request.Customer == null)
+            throw new ArgumentNullException(nameof(request.Customer));
 
         return await ValidateMinOrderSubtotalAmount(request.Cart);
     }
@@ -37,8 +40,7 @@ public class
             return false;
 
         //min order amount sub-total validation
-        if (!(_orderSettings.MinOrderSubtotalAmount > 0)) return true;
-
+        if (!cart.Any() || !(_orderSettings.MinOrderSubtotalAmount > 0)) return true;
         //subtotal
         var (_, _, subTotalWithoutDiscount, _, _) =
             await _orderTotalCalculationService.GetShoppingCartSubTotal(cart, false);

@@ -1,6 +1,7 @@
 ﻿using Grand.Business.Catalog.Queries.Handlers;
 using Grand.Business.Catalog.Services.Discounts;
 using Grand.Business.Core.Interfaces.Catalog.Discounts;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Queries.Catalog;
 using Grand.Business.Core.Utilities.Catalog;
 using Grand.Data;
@@ -15,6 +16,7 @@ using Grand.Infrastructure;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Tests.Caching;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -35,19 +37,21 @@ public class DiscountServiceTests
     private GetDiscountAmountProviderHandler _getDiscountAmountProviderHandler;
     private Mock<IMediator> _mediatorMock;
     private IRepository<Discount> _repository;
+    private Mock<ITranslationService> _translationServiceMock;
     private Mock<IWorkContext> _workContextMock;
-    private Mock<IStoreContext> _storeContextMock;
     private GetDiscountUsageHistoryQueryHandler handler;
 
     [TestInitialize]
     public void InitializeTests()
     {
+        CommonPath.BaseDirectory = "";
+
         _repository = new MongoDBRepositoryTest<Discount>();
         _discountCouponRepository = new MongoDBRepositoryTest<DiscountCoupon>();
         _discountUsageHistoryRepository = new MongoDBRepositoryTest<DiscountUsageHistory>();
         _workContextMock = new Mock<IWorkContext>();
-        _storeContextMock = new Mock<IStoreContext>();
-        _storeContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _translationServiceMock = new Mock<ITranslationService>();
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
         _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         _mediatorMock = new Mock<IMediator>();
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
@@ -103,7 +107,7 @@ public class DiscountServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(2, result);
+        Assert.AreEqual(2, result.Count);
     }
 
     [TestMethod]
@@ -179,7 +183,7 @@ public class DiscountServiceTests
         //Act
         var providers = _discountProviderLoader.LoadAllDiscountProviders();
         //Assert
-        Assert.HasCount(1, providers);
+        Assert.AreEqual(1, providers.Count);
     }
 
     [TestMethod]
@@ -234,7 +238,7 @@ public class DiscountServiceTests
         //Act
         var coupon = await _dicountService.GetAllCouponCodesByDiscountId(discount.Id);
         //Assert
-        Assert.HasCount(2, coupon);
+        Assert.AreEqual(2, coupon.Count);
     }
 
     [TestMethod]
@@ -604,7 +608,7 @@ public class DiscountServiceTests
         var usageHistory = await handler.Handle(new GetDiscountUsageHistoryQuery(), CancellationToken.None);
 
         //Assert
-        Assert.HasCount(2, usageHistory);
+        Assert.AreEqual(2, usageHistory.Count);
     }
 
     [TestMethod]
@@ -848,6 +852,6 @@ public class DiscountServiceTests
         //Act
         var discountProviders = _discountProviderLoader.LoadDiscountAmountProviders();
         //Assert
-        Assert.HasCount(1, discountProviders);
+        Assert.AreEqual(1, discountProviders.Count);
     }
 }

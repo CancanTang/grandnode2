@@ -1,5 +1,6 @@
 ﻿using Grand.Business.Catalog.Extensions;
 using Grand.Business.Core.Dto;
+using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Brands;
 using Grand.Business.Core.Interfaces.Catalog.Categories;
 using Grand.Business.Core.Interfaces.Catalog.Collections;
@@ -7,12 +8,14 @@ using Grand.Business.Core.Interfaces.Catalog.Directory;
 using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Catalog.Tax;
 using Grand.Business.Core.Interfaces.Checkout.Shipping;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Seo;
 using Grand.Business.Core.Interfaces.ExportImport;
 using Grand.Business.Core.Interfaces.Storage;
 using Grand.Business.Core.Utilities.System;
 using Grand.Domain.Catalog;
 using Grand.Domain.Common;
+using Grand.Domain.Seo;
 using Grand.Infrastructure.Mapper;
 
 namespace Grand.Business.Catalog.Services.ExportImport;
@@ -23,16 +26,19 @@ public class ProductImportDataObject : IImportDataObject<ProductDto>
     private readonly ICategoryService _categoryService;
     private readonly ICollectionService _collectionService;
     private readonly IDeliveryDateService _deliveryDateService;
+    private readonly ILanguageService _languageService;
     private readonly IMeasureService _measureService;
     private readonly IPictureService _pictureService;
     private readonly IProductCategoryService _productCategoryService;
     private readonly IProductCollectionService _productCollectionService;
     private readonly IProductLayoutService _productLayoutService;
     private readonly IProductService _productService;
+
+    private readonly SeoSettings _seoSetting;
     private readonly ISlugService _slugService;
     private readonly ITaxCategoryService _taxService;
     private readonly IWarehouseService _warehouseService;
-    private readonly ISeNameService _seNameService;
+
     public ProductImportDataObject(
         IProductService productService,
         IPictureService pictureService,
@@ -42,12 +48,13 @@ public class ProductImportDataObject : IImportDataObject<ProductDto>
         IWarehouseService warehouseService,
         IMeasureService measureService,
         ISlugService slugService,
+        ILanguageService languageService,
         ICategoryService categoryService,
         IProductCategoryService productCategoryService,
         IBrandService brandService,
         ICollectionService collectionService,
         IProductCollectionService productCollectionService,
-        ISeNameService seNameService)
+        SeoSettings seoSetting)
     {
         _productService = productService;
         _pictureService = pictureService;
@@ -57,12 +64,13 @@ public class ProductImportDataObject : IImportDataObject<ProductDto>
         _warehouseService = warehouseService;
         _measureService = measureService;
         _slugService = slugService;
+        _languageService = languageService;
         _categoryService = categoryService;
         _productCategoryService = productCategoryService;
         _brandService = brandService;
         _collectionService = collectionService;
         _productCollectionService = productCollectionService;
-        _seNameService = seNameService;
+        _seoSetting = seoSetting;
     }
 
     public async Task Execute(IEnumerable<ProductDto> data)
@@ -98,10 +106,10 @@ public class ProductImportDataObject : IImportDataObject<ProductDto>
         await UpdateProductDataBrand(product);
 
         //search engine name
-        var seName = product.SeName ?? product.Name;
-        seName = await _seNameService.ValidateSeName(product, seName, product.Name, true);
-        await _slugService.SaveSlug(product, seName, "");
-        product.SeName = seName;
+        var sename = product.SeName ?? product.Name;
+        sename = await product.ValidateSeName(sename, product.Name, true, _seoSetting, _slugService, _languageService);
+        await _slugService.SaveSlug(product, sename, "");
+        product.SeName = sename;
         await _productService.UpdateProduct(product);
 
         product.LowStock = product.MinStockQuantity > 0 && product.MinStockQuantity >= product.StockQuantity;
@@ -172,7 +180,7 @@ public class ProductImportDataObject : IImportDataObject<ProductDto>
 
     private async Task PrepareProductCategories(Product product, string categoryIds)
     {
-        foreach (var id in categoryIds.Split([';'], StringSplitOptions.RemoveEmptyEntries)
+        foreach (var id in categoryIds.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
                      .Select(x => x.Trim()))
         {
             if (product.ProductCategories.FirstOrDefault(x => x.CategoryId == id) != null) continue;
@@ -190,7 +198,7 @@ public class ProductImportDataObject : IImportDataObject<ProductDto>
 
     private async Task PrepareProductCollections(Product product, string collectionIds)
     {
-        foreach (var id in collectionIds.Split([';'], StringSplitOptions.RemoveEmptyEntries)
+        foreach (var id in collectionIds.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
                      .Select(x => x.Trim()))
         {
             if (product.ProductCollections.FirstOrDefault(x => x.CollectionId == id) != null) continue;
@@ -265,7 +273,7 @@ public class ProductImportDataObject : IImportDataObject<ProductDto>
         }
     }
 
-    private static bool ValidProduct(Product product)
+    private bool ValidProduct(Product product)
     {
         return !string.IsNullOrEmpty(product.Name);
     }

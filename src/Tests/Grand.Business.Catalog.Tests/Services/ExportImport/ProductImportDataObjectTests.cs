@@ -2,7 +2,6 @@
 using Grand.Business.Catalog.Services.ExportImport;
 using Grand.Business.Catalog.Services.Products;
 using Grand.Business.Common.Services.Security;
-using Grand.Business.Common.Services.Seo;
 using Grand.Business.Core.Dto;
 using Grand.Business.Core.Interfaces.Catalog.Brands;
 using Grand.Business.Core.Interfaces.Catalog.Categories;
@@ -59,8 +58,8 @@ public class ProductImportDataObjectTests
     private Mock<ISlugService> _slugServiceMock;
     private Mock<ITaxCategoryService> _taxServiceMock;
     private Mock<IWarehouseService> _warehouseServiceMock;
-    private Mock<IContextAccessor> _workContextMock;
-    private ISeNameService _seNameService;
+    private Mock<IWorkContext> _workContextMock;
+
     [TestInitialize]
     public void Init()
     {
@@ -82,23 +81,24 @@ public class ProductImportDataObjectTests
         _productCategoryServiceMock = new Mock<IProductCategoryService>();
         _productCollectionServiceMock = new Mock<IProductCollectionService>();
 
-        _workContextMock = new Mock<IContextAccessor>();
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock = new Mock<IWorkContext>();
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
 
         _mediatorMock = new Mock<IMediator>();
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
             new CacheConfig { DefaultCacheTimeMinutes = 1 });
         _productService = new ProductService(_cacheBase, _repository, _workContextMock.Object, _mediatorMock.Object,
             new AclService(new AccessControlConfig()));
-        _seNameService = new SeNameService(_slugServiceMock.Object, _languageServiceMock.Object, new SeoSettings());
+
         _productImportDataObject = new ProductImportDataObject
         (_productService, _pictureServiceMock.Object, _productLayoutServiceMock.Object, _deliveryDateServiceMock.Object,
             _taxServiceMock.Object, _warehouseServiceMock.Object, _measureServiceMock.Object, _slugServiceMock.Object,
+            _languageServiceMock.Object,
             _categoryServiceMock.Object, _productCategoryServiceMock.Object, _brandServiceMock.Object,
             _collectionServiceMock.Object,
             _productCollectionServiceMock.Object,
-            _seNameService);
+            new SeoSettings());
     }
 
     [TestMethod]
@@ -138,7 +138,7 @@ public class ProductImportDataObjectTests
         _languageServiceMock.Setup(c => c.GetAllLanguages(It.IsAny<bool>(), It.IsAny<string>()))
             .Returns(Task.FromResult<IList<Language>>(new List<Language>()));
         _slugServiceMock.Setup(c => c.GetBySlug(It.IsAny<string>()))
-            .Returns(Task.FromResult(new EntityUrl { Slug = "slug", EntityName = "Product" }));
+            .Returns(Task.FromResult(new EntityUrl { Slug = "slug" }));
 
         //Act
         await _productImportDataObject.Execute(products);
@@ -199,7 +199,7 @@ public class ProductImportDataObjectTests
             .Returns(Task.FromResult<IList<MeasureUnit>>(new List<MeasureUnit> { new() }));
 
         _slugServiceMock.Setup(c => c.GetBySlug(It.IsAny<string>()))
-            .Returns(Task.FromResult(new EntityUrl { Slug = "slug", EntityName = "Product" }));
+            .Returns(Task.FromResult(new EntityUrl { Slug = "slug" }));
         //Act
         await _productImportDataObject.Execute(products);
 
@@ -208,7 +208,7 @@ public class ProductImportDataObjectTests
         Assert.AreEqual(3, _repository.Table.Count());
         Assert.AreEqual("update3", _repository.Table.FirstOrDefault(x => x.Id == product3.Id).Name);
         Assert.AreEqual(3, _repository.Table.FirstOrDefault(x => x.Id == product3.Id).DisplayOrder);
-        Assert.IsFalse(_repository.Table.FirstOrDefault(x => x.Id == product3.Id).Published);
+        Assert.AreEqual(false, _repository.Table.FirstOrDefault(x => x.Id == product3.Id).Published);
     }
 
     [TestMethod]
@@ -253,7 +253,7 @@ public class ProductImportDataObjectTests
             .Returns(Task.FromResult<IList<MeasureUnit>>(new List<MeasureUnit> { new() }));
 
         _slugServiceMock.Setup(c => c.GetBySlug(It.IsAny<string>()))
-            .Returns(Task.FromResult(new EntityUrl { Slug = "slug", EntityName = "Product" }));
+            .Returns(Task.FromResult(new EntityUrl { Slug = "slug" }));
         //Act
         await _productImportDataObject.Execute(products);
 
@@ -262,7 +262,7 @@ public class ProductImportDataObjectTests
         Assert.AreEqual(3, _repository.Table.Count());
         Assert.AreEqual("update3", _repository.Table.FirstOrDefault(x => x.Id == product3.Id).Name);
         Assert.AreEqual(3, _repository.Table.FirstOrDefault(x => x.Id == product3.Id).DisplayOrder);
-        Assert.IsFalse(_repository.Table.FirstOrDefault(x => x.Id == product3.Id).Published);
+        Assert.AreEqual(false, _repository.Table.FirstOrDefault(x => x.Id == product3.Id).Published);
     }
 
     private void InitAutoMapper()

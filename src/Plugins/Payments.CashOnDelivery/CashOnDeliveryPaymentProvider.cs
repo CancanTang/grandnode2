@@ -67,10 +67,10 @@ public class CashOnDeliveryPaymentProvider : IPaymentProvider
     ///     Post redirect payment (used by payment gateways that redirecting to a another URL)
     /// </summary>
     /// <param name="paymentTransaction">Payment transaction</param>
-    public Task<string> PostRedirectPayment(PaymentTransaction paymentTransaction)
+    public Task PostRedirectPayment(PaymentTransaction paymentTransaction)
     {
         //nothing
-        return Task.FromResult(string.Empty);
+        return Task.CompletedTask;
     }
 
     public async Task<bool> HidePaymentMethod(IList<ShoppingCartItem> cart)
@@ -103,7 +103,7 @@ public class CashOnDeliveryPaymentProvider : IPaymentProvider
 
         if (!(result > 0)) return result;
         var currencyService = _httpContextAccessor.HttpContext!.RequestServices.GetRequiredService<ICurrencyService>();
-        var workContext = _httpContextAccessor.HttpContext!.RequestServices.GetRequiredService<IContextAccessor>().WorkContext;
+        var workContext = _httpContextAccessor.HttpContext!.RequestServices.GetRequiredService<IWorkContext>();
         result = await currencyService.ConvertFromPrimaryStoreCurrency(result, workContext.WorkingCurrency);
 
         //return result;

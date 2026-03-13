@@ -1,10 +1,10 @@
 ﻿using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Common;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Orders;
-using Grand.Domain.Permissions;
 using Grand.Infrastructure;
 using Grand.Web.Common.Components;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Models.ShoppingCart;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,17 +16,17 @@ public class EmailWishlistViewComponent : BaseViewComponent
     private readonly IPermissionService _permissionService;
     private readonly IShoppingCartService _shoppingCartService;
     private readonly ShoppingCartSettings _shoppingCartSettings;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public EmailWishlistViewComponent(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IShoppingCartService shoppingCartService,
         IPermissionService permissionService,
         ShoppingCartSettings shoppingCartSettings,
         CaptchaSettings captchaSettings
     )
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _shoppingCartService = shoppingCartService;
         _permissionService = permissionService;
         _shoppingCartSettings = shoppingCartSettings;
@@ -39,13 +39,13 @@ public class EmailWishlistViewComponent : BaseViewComponent
             !_shoppingCartSettings.EmailWishlistEnabled)
             return Content("");
 
-        var cart = await _shoppingCartService.GetShoppingCart(_contextAccessor.StoreContext.CurrentStore.Id, ShoppingCartType.Wishlist);
+        var cart = await _shoppingCartService.GetShoppingCart(_workContext.CurrentStore.Id, ShoppingCartType.Wishlist);
 
         if (!cart.Any())
             return Content("");
 
         var model = new WishlistEmailAFriendModel {
-            YourEmailAddress = _contextAccessor.WorkContext.CurrentCustomer.Email,
+            YourEmailAddress = _workContext.CurrentCustomer.Email,
             DisplayCaptcha = _captchaSettings.Enabled && _captchaSettings.ShowOnEmailWishlistToFriendPage
         };
         return View(model);

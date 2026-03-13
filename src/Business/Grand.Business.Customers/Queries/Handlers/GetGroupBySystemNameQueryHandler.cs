@@ -16,7 +16,8 @@ public class GetGroupBySystemNameQueryHandler : IRequestHandler<GetGroupBySystem
 
     public async Task<CustomerGroup> Handle(GetGroupBySystemNameQuery request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(request.SystemName);
+        if (string.IsNullOrEmpty(request.SystemName))
+            throw new ArgumentNullException(nameof(request.SystemName));
 
         return await _groupService.GetCustomerGroupBySystemName(request.SystemName);
     }

@@ -8,13 +8,15 @@ public class BlogPostTagListModel : BaseModel
 
     public int GetFontSize(BlogPostTagModel blogPostTag)
     {
-        var itemWeights = Tags.Select(tag => tag.BlogPostCount).Select(dummy => (double)dummy).ToList();
+        var itemWeights = new List<double>();
+        foreach (var tag in Tags)
+            itemWeights.Add(tag.BlogPostCount);
         var stdDev = StdDev(itemWeights, out var mean);
 
         return GetFontSize(blogPostTag.BlogPostCount, mean, stdDev);
     }
 
-    protected static int GetFontSize(double weight, double mean, double stdDev)
+    protected int GetFontSize(double weight, double mean, double stdDev)
     {
         var factor = weight - mean;
 
@@ -29,7 +31,7 @@ public class BlogPostTagListModel : BaseModel
             75;
     }
 
-    protected static double Mean(IEnumerable<double> values)
+    protected double Mean(IEnumerable<double> values)
     {
         double sum = 0;
         var count = 0;
@@ -43,7 +45,7 @@ public class BlogPostTagListModel : BaseModel
         return sum / count;
     }
 
-    protected static double StdDev(IEnumerable<double> values, out double mean)
+    protected double StdDev(IEnumerable<double> values, out double mean)
     {
         mean = Mean(values);
         double sumOfDiffSquares = 0;

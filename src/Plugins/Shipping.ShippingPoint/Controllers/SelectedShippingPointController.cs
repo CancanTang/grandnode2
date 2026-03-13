@@ -16,20 +16,20 @@ public class SelectedShippingPointController : Controller
     private readonly IPriceFormatter _priceFormatter;
     private readonly IShippingPointService _shippingPointService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public SelectedShippingPointController(
         IShippingPointService shippingPointService,
         ICountryService countryService,
         IPriceFormatter priceFormatter,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ICurrencyService currencyService,
         ITranslationService translationService)
     {
         _shippingPointService = shippingPointService;
         _countryService = countryService;
         _priceFormatter = priceFormatter;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _currencyService = currencyService;
         _translationService = translationService;
     }
@@ -40,8 +40,8 @@ public class SelectedShippingPointController : Controller
         if (shippingPoint == null) return Content("ShippingPointController: given Shipping Option doesn't exist");
         var rateBase =
             await _currencyService.ConvertFromPrimaryStoreCurrency(shippingPoint.PickupFee,
-                _contextAccessor.WorkContext.WorkingCurrency);
-        var fee = _priceFormatter.FormatPrice(rateBase, _contextAccessor.WorkContext.WorkingCurrency);
+                _workContext.WorkingCurrency);
+        var fee = _priceFormatter.FormatPrice(rateBase, _workContext.WorkingCurrency);
 
         var viewModel = new PointModel {
             ShippingPointName = shippingPoint.ShippingPointName,
@@ -62,7 +62,7 @@ public class SelectedShippingPointController : Controller
 
         if (parameter != _translationService.GetResource("Shipping.ShippingPoint.PluginName"))
             return Content("ShippingPointController: given Shipping Option doesn't exist");
-        var shippingPoints = await _shippingPointService.GetAllStoreShippingPoint(_contextAccessor.StoreContext.CurrentStore.Id);
+        var shippingPoints = await _shippingPointService.GetAllStoreShippingPoint(_workContext.CurrentStore.Id);
 
         var shippingPointsModel = new List<SelectListItem> {
             new() { Value = "", Text = _translationService.GetResource("Shipping.ShippingPoint.SelectShippingOption") }

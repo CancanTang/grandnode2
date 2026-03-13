@@ -45,7 +45,8 @@ public class GetShipmentDetailsHandler : IRequestHandler<GetShipmentDetails, Shi
 
     public async Task<ShipmentDetailsModel> Handle(GetShipmentDetails request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Shipment);
+        if (request.Shipment == null)
+            throw new ArgumentNullException(nameof(request.Shipment));
 
         var model = new ShipmentDetailsModel {
             Id = request.Shipment.Id,
@@ -63,7 +64,8 @@ public class GetShipmentDetailsHandler : IRequestHandler<GetShipmentDetails, Shi
         if (!string.IsNullOrEmpty(request.Shipment.TrackingNumber))
         {
             model.TrackingNumber = request.Shipment.TrackingNumber;
-            var srcm = _shippingService.LoadShippingRateCalculationProviderBySystemName(request.Order.ShippingRateProviderSystemName);
+            var srcm = _shippingService.LoadShippingRateCalculationProviderBySystemName(request.Order
+                .ShippingRateProviderSystemName);
             if (srcm != null &&
                 srcm.IsShippingRateMethodActive(_shippingProviderSettings))
             {

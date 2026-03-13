@@ -13,11 +13,11 @@ public class HomePageNewProductsViewComponent : BaseViewComponent
     #region Constructors
 
     public HomePageNewProductsViewComponent(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IMediator mediator,
         CatalogSettings catalogSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _mediator = mediator;
         _catalogSettings = catalogSettings;
     }
@@ -32,8 +32,8 @@ public class HomePageNewProductsViewComponent : BaseViewComponent
             return Content("");
 
         var products = (await _mediator.Send(new GetSearchProductsQuery {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            StoreId = _contextAccessor.StoreContext.CurrentStore.Id,
+            Customer = _workContext.CurrentCustomer,
+            StoreId = _workContext.CurrentStore.Id,
             VisibleIndividuallyOnly = true,
             MarkedAsNewOnly = true,
             OrderBy = ProductSortingEnum.CreatedOn,
@@ -58,7 +58,7 @@ public class HomePageNewProductsViewComponent : BaseViewComponent
 
     #region Fields
 
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IMediator _mediator;
     private readonly CatalogSettings _catalogSettings;
 

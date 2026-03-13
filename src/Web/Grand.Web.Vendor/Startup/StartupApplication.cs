@@ -2,6 +2,10 @@ using Grand.Data;
 using Grand.Infrastructure;
 using Grand.Web.Vendor.Interfaces;
 using Grand.Web.Vendor.Services;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Grand.Web.Vendor.Startup;
 
@@ -19,7 +23,7 @@ public class StartupApplication : IStartupApplication
         services.AddScoped<IVendorReviewViewModelService, VendorReviewViewModelService>();
     }
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 

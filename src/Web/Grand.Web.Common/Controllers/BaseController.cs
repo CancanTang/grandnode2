@@ -1,10 +1,14 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Infrastructure.Models;
 using Grand.Web.Common.DataSource;
+using Grand.Web.Common.Events;
 using Grand.Web.Common.Extensions;
 using Grand.Web.Common.Filters;
+using Grand.Web.Common.Models;
 using Grand.Web.Common.Page;
+using MediatR;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,36 +22,16 @@ namespace Grand.Web.Common.Controllers;
 [CustomerActivity]
 public abstract class BaseController : Controller
 {
-
-    /// <summary>
-    ///     Save selected TAB index
-    /// </summary>
-    /// <param name="index">Idnex to save; null to automatically detect it</param>
-    /// <param name="persistForTheNextRequest">A value indicating whether a message should be persisted for the next request</param>
-    protected async Task SaveSelectedTabIndex(int? index = null, bool persistForTheNextRequest = true)
+    public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        if (!index.HasValue)
-        {
-            var form = await HttpContext.Request.ReadFormAsync();
-            var tabindex = form["selected-tab-index"];
-            if (tabindex.Count > 0)
-            {
-                if (int.TryParse(tabindex[0], out var tmp)) index = tmp;
-            }
-            else
-            {
-                index = 1;
-            }
-        }
+        // event notification before execute
+        var mediator = context.HttpContext.RequestServices.GetService<IMediator>();
+        await mediator.Publish(new ActionExecutingContextNotification(context, true));
 
-        if (index.HasValue)
-        {
-            var dataKey = "Grand.selected-tab-index";
-            if (persistForTheNextRequest)
-                TempData[dataKey] = index;
-            else
-                ViewData[dataKey] = index;
-        }
+        await next();
+
+        //event notification after execute
+        await mediator.Publish(new ActionExecutingContextNotification(context, false));
     }
 
     #region Notifications
@@ -214,7 +198,8 @@ public abstract class BaseController : Controller
             var locale = Activator.CreateInstance<TLocalizedModelLocal>();
             locale.LanguageId = language.Id;
 
-            configure?.Invoke(locale, locale.LanguageId);
+            if (configure != null)
+                configure.Invoke(locale, locale.LanguageId);
 
             locales.Add(locale);
         }
@@ -230,7 +215,18 @@ public abstract class BaseController : Controller
     /// <returns>Access denied view</returns>
     protected IActionResult AccessDeniedView()
     {
-        return RedirectToAction("AccessDenied", "Home");
+        return RedirectToAction("AccessDenied", "Home", new { pageUrl = HttpContext.Request.GetEncodedPathAndQuery() });
     }
+
+    /// <summary>
+    ///     Access denied json data for kendo grid
+    /// </summary>
+    /// <returns>Access denied json data</returns>
+    protected JsonResult AccessDeniedKendoGridJson()
+    {
+        var translationService = HttpContext.RequestServices.GetRequiredService<ITranslationService>();
+        return ErrorForKendoGridJson(translationService.GetResource("Admin.AccessDenied.Description"));
+    }
+
     #endregion
 }

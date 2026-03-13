@@ -2,17 +2,17 @@
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Customers;
-using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
 using Grand.SharedKernel.Extensions;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Features.Models.Customers;
 using Grand.Web.Models.Customer;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.Customer;
 
@@ -24,10 +24,10 @@ public class RegisterValidator : BaseGrandValidator<RegisterModel>
         ITranslationService translationService,
         ICountryService countryService,
         CustomerSettings customerSettings, CaptchaSettings captchaSettings,
-        IHttpContextAccessor httpcontextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         IMediator mediator, ICustomerAttributeParser customerAttributeParser,
         ICustomerService customerService,
-        IGroupService groupService, IContextAccessor contextAccessor
+        IGroupService groupService, IWorkContext workContext
     )
         : base(validators)
     {
@@ -125,16 +125,17 @@ public class RegisterValidator : BaseGrandValidator<RegisterModel>
         {
             RuleFor(x => x.Captcha).NotNull().WithMessage(translationService.GetResource("Account.Captcha.Required"));
             RuleFor(x => x.Captcha)
-                .SetValidator(new CaptchaValidator(validatorsCaptcha, httpcontextAccessor, googleReCaptchaValidator));
+                .SetValidator(new CaptchaValidator(validatorsCaptcha, contextAccessor, googleReCaptchaValidator));
         }
 
         RuleFor(x => x).CustomAsync(async (x, context, _) =>
         {
-            var customerAttributes = await mediator.Send(new GetParseCustomAttributes { SelectedAttributes = x.SelectedAttributes }, _);
+            var customerAttributes = await mediator.Send(new GetParseCustomAttributes
+                { SelectedAttributes = x.SelectedAttributes }, _);
             var customerAttributeWarnings = await customerAttributeParser.GetAttributeWarnings(customerAttributes);
             foreach (var error in customerAttributeWarnings) context.AddFailure(error);
 
-            if (await groupService.IsRegistered(contextAccessor.WorkContext.CurrentCustomer))
+            if (await groupService.IsRegistered(workContext.CurrentCustomer))
             {
                 context.AddFailure("Current customer is already registered");
                 return;

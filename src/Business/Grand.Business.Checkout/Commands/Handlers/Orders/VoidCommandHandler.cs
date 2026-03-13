@@ -36,7 +36,8 @@ public class VoidCommandHandler : IRequestHandler<VoidCommand, IList<string>>
     public async Task<IList<string>> Handle(VoidCommand command, CancellationToken cancellationToken)
     {
         var paymentTransaction = command.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(command.PaymentTransaction));
 
         var canVoid = await _mediator.Send(new CanVoidQuery { PaymentTransaction = paymentTransaction },
             cancellationToken);
@@ -58,7 +59,8 @@ public class VoidCommandHandler : IRequestHandler<VoidCommand, IList<string>>
                 await _paymentTransactionService.UpdatePaymentTransaction(paymentTransaction);
 
                 var order = await _orderService.GetOrderByGuid(paymentTransaction.OrderGuid);
-                ArgumentNullException.ThrowIfNull(order);
+                if (order == null)
+                    throw new ArgumentNullException(nameof(order));
 
                 if (paymentTransaction.TransactionStatus == TransactionStatus.Voided)
                 {

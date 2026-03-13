@@ -54,7 +54,7 @@ public class CancelOrderCommandHandlerTests
         var command = new CancelOrderCommand {
             Order = null
         };
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _handler.Handle(command, default));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _handler.Handle(command, default));
     }
 
     [TestMethod]
@@ -63,7 +63,7 @@ public class CancelOrderCommandHandlerTests
         var command = new CancelOrderCommand {
             Order = new Order { OrderStatusId = (int)OrderStatusSystem.Cancelled }
         };
-        Assert.ThrowsExactlyAsync<Exception>(async () => await _handler.Handle(command, default));
+        Assert.ThrowsExceptionAsync<Exception>(async () => await _handler.Handle(command, default));
     }
 
     [TestMethod]

@@ -29,8 +29,18 @@ public class DenySystemAccountAttribute : TypeFilterAttribute
     /// <summary>
     ///     Represents a filter that deny access for system accounts to resources
     /// </summary>
-    private class DenySystemAccountFilter(bool ignoreFilter, IContextAccessor contextAccessor) : IAsyncAuthorizationFilter
+    private class DenySystemAccountFilter : IAsyncAuthorizationFilter
     {
+        #region Ctor
+
+        public DenySystemAccountFilter(bool ignoreFilter, IWorkContext workContext)
+        {
+            _ignoreFilter = ignoreFilter;
+            _workContext = workContext;
+        }
+
+        #endregion
+
         #region Methods
 
         /// <summary>
@@ -47,17 +57,24 @@ public class DenySystemAccountAttribute : TypeFilterAttribute
                 .Select(f => f.Filter).OfType<DenySystemAccountAttribute>().FirstOrDefault();
 
             //ignore filter
-            if (actionFilter?.IgnoreFilter ?? ignoreFilter)
+            if (actionFilter?.IgnoreFilter ?? _ignoreFilter)
                 return Task.CompletedTask;
 
             if (!DataSettingsManager.DatabaseIsInstalled())
                 return Task.CompletedTask;
 
-            if (contextAccessor.WorkContext.CurrentCustomer.IsSystemAccount())
+            if (_workContext.CurrentCustomer.IsSystemAccount())
                 context.Result = new RedirectToRouteResult("HomePage", new RouteValueDictionary());
 
             return Task.CompletedTask;
         }
+
+        #endregion
+
+        #region Fields
+
+        private readonly bool _ignoreFilter;
+        private readonly IWorkContext _workContext;
 
         #endregion
     }

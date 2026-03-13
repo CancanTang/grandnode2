@@ -1,4 +1,5 @@
-﻿using Grand.Business.Core.Interfaces.Catalog.Prices;
+﻿using Grand.Business.Core.Extensions;
+using Grand.Business.Core.Interfaces.Catalog.Prices;
 using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Checkout.GiftVouchers;
 using Grand.Business.Core.Interfaces.Checkout.Orders;
@@ -10,16 +11,14 @@ using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Stores;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.Storage;
-using Grand.Domain.Catalog;
 using Grand.Domain.Common;
 using Grand.Domain.Directory;
-using Grand.Domain.Media;
 using Grand.Domain.Orders;
 using Grand.Domain.Payments;
 using Grand.Domain.Shipping;
 using Grand.Domain.Tax;
 using Grand.Infrastructure;
-using Grand.Web.Common.Localization;
+using Grand.Web.Common.Extensions;
 using Grand.Web.Vendor.Extensions;
 using Grand.Web.Vendor.Interfaces;
 using Grand.Web.Vendor.Models.Orders;
@@ -30,42 +29,13 @@ namespace Grand.Web.Vendor.Services;
 
 public class OrderViewModelService : IOrderViewModelService
 {
-    #region Fields
-
-    private readonly IOrderService _orderService;
-    private readonly IDateTimeService _dateTimeService;
-    private readonly IPriceFormatter _priceFormatter;
-    private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
-    private readonly ICurrencyService _currencyService;
-    private readonly IPaymentService _paymentService;
-    private readonly ICountryService _countryService;
-    private readonly IProductService _productService;
-    private readonly IGiftVoucherService _giftVoucherService;
-    private readonly IDownloadService _downloadService;
-    private readonly IStoreService _storeService;
-    private readonly IVendorService _vendorService;
-    private readonly IAddressAttributeParser _addressAttributeParser;
-    private readonly IPictureService _pictureService;
-    private readonly IMerchandiseReturnService _merchandiseReturnService;
-    private readonly ICustomerService _customerService;
-    private readonly IWarehouseService _warehouseService;
-    private readonly CurrencySettings _currencySettings;
-    private readonly TaxSettings _taxSettings;
-    private readonly AddressSettings _addressSettings;
-    private readonly IOrderTagService _orderTagService;
-    private readonly IOrderStatusService _orderStatusService;
-    private readonly IEnumTranslationService _enumTranslationService;
-    
-    #endregion
-
     #region Ctor
 
     public OrderViewModelService(IOrderService orderService,
         IDateTimeService dateTimeService,
         IPriceFormatter priceFormatter,
         ITranslationService translationService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ICurrencyService currencyService,
         IPaymentService paymentService,
         ICountryService countryService,
@@ -83,13 +53,13 @@ public class OrderViewModelService : IOrderViewModelService
         TaxSettings taxSettings,
         AddressSettings addressSettings,
         IOrderTagService orderTagService,
-        IOrderStatusService orderStatusService, IEnumTranslationService enumTranslationService)
+        IOrderStatusService orderStatusService)
     {
         _orderService = orderService;
         _dateTimeService = dateTimeService;
         _priceFormatter = priceFormatter;
         _translationService = translationService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _currencyService = currencyService;
         _paymentService = paymentService;
         _countryService = countryService;
@@ -108,7 +78,6 @@ public class OrderViewModelService : IOrderViewModelService
         _customerService = customerService;
         _orderTagService = orderTagService;
         _orderStatusService = orderStatusService;
-        _enumTranslationService = enumTranslationService;
     }
 
     #endregion
@@ -137,7 +106,8 @@ public class OrderViewModelService : IOrderViewModelService
         }
 
         //payment statuses
-        model.AvailablePaymentStatuses = _enumTranslationService.ToSelectList(PaymentStatus.Pending, false).ToList();
+        model.AvailablePaymentStatuses =
+            PaymentStatus.Pending.ToSelectList(_translationService, _workContext, false).ToList();
         model.AvailablePaymentStatuses.Insert(0,
             new SelectListItem { Text = _translationService.GetResource("Vendor.Common.All"), Value = " " });
         if (paymentStatusId.HasValue)
@@ -156,7 +126,8 @@ public class OrderViewModelService : IOrderViewModelService
             model.AvailableOrderTags.Add(new SelectListItem { Text = s.Name, Value = s.Id });
 
         //shipping statuses
-        model.AvailableShippingStatuses = _enumTranslationService.ToSelectList(ShippingStatus.Pending, false).ToList();
+        model.AvailableShippingStatuses =
+            ShippingStatus.Pending.ToSelectList(_translationService, _workContext, false).ToList();
         model.AvailableShippingStatuses.Insert(0,
             new SelectListItem { Text = _translationService.GetResource("Vendor.Common.All"), Value = " " });
         if (shippingStatusId.HasValue)
@@ -177,7 +148,7 @@ public class OrderViewModelService : IOrderViewModelService
         //payment methods
         model.AvailablePaymentMethods.Add(new SelectListItem
             { Text = _translationService.GetResource("Vendor.Common.All"), Value = " " });
-        foreach (var pm in await _paymentService.LoadAllPaymentMethods())
+        foreach (var pm in _paymentService.LoadAllPaymentMethods())
             model.AvailablePaymentMethods.Add(new SelectListItem { Text = pm.FriendlyName, Value = pm.SystemName });
 
         //billing countries
@@ -214,7 +185,7 @@ public class OrderViewModelService : IOrderViewModelService
 
         //load orders
         var orders = await _orderService.SearchOrders(
-            vendorId: _contextAccessor.WorkContext.CurrentVendor.Id,
+            vendorId: _workContext.CurrentVendor.Id,
             customerId: model.CustomerId,
             productId: model.ProductId,
             warehouseId: model.WarehouseId,
@@ -250,7 +221,7 @@ public class OrderViewModelService : IOrderViewModelService
                 CurrencyCode = x.CustomerCurrencyCode,
                 OrderStatus = status.FirstOrDefault(y => y.StatusId == x.OrderStatusId)?.Name,
                 OrderStatusId = x.OrderStatusId,
-                PaymentStatus = _enumTranslationService.GetTranslationEnum(x.PaymentStatusId),
+                PaymentStatus = x.PaymentStatusId.GetTranslationEnum(_translationService, _workContext),
                 CustomerEmail = x.BillingAddress?.Email,
                 CustomerFullName = $"{x.BillingAddress?.FirstName} {x.BillingAddress?.LastName}",
                 CreatedOn = _dateTimeService.ConvertToUserTime(x.CreatedOnUtc, DateTimeKind.Utc)
@@ -310,7 +281,7 @@ public class OrderViewModelService : IOrderViewModelService
         //payment method info
         var pm = _paymentService.LoadPaymentMethodBySystemName(order.PaymentMethodSystemName);
         model.PaymentMethod = pm != null ? pm.FriendlyName : order.PaymentMethodSystemName;
-        model.PaymentStatus = _enumTranslationService.GetTranslationEnum(order.PaymentStatusId);
+        model.PaymentStatus = order.PaymentStatusId.GetTranslationEnum(_translationService, _workContext);
         model.PaymentStatusEnum = order.PaymentStatusId;
 
         #endregion
@@ -319,7 +290,7 @@ public class OrderViewModelService : IOrderViewModelService
 
         model.BillingAddress = await order.BillingAddress.ToModel(_countryService);
         model.BillingAddress.FormattedCustomAddressAttributes =
-            await _addressAttributeParser.FormatAttributes(_contextAccessor.WorkContext.WorkingLanguage,
+            await _addressAttributeParser.FormatAttributes(_workContext.WorkingLanguage,
                 order.BillingAddress.Attributes);
         model.BillingAddress.NameEnabled = _addressSettings.NameEnabled;
         model.BillingAddress.FirstNameEnabled = true;
@@ -359,7 +330,7 @@ public class OrderViewModelService : IOrderViewModelService
                 {
                     model.ShippingAddress = await order.ShippingAddress.ToModel(_countryService);
                     model.ShippingAddress.FormattedCustomAddressAttributes =
-                        await _addressAttributeParser.FormatAttributes(_contextAccessor.WorkContext.WorkingLanguage,
+                        await _addressAttributeParser.FormatAttributes(_workContext.WorkingLanguage,
                             order.ShippingAddress.Attributes);
                     model.ShippingAddress.NameEnabled = _addressSettings.NameEnabled;
                     model.ShippingAddress.FirstNameEnabled = true;
@@ -427,7 +398,7 @@ public class OrderViewModelService : IOrderViewModelService
         model.CheckoutAttributeInfo = order.CheckoutAttributeDescription;
         var hasDownloadableItems = false;
         var products = order.OrderItems
-            .Where(orderItem => orderItem.VendorId == _contextAccessor.WorkContext.CurrentVendor.Id)
+            .Where(orderItem => orderItem.VendorId == _workContext.CurrentVendor.Id)
             .ToList();
 
         foreach (var orderItem in products)
@@ -455,7 +426,8 @@ public class OrderViewModelService : IOrderViewModelService
                 IsDownloadActivated = orderItem.IsDownloadActivated
             };
             //picture
-            var orderItemPicture = await GetProductPicture(product, orderItem.Attributes);
+            var orderItemPicture =
+                await product.GetProductPicture(orderItem.Attributes, _productService, _pictureService);
             orderItemModel.PictureThumbnailUrl = await _pictureService.GetPictureUrl(orderItemPicture, 75);
 
             //license file
@@ -514,7 +486,7 @@ public class OrderViewModelService : IOrderViewModelService
                 orderItemModel.RecurringInfo = string.Format(
                     _translationService.GetResource("Vendor.Orders.Products.RecurringPeriod"),
                     product.RecurringCycleLength,
-                    _enumTranslationService.GetTranslationEnum(product.RecurringCyclePeriodId),
+                    product.RecurringCyclePeriodId.GetTranslationEnum(_translationService, _workContext),
                     product.RecurringTotalCycles);
 
             //merchandise returns
@@ -551,7 +523,7 @@ public class OrderViewModelService : IOrderViewModelService
 
         //load orders
         var orders = await _orderService.SearchOrders(
-            vendorId: _contextAccessor.WorkContext.CurrentVendor.Id,
+            vendorId: _workContext.CurrentVendor.Id,
             productId: model.ProductId,
             warehouseId: model.WarehouseId,
             paymentMethodSystemName: model.PaymentMethodSystemName,
@@ -568,47 +540,31 @@ public class OrderViewModelService : IOrderViewModelService
         return orders;
     }
 
-    private async Task<Picture> GetProductPicture(Product product, IList<CustomAttribute> attributes)
-    {
-        ArgumentNullException.ThrowIfNull(product);
+    #region Fields
 
-        Picture picture = null;
+    private readonly IOrderService _orderService;
+    private readonly IDateTimeService _dateTimeService;
+    private readonly IPriceFormatter _priceFormatter;
+    private readonly ITranslationService _translationService;
+    private readonly IWorkContext _workContext;
+    private readonly ICurrencyService _currencyService;
+    private readonly IPaymentService _paymentService;
+    private readonly ICountryService _countryService;
+    private readonly IProductService _productService;
+    private readonly IGiftVoucherService _giftVoucherService;
+    private readonly IDownloadService _downloadService;
+    private readonly IStoreService _storeService;
+    private readonly IVendorService _vendorService;
+    private readonly IAddressAttributeParser _addressAttributeParser;
+    private readonly IPictureService _pictureService;
+    private readonly IMerchandiseReturnService _merchandiseReturnService;
+    private readonly ICustomerService _customerService;
+    private readonly IWarehouseService _warehouseService;
+    private readonly CurrencySettings _currencySettings;
+    private readonly TaxSettings _taxSettings;
+    private readonly AddressSettings _addressSettings;
+    private readonly IOrderTagService _orderTagService;
+    private readonly IOrderStatusService _orderStatusService;
 
-        if (attributes != null && attributes.Any())
-        {
-            var comb = product.FindProductAttributeCombination(attributes);
-            if (comb != null)
-                if (!string.IsNullOrEmpty(comb.PictureId))
-                {
-                    var combPicture = await _pictureService.GetPictureById(comb.PictureId);
-                    if (combPicture != null) picture = combPicture;
-                }
-
-            if (picture == null)
-            {
-                var attributeValues = product.ParseProductAttributeValues(attributes);
-                foreach (var attributeValue in attributeValues)
-                {
-                    var attributePicture = await _pictureService.GetPictureById(attributeValue.PictureId);
-                    if (attributePicture != null)
-                    {
-                        picture = attributePicture;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (picture == null)
-        {
-            var pp = product.ProductPictures.OrderByDescending(p => p.IsDefault) 
-                .ThenBy(p => p.DisplayOrder) 
-                .FirstOrDefault();
-            if (pp != null)
-                picture = await _pictureService.GetPictureById(pp.PictureId);
-        }
-
-        return picture;
-    }
-    
+    #endregion
 }

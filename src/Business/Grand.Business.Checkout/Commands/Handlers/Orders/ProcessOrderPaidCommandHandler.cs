@@ -47,7 +47,8 @@ public class ProcessOrderPaidCommandHandler : IRequestHandler<ProcessOrderPaidCo
     /// <param name="order">Order</param>
     protected virtual async Task ProcessOrderPaid(Order order)
     {
-        ArgumentNullException.ThrowIfNull(order);
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
 
         //raise event
         await _mediator.Publish(new OrderPaidEvent(order));

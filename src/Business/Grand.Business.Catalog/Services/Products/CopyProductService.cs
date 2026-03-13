@@ -1,6 +1,9 @@
+using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Products;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Seo;
 using Grand.Domain.Catalog;
+using Grand.Domain.Seo;
 
 namespace Grand.Business.Catalog.Services.Products;
 
@@ -9,23 +12,17 @@ namespace Grand.Business.Catalog.Services.Products;
 /// </summary>
 public class CopyProductService : ICopyProductService
 {
-    
-    #region Fields
-
-    private readonly IProductService _productService;
-    private readonly ISlugService _slugService;
-    private readonly ISeNameService _seNameService;
-    
-    #endregion
     #region Ctor
 
     public CopyProductService(IProductService productService,
+        ILanguageService languageService,
         ISlugService slugService,
-        ISeNameService seNameService)
+        SeoSettings seoSettings)
     {
         _productService = productService;
+        _languageService = languageService;
         _slugService = slugService;
-        _seNameService = seNameService;
+        _seoSettings = seoSettings;
     }
 
     #endregion
@@ -187,13 +184,23 @@ public class CopyProductService : ICopyProductService
         await _productService.InsertProduct(productCopy);
 
         //search engine name
-        var seName = await _seNameService.ValidateSeName(productCopy, "", productCopy.Name, true);
+        var seName =
+            await productCopy.ValidateSeName("", productCopy.Name, true, _seoSettings, _slugService, _languageService);
         productCopy.SeName = seName;
         await _productService.UpdateProduct(productCopy);
         await _slugService.SaveSlug(productCopy, seName, "");
 
         return productCopy;
     }
+
+    #endregion
+
+    #region Fields
+
+    private readonly IProductService _productService;
+    private readonly ILanguageService _languageService;
+    private readonly ISlugService _slugService;
+    private readonly SeoSettings _seoSettings;
 
     #endregion
 }

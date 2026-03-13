@@ -17,7 +17,8 @@ public class CanVoidQueryHandler : IRequestHandler<CanVoidQuery, bool>
     public async Task<bool> Handle(CanVoidQuery request, CancellationToken cancellationToken)
     {
         var paymentTransaction = request.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(request.PaymentTransaction));
 
         if (paymentTransaction.TransactionAmount == 0)
             return false;

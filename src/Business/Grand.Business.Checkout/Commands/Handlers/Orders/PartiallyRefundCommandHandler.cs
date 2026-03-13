@@ -44,7 +44,8 @@ public class PartiallyRefundCommandHandler : IRequestHandler<PartiallyRefundComm
     public async Task<IList<string>> Handle(PartiallyRefundCommand command, CancellationToken cancellationToken)
     {
         var paymentTransaction = command.PaymentTransaction;
-        ArgumentNullException.ThrowIfNull(paymentTransaction);
+        if (paymentTransaction == null)
+            throw new ArgumentNullException(nameof(command.PaymentTransaction));
 
         var amountToRefund = command.AmountToRefund;
 
@@ -73,7 +74,8 @@ public class PartiallyRefundCommandHandler : IRequestHandler<PartiallyRefundComm
                 await _paymentTransactionService.UpdatePaymentTransaction(paymentTransaction);
 
                 var order = await _orderService.GetOrderByGuid(paymentTransaction.OrderGuid);
-                ArgumentNullException.ThrowIfNull(order);
+                if (order == null)
+                    throw new ArgumentNullException(nameof(order));
 
                 //total amount refunded
                 if (paymentTransaction.TransactionStatus == TransactionStatus.Refunded)

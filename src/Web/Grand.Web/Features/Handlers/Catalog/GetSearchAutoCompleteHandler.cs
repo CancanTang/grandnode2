@@ -8,7 +8,7 @@ using Grand.Business.Core.Interfaces.Cms;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Storage;
 using Grand.Business.Core.Queries.Catalog;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Blogs;
 using Grand.Domain.Catalog;
 using Grand.Domain.Common;
@@ -39,7 +39,7 @@ public class GetSearchAutoCompleteHandler : IRequestHandler<GetSearchAutoComplet
     private readonly IPricingService _pricingService;
     private readonly ISearchTermService _searchTermService;
     private readonly ITaxService _taxService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public GetSearchAutoCompleteHandler(
         IPictureService pictureService,
@@ -52,7 +52,7 @@ public class GetSearchAutoCompleteHandler : IRequestHandler<GetSearchAutoComplet
         ITaxService taxService,
         IPriceFormatter priceFormatter,
         IMediator mediator,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IPermissionService permissionService,
         CatalogSettings catalogSettings,
         MediaSettings mediaSettings,
@@ -66,7 +66,7 @@ public class GetSearchAutoCompleteHandler : IRequestHandler<GetSearchAutoComplet
         _blogService = blogService;
         _pricingService = priceCalculationService;
         _taxService = taxService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _priceFormatter = priceFormatter;
         _mediator = mediator;
         _permissionService = permissionService;
@@ -111,19 +111,17 @@ public class GetSearchAutoCompleteHandler : IRequestHandler<GetSearchAutoComplet
         var categories = new List<string>();
         var brands = new List<string>();
 
-        var storeurl = _contextAccessor.StoreContext.CurrentHost.Url.TrimEnd('/');
+        var storeurl = _workContext.CurrentHost.Url.TrimEnd('/');
 
         var displayPrices =
-            await _permissionService.Authorize(StandardPermission.DisplayPrices, _contextAccessor.WorkContext.CurrentCustomer);
+            await _permissionService.Authorize(StandardPermission.DisplayPrices, _workContext.CurrentCustomer);
 
         foreach (var item in products)
         {
             var pictureUrl = "";
             if (_catalogSettings.ShowProductImagesInSearchAutoComplete)
             {
-                var picture = item.ProductPictures.OrderByDescending(p => p.IsDefault)  
-                    .ThenBy(p => p.DisplayOrder) 
-                    .FirstOrDefault();
+                var picture = item.ProductPictures.MinBy(x => x.DisplayOrder);
                 if (picture != null)
                     pictureUrl = await _pictureService.GetPictureUrl(picture.PictureId,
                         _mediaSettings.AutoCompleteSearchThumbPictureSize);
@@ -162,12 +160,12 @@ public class GetSearchAutoCompleteHandler : IRequestHandler<GetSearchAutoComplet
             var brand = await _brandService.GetBrandById(item);
             if (brand is not { Published: true }) continue;
             var allow = true;
-            
-            if (!_accessControlConfig.IgnoreAcl && !_aclService.Authorize(brand, _contextAccessor.WorkContext.CurrentCustomer))
-                allow = false;
-
-            if (!_accessControlConfig.IgnoreStoreLimitations && !_aclService.Authorize(brand, storeId))
-                allow = false;
+            if (!_accessControlConfig.IgnoreAcl)
+                if (!_aclService.Authorize(brand, _workContext.CurrentCustomer))
+                    allow = false;
+            if (!_accessControlConfig.IgnoreStoreLimitations)
+                if (!_aclService.Authorize(brand, storeId))
+                    allow = false;
             if (!allow) continue;
 
             var desc = "";
@@ -187,10 +185,12 @@ public class GetSearchAutoCompleteHandler : IRequestHandler<GetSearchAutoComplet
             var category = await _categoryService.GetCategoryById(item);
             if (category is not { Published: true }) continue;
             var allow = true;
-            if (!_accessControlConfig.IgnoreAcl && !_aclService.Authorize(category, _contextAccessor.WorkContext.CurrentCustomer))
-                allow = false;
-            if (!_accessControlConfig.IgnoreStoreLimitations && !_aclService.Authorize(category, storeId))
-                allow = false;
+            if (!_accessControlConfig.IgnoreAcl)
+                if (!_aclService.Authorize(category, _workContext.CurrentCustomer))
+                    allow = false;
+            if (!_accessControlConfig.IgnoreStoreLimitations)
+                if (!_aclService.Authorize(category, storeId))
+                    allow = false;
             if (!allow) continue;
             var desc = "";
             if (_catalogSettings.SearchByDescription)

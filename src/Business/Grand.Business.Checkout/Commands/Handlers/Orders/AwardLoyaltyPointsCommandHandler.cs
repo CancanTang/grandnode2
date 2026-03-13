@@ -34,7 +34,8 @@ public class AwardLoyaltyPointsCommandHandler : IRequestHandler<AwardLoyaltyPoin
 
     public async Task<bool> Handle(AwardLoyaltyPointsCommand request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Order);
+        if (request.Order == null)
+            throw new ArgumentNullException(nameof(request.Order));
 
         var customer = await _customerService.GetCustomerById(request.Order.CustomerId);
         var currency = await _currencyService.GetCurrencyByCode(request.Order.CustomerCurrencyCode);

@@ -1,4 +1,5 @@
-﻿using Grand.Business.Core.Interfaces.Common.Localization;
+﻿using Grand.Business.Core.Extensions;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Infrastructure.Plugins;
 
 namespace Shipping.FixedRateShipping;
@@ -6,10 +7,27 @@ namespace Shipping.FixedRateShipping;
 /// <summary>
 ///     Fixed rate shipping computation method
 /// </summary>
-public class FixedRateShippingPlugin(
-    IPluginTranslateResource pluginTranslateResource)
-    : BasePlugin, IPlugin
+public class FixedRateShippingPlugin : BasePlugin, IPlugin
 {
+    #region Ctor
+
+    public FixedRateShippingPlugin(
+        ITranslationService translationService,
+        ILanguageService languageService)
+    {
+        _translationService = translationService;
+        _languageService = languageService;
+    }
+
+    #endregion
+
+    #region Fields
+
+    private readonly ITranslationService _translationService;
+    private readonly ILanguageService _languageService;
+
+    #endregion
+
     #region Methods
 
     /// <summary>
@@ -18,9 +36,12 @@ public class FixedRateShippingPlugin(
     public override async Task Install()
     {
         //locales
-        await pluginTranslateResource.AddOrUpdatePluginTranslateResource("Shipping.FixedRate.FriendlyName", "Shipping fixed rate");
-        await pluginTranslateResource.AddOrUpdatePluginTranslateResource("Plugins.Shipping.FixedRateShipping.Fields.ShippingMethodName", "Shipping method");
-        await pluginTranslateResource.AddOrUpdatePluginTranslateResource("Plugins.Shipping.FixedRateShipping.Fields.Rate", "Rate");
+        await this.AddOrUpdatePluginTranslateResource(_translationService, _languageService,
+            "Shipping.FixedRate.FriendlyName", "Shipping fixed rate");
+        await this.AddOrUpdatePluginTranslateResource(_translationService, _languageService,
+            "Plugins.Shipping.FixedRateShipping.Fields.ShippingMethodName", "Shipping method");
+        await this.AddOrUpdatePluginTranslateResource(_translationService, _languageService,
+            "Plugins.Shipping.FixedRateShipping.Fields.Rate", "Rate");
 
         await base.Install();
     }
@@ -32,9 +53,12 @@ public class FixedRateShippingPlugin(
     public override async Task Uninstall()
     {
         //locales
-        await pluginTranslateResource.DeletePluginTranslationResource("Plugins.Shipping.FixedRateShipping.Fields.ShippingMethodName");
-        await pluginTranslateResource.DeletePluginTranslationResource("Plugins.Shipping.FixedRateShipping.Fields.Rate");
-        await pluginTranslateResource.DeletePluginTranslationResource("Shipping.FixedRate.FriendlyName");
+        await this.DeletePluginTranslationResource(_translationService, _languageService,
+            "Plugins.Shipping.FixedRateShipping.Fields.ShippingMethodName");
+        await this.DeletePluginTranslationResource(_translationService, _languageService,
+            "Plugins.Shipping.FixedRateShipping.Fields.Rate");
+        await this.DeletePluginTranslationResource(_translationService, _languageService,
+            "Shipping.FixedRate.FriendlyName");
 
         await base.Uninstall();
     }

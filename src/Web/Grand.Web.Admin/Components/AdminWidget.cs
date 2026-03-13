@@ -1,6 +1,6 @@
 ﻿using Grand.Business.Core.Interfaces.Cms;
 using Grand.Infrastructure;
-using Grand.Web.AdminShared.Models.Cms;
+using Grand.Web.Admin.Models.Cms;
 using Grand.Web.Common.Components;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,10 +10,10 @@ public class AdminWidgetViewComponent : BaseAdminViewComponent
 {
     #region Constructors
 
-    public AdminWidgetViewComponent(IWidgetService widgetService, IContextAccessor contextAccessor)
+    public AdminWidgetViewComponent(IWidgetService widgetService, IWorkContext workContext)
     {
         _widgetService = widgetService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
     }
 
     #endregion
@@ -24,8 +24,8 @@ public class AdminWidgetViewComponent : BaseAdminViewComponent
     {
         var model = new List<AdminWidgetModel>();
 
-        var widgets = await _widgetService.LoadActiveWidgetsByWidgetZone(widgetZone, _contextAccessor.StoreContext.CurrentStore.Id,
-            _contextAccessor.WorkContext.CurrentCustomer);
+        var widgets = await _widgetService.LoadActiveWidgetsByWidgetZone(widgetZone, _workContext.CurrentStore.Id,
+            _workContext.CurrentCustomer);
         foreach (var item in widgets)
         {
             var viewComponentName = await item.GetPublicViewComponentName(widgetZone);
@@ -50,7 +50,7 @@ public class AdminWidgetViewComponent : BaseAdminViewComponent
     #region Fields
 
     private readonly IWidgetService _widgetService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     #endregion
 }

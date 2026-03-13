@@ -9,19 +9,20 @@ namespace Payments.CashOnDelivery.Controllers;
 public class PaymentCashOnDeliveryController : BasePaymentController
 {
     private readonly ISettingService _settingService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public PaymentCashOnDeliveryController(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ISettingService settingService)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _settingService = settingService;
     }
 
-    public async Task<IActionResult> PaymentInfo()
+    public IActionResult PaymentInfo()
     {
-        var cashOnDeliveryPaymentSettings = await _settingService.LoadSetting<CashOnDeliveryPaymentSettings>(_contextAccessor.StoreContext.CurrentStore.Id);
+        var cashOnDeliveryPaymentSettings =
+            _settingService.LoadSetting<CashOnDeliveryPaymentSettings>(_workContext.CurrentStore.Id);
 
         var model = new PaymentInfoModel {
             DescriptionText = cashOnDeliveryPaymentSettings.DescriptionText

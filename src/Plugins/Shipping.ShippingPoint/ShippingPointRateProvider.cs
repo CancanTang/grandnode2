@@ -1,4 +1,5 @@
 ﻿using Grand.Business.Core.Enums.Checkout;
+using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Checkout.Shipping;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
@@ -22,7 +23,7 @@ public class ShippingPointRateProvider : IShippingRateCalculationProvider
     public ShippingPointRateProvider(
         IShippingPointService shippingPointService,
         ITranslationService translationService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ICustomerService customerService,
         ICountryService countryService,
         ICurrencyService currencyService,
@@ -31,7 +32,7 @@ public class ShippingPointRateProvider : IShippingRateCalculationProvider
     {
         _shippingPointService = shippingPointService;
         _translationService = translationService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _customerService = customerService;
         _countryService = countryService;
         _currencyService = currencyService;
@@ -44,7 +45,7 @@ public class ShippingPointRateProvider : IShippingRateCalculationProvider
 
     private readonly IShippingPointService _shippingPointService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly ICustomerService _customerService;
     private readonly ICountryService _countryService;
     private readonly ICurrencyService _currencyService;
@@ -109,25 +110,25 @@ public class ShippingPointRateProvider : IShippingRateCalculationProvider
             return new List<string> { _translationService.GetResource("Shipping.ShippingPoint.SelectBeforeProceed") };
 
         //override price 
-        var offeredShippingOptions = _contextAccessor.WorkContext.CurrentCustomer.GetUserFieldFromEntity<List<ShippingOption>>(SystemCustomerFieldNames.OfferedShippingOptions, _contextAccessor.StoreContext.CurrentStore.Id);
-        offeredShippingOptions.First(x => x.Name == shippingMethodName).Rate =
+        var offeredShippingOptions = _workContext.CurrentCustomer.GetUserFieldFromEntity<List<ShippingOption>>(SystemCustomerFieldNames.OfferedShippingOptions, _workContext.CurrentStore.Id);
+        offeredShippingOptions.Find(x => x.Name == shippingMethodName).Rate =
             await _currencyService.ConvertFromPrimaryStoreCurrency(chosenShippingOption.PickupFee,
-                _contextAccessor.WorkContext.WorkingCurrency);
+                _workContext.WorkingCurrency);
 
         await _customerService.UpdateUserField(
-            _contextAccessor.WorkContext.CurrentCustomer,
+            _workContext.CurrentCustomer,
             SystemCustomerFieldNames.OfferedShippingOptions,
             offeredShippingOptions,
-            _contextAccessor.StoreContext.CurrentStore.Id);
+            _workContext.CurrentStore.Id);
 
         var forCustomer =
             $"<strong>{_translationService.GetResource("Shipping.ShippingPoint.Fields.ShippingPointName")}:</strong> {chosenShippingOption.ShippingPointName}<br><strong>{_translationService.GetResource("Shipping.ShippingPoint.Fields.Description")}:</strong> {chosenShippingOption.Description}<br>";
 
         await _customerService.UpdateUserField(
-            _contextAccessor.WorkContext.CurrentCustomer,
+            _workContext.CurrentCustomer,
             SystemCustomerFieldNames.ShippingOptionAttributeDescription,
             forCustomer,
-            _contextAccessor.StoreContext.CurrentStore.Id);
+            _workContext.CurrentStore.Id);
 
         var serializedObject = new ShippingPointSerializable {
             Id = chosenShippingOption.Id,
@@ -151,10 +152,10 @@ public class ShippingPointRateProvider : IShippingRateCalculationProvider
             serializedAttribute = stringBuilder.ToString();
         }
 
-        await _customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer,
+        await _customerService.UpdateUserField(_workContext.CurrentCustomer,
             SystemCustomerFieldNames.ShippingOptionAttribute,
             serializedAttribute,
-            _contextAccessor.StoreContext.CurrentStore.Id);
+            _workContext.CurrentStore.Id);
 
         return new List<string>();
     }

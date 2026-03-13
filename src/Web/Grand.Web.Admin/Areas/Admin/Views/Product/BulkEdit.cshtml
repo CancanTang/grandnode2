@@ -87,7 +87,7 @@
 
     <script>
             @{
-                var methods = EnumTranslationService.ToSelectList(ManageInventoryMethod.DontManageStock);
+                var methods = ManageInventoryMethod.DontManageStock.ToSelectList(Context);
             }
             var allInventoryMethod = [
                 @foreach (var method in methods)

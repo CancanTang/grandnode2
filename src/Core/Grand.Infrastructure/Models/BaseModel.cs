@@ -12,7 +12,8 @@ public class BaseModel
 
     public BaseModel()
     {
-        UserFields = [];
+        UserFields = new List<UserField>();
+        PostInitialize();
     }
 
     #endregion
@@ -28,5 +29,10 @@ public class BaseModel
     public virtual void BindModel(ModelBindingContext bindingContext)
     {
     }
+
+    protected virtual void PostInitialize()
+    {
+    }
+
     #endregion
 }

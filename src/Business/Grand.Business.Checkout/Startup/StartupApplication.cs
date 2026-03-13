@@ -10,7 +10,6 @@ using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Checkout.Payments;
 using Grand.Business.Core.Interfaces.Checkout.Shipping;
 using Grand.Business.Core.Interfaces.ExportImport;
-using Grand.Business.Core.Interfaces.System.Reports;
 using Grand.Domain.Orders;
 using Grand.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -30,7 +29,7 @@ public class StartupApplication : IStartupApplication
         RegisterExportImport(services);
     }
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 
@@ -38,7 +37,7 @@ public class StartupApplication : IStartupApplication
     public bool BeforeConfigure => false;
 
 
-    private static void RegisterOrdersService(IServiceCollection serviceCollection)
+    private void RegisterOrdersService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ILoyaltyPointsService, LoyaltyPointsService>();
         serviceCollection.AddScoped<IGiftVoucherService, GiftVoucherService>();
@@ -53,16 +52,15 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<ICheckoutAttributeParser, CheckoutAttributeParser>();
         serviceCollection.AddScoped<ICheckoutAttributeService, CheckoutAttributeService>();
         serviceCollection.AddScoped<IOrderTagService, OrderTagService>();
-        serviceCollection.AddScoped<IOrderReportService, OrderReportService>();
     }
 
-    private static void RegisterPaymentsService(IServiceCollection serviceCollection)
+    private void RegisterPaymentsService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IPaymentService, PaymentService>();
         serviceCollection.AddScoped<IPaymentTransactionService, PaymentTransactionService>();
     }
 
-    private static void RegisterShippingService(IServiceCollection serviceCollection)
+    private void RegisterShippingService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IShipmentService, ShipmentService>();
         serviceCollection.AddScoped<IShippingService, ShippingService>();
@@ -72,7 +70,7 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<IShippingMethodService, ShippingMethodService>();
     }
 
-    private static void RegisterExportImport(IServiceCollection serviceCollection)
+    private void RegisterExportImport(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ISchemaProperty<Order>, OrderSchemaProperty>();
     }

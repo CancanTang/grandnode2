@@ -2,14 +2,15 @@
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Stores;
 using Grand.Business.Core.Interfaces.Marketing.Newsletters;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Infrastructure;
 using Grand.SharedKernel.Extensions;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Models.Messages;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Models.Messages;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Extensions;
 using Grand.Web.Common.Security.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Globalization;
@@ -25,7 +26,7 @@ public class NewsLetterSubscriptionController : BaseAdminController
     private readonly INewsLetterSubscriptionService _newsLetterSubscriptionService;
     private readonly IStoreService _storeService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public NewsLetterSubscriptionController(INewsLetterSubscriptionService newsLetterSubscriptionService,
         INewsletterCategoryService newsletterCategoryService,
@@ -33,7 +34,7 @@ public class NewsLetterSubscriptionController : BaseAdminController
         ITranslationService translationService,
         IStoreService storeService,
         IGroupService groupService,
-        IContextAccessor contextAccessor)
+        IWorkContext workContext)
     {
         _newsLetterSubscriptionService = newsLetterSubscriptionService;
         _newsletterCategoryService = newsletterCategoryService;
@@ -41,7 +42,7 @@ public class NewsLetterSubscriptionController : BaseAdminController
         _translationService = translationService;
         _storeService = storeService;
         _groupService = groupService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
     }
 
     [NonAction]
@@ -75,7 +76,7 @@ public class NewsLetterSubscriptionController : BaseAdminController
     {
         var model = new NewsLetterSubscriptionListModel();
 
-        var storeId = _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId;
+        var storeId = _workContext.CurrentCustomer.StaffStoreId;
 
         //stores
         model.AvailableStores.Add(new SelectListItem
@@ -122,8 +123,8 @@ public class NewsLetterSubscriptionController : BaseAdminController
                 break;
         }
 
-        if (await _groupService.IsStoreManager(_contextAccessor.WorkContext.CurrentCustomer))
-            model.StoreId = _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId;
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            model.StoreId = _workContext.CurrentCustomer.StaffStoreId;
 
         var newsletterSubscriptions = await _newsLetterSubscriptionService.GetAllNewsLetterSubscriptions(
             model.SearchEmail,
@@ -189,8 +190,8 @@ public class NewsLetterSubscriptionController : BaseAdminController
                 break;
         }
 
-        if (await _groupService.IsStoreManager(_contextAccessor.WorkContext.CurrentCustomer))
-            model.StoreId = _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId;
+        if (await _groupService.IsStaff(_workContext.CurrentCustomer))
+            model.StoreId = _workContext.CurrentCustomer.StaffStoreId;
 
         var subscriptions = await _newsLetterSubscriptionService.GetAllNewsLetterSubscriptions(model.SearchEmail,
             model.StoreId, isActive, searchCategoryIds);
@@ -211,7 +212,7 @@ public class NewsLetterSubscriptionController : BaseAdminController
             if (importcsvfile is { Length: > 0 })
             {
                 var count = await _newsLetterSubscriptionService.ImportNewsletterSubscribersFromTxt(
-                    importcsvfile.OpenReadStream(), _contextAccessor.StoreContext.CurrentStore.Id);
+                    importcsvfile.OpenReadStream(), _workContext.CurrentStore.Id);
                 Success(string.Format(
                     _translationService.GetResource("admin.marketing.NewsLetterSubscriptions.ImportEmailsSuccess"),
                     count));

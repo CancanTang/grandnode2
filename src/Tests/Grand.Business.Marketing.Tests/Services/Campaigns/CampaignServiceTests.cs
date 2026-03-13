@@ -29,7 +29,7 @@ public class CampaignServiceTests
     private IRepository<NewsLetterSubscription> _newsLetterSubscriptionRepository;
     private Mock<IQueuedEmailService> _queuedEmailServiceMock;
     private Mock<IStoreService> _storeServiceMock;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
@@ -43,7 +43,7 @@ public class CampaignServiceTests
         _queuedEmailServiceMock = new Mock<IQueuedEmailService>();
         _storeServiceMock = new Mock<IStoreService>();
         _languageServiceMock = new Mock<ILanguageService>();
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
         _campaignService = new CampaignService(_campaignRepository, _campaignHistoryRepository,
             _newsLetterSubscriptionRepository, _customerRepository,
             _emailSenderMock.Object, _queuedEmailServiceMock.Object, _storeServiceMock.Object, _mediatorMock.Object,
@@ -57,7 +57,7 @@ public class CampaignServiceTests
         await _campaignService.InsertCampaign(new Campaign());
         //Assert
         _mediatorMock.Verify(c => c.Publish(It.IsAny<EntityInserted<Campaign>>(), default), Times.Once);
-        Assert.IsNotEmpty(_campaignRepository.Table);
+        Assert.IsTrue(_campaignRepository.Table.Any());
     }
 
     [TestMethod]
@@ -66,7 +66,7 @@ public class CampaignServiceTests
         //Act
         await _campaignService.InsertCampaignHistory(new CampaignHistory());
         //Assert
-        Assert.IsNotEmpty(_campaignHistoryRepository.Table);
+        Assert.IsTrue(_campaignHistoryRepository.Table.Any());
     }
 
     [TestMethod]
@@ -81,7 +81,7 @@ public class CampaignServiceTests
         await _campaignService.UpdateCampaign(campaign);
         //Assert
         _mediatorMock.Verify(c => c.Publish(It.IsAny<EntityUpdated<Campaign>>(), default), Times.Once);
-        Assert.AreEqual("test", _campaignRepository.Table.FirstOrDefault(x => x.Id == campaign.Id).Subject);
+        Assert.IsTrue(_campaignRepository.Table.FirstOrDefault(x => x.Id == campaign.Id).Subject == "test");
     }
 
     [TestMethod]
@@ -95,7 +95,7 @@ public class CampaignServiceTests
         await _campaignService.DeleteCampaign(campaign);
         //Assert
         _mediatorMock.Verify(c => c.Publish(It.IsAny<EntityDeleted<Campaign>>(), default), Times.Once);
-        Assert.IsEmpty(_campaignRepository.Table);
+        Assert.IsFalse(_campaignRepository.Table.Any());
     }
 
     [TestMethod]
@@ -127,7 +127,7 @@ public class CampaignServiceTests
         var result = await _campaignService.GetAllCampaigns();
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]
@@ -145,7 +145,7 @@ public class CampaignServiceTests
         var result = await _campaignService.GetCampaignHistory(campaign);
 
         //Assert
-        Assert.HasCount(2, result);
+        Assert.AreEqual(2, result.Count);
     }
 
     [TestMethod]
@@ -163,7 +163,7 @@ public class CampaignServiceTests
         var result = await _campaignService.CustomerSubscriptions(campaign);
 
         //Assert
-        Assert.HasCount(1, result);
+        Assert.AreEqual(1, result.Count);
     }
 
     [TestMethod]

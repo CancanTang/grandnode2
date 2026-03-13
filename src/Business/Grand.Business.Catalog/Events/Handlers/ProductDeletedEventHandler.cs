@@ -1,4 +1,5 @@
-﻿using Grand.Data;
+﻿using Grand.Business.Core.Interfaces.Catalog.Products;
+using Grand.Data;
 using Grand.Domain.Catalog;
 using Grand.Domain.Customers;
 using Grand.Domain.Seo;
@@ -17,6 +18,7 @@ public class ProductDeletedEventHandler : INotificationHandler<EntityDeleted<Pro
     private readonly IRepository<Product> _productRepository;
     private readonly IRepository<ProductReview> _productReviewRepository;
     private readonly IRepository<ProductTag> _productTagRepository;
+    private readonly IProductTagService _productTagService;
 
     public ProductDeletedEventHandler(
         IRepository<Product> productRepository,
@@ -25,7 +27,8 @@ public class ProductDeletedEventHandler : INotificationHandler<EntityDeleted<Pro
         IRepository<EntityUrl> entityUrlRepository,
         IRepository<ProductTag> productTagRepository,
         IRepository<ProductReview> productReviewRepository,
-        IRepository<ProductDeleted> productDeletedRepository)
+        IRepository<ProductDeleted> productDeletedRepository,
+        IProductTagService productTagService)
     {
         _productRepository = productRepository;
         _customerGroupProductRepository = customerGroupProductRepository;
@@ -34,6 +37,7 @@ public class ProductDeletedEventHandler : INotificationHandler<EntityDeleted<Pro
         _productTagRepository = productTagRepository;
         _productReviewRepository = productReviewRepository;
         _productDeletedRepository = productDeletedRepository;
+        _productTagService = productTagService;
     }
 
     public async Task Handle(EntityDeleted<Product> notification, CancellationToken cancellationToken)
@@ -69,9 +73,7 @@ public class ProductDeletedEventHandler : INotificationHandler<EntityDeleted<Pro
         //delete product tags
         var existingProductTags = _productTagRepository.Table
             .Where(x => notification.Entity.ProductTags.ToList().Contains(x.Name)).ToList();
-
-        foreach (var tag in existingProductTags)
-            await _productTagRepository.UpdateField(tag.Id, x => x.Count, tag.Count - 1);
+        foreach (var tag in existingProductTags) await _productTagService.DetachProductTag(tag, notification.Entity.Id);
 
         //insert to deleted products
         var productDeleted = JsonSerializer.Deserialize<ProductDeleted>(JsonSerializer.Serialize(notification.Entity));

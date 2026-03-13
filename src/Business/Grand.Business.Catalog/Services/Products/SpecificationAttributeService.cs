@@ -4,7 +4,6 @@ using Grand.Domain;
 using Grand.Domain.Catalog;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Caching.Constants;
-using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Extensions;
 using MediatR;
 
@@ -80,24 +79,15 @@ public class SpecificationAttributeService : ISpecificationAttributeService
     /// <summary>
     ///     Gets specification attributes
     /// </summary>
-    /// <param name="storeId">Store ident</param>
     /// <param name="pageIndex">Page index</param>
     /// <param name="pageSize">Page size</param>
     /// <returns>Specification attributes</returns>
-    public virtual async Task<IPagedList<SpecificationAttribute>> GetSpecificationAttributes(string storeId = "", int pageIndex = 0,
+    public virtual async Task<IPagedList<SpecificationAttribute>> GetSpecificationAttributes(int pageIndex = 0,
         int pageSize = int.MaxValue)
     {
         var query = from sa in _specificationAttributeRepository.Table
-                    select sa;
-
-        if (!string.IsNullOrEmpty(storeId))
-            //Limited to stores rules
-            query = from p in query
-                    where !p.LimitedToStores || p.Stores.Contains(storeId)
-                    select p;
-
-        query = query.OrderBy(sa => sa.DisplayOrder).ThenBy(sa => sa.Name);
-
+            orderby sa.DisplayOrder
+            select sa;
         return await PagedList<SpecificationAttribute>.Create(query, pageIndex, pageSize);
     }
 

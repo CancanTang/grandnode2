@@ -33,12 +33,12 @@ public static class GrandVersion
     /// <summary>
     ///     Gets the git branch
     /// </summary>
-    public static readonly string GitBranch = GetGitBranch();
+    public static string GitBranch = GetGitBranch();
 
     /// <summary>
     ///     Gets the git commit
     /// </summary>
-    public static readonly string GitCommit = GetGitHash();
+    public static string GitCommit = GetGitHash();
 
     /// <summary>
     ///     Gets the patch version
@@ -49,7 +49,7 @@ public static class GrandVersion
             if (assembly.GetCustomAttribute(typeof(AssemblyInformationalVersionAttribute)) is not
                 AssemblyInformationalVersionAttribute infoVersionAttribute) return "0";
             var fullVersion = infoVersionAttribute.InformationalVersion;
-            var match = Regex.Match(fullVersion, @"(\d+)\.(\d+)\.(\d+)(?:-([^\+]+))?", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+            var match = Regex.Match(fullVersion, @"(\d+)\.(\d+)\.(\d+)(?:-([^\+]+))?");
             if (!match.Success) return "0";
             var patch = match.Groups[3].Value;
             var suffix = match.Groups[4].Value;

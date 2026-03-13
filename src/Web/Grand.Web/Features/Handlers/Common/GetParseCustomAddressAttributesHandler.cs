@@ -23,7 +23,8 @@ public class
     public async Task<IList<CustomAttribute>> Handle(GetParseCustomAddressAttributes request,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.SelectedAttributes);
+        if (request.SelectedAttributes == null)
+            throw new ArgumentNullException(nameof(request.SelectedAttributes));
 
         var customAttributes = new List<CustomAttribute>();
         var attributes = await _addressAttributeService.GetAllAddressAttributes();

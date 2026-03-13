@@ -39,7 +39,7 @@ public class NewsLetterSubscriptionServiceTests
         var newsLetterSubscription = new NewsLetterSubscription {
             Email = email
         };
-        Assert.ThrowsExactlyAsync<GrandException>(async () =>
+        Assert.ThrowsExceptionAsync<GrandException>(async () =>
             await _newsLetterSubscriptionService.InsertNewsLetterSubscription(newsLetterSubscription));
     }
 

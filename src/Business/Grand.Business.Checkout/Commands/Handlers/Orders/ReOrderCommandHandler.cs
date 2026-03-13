@@ -31,7 +31,8 @@ public class ReOrderCommandHandler : IRequestHandler<ReOrderCommand, IList<strin
 
     public async Task<IList<string>> Handle(ReOrderCommand request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Order);
+        if (request.Order == null)
+            throw new ArgumentNullException(nameof(request.Order));
 
         var warnings = new List<string>();
         var customer = await _customerService.GetCustomerById(request.Order.CustomerId);

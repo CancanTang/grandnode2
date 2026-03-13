@@ -3,13 +3,13 @@ using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Domain.Catalog;
-using Grand.Domain.Common;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
 using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.Catalog;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.Catalog;
 
@@ -19,8 +19,8 @@ public class ProductEmailAFriendValidator : BaseGrandValidator<ProductEmailAFrie
         IEnumerable<IValidatorConsumer<ProductEmailAFriendModel>> validators,
         IEnumerable<IValidatorConsumer<ICaptchaValidModel>> validatorsCaptcha,
         CaptchaSettings captchaSettings, CatalogSettings catalogSettings,
-        IContextAccessor contextAccessor, IGroupService groupService, IProductService productService,
-        IHttpContextAccessor httpcontextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
+        IWorkContext workContext, IGroupService groupService, IProductService productService,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         ITranslationService translationService)
         : base(validators)
     {
@@ -37,7 +37,7 @@ public class ProductEmailAFriendValidator : BaseGrandValidator<ProductEmailAFrie
         {
             RuleFor(x => x.Captcha).NotNull().WithMessage(translationService.GetResource("Account.Captcha.Required"));
             RuleFor(x => x.Captcha)
-                .SetValidator(new CaptchaValidator(validatorsCaptcha, httpcontextAccessor, googleReCaptchaValidator));
+                .SetValidator(new CaptchaValidator(validatorsCaptcha, contextAccessor, googleReCaptchaValidator));
         }
 
         RuleFor(x => x).CustomAsync(async (x, context, _) =>
@@ -46,7 +46,7 @@ public class ProductEmailAFriendValidator : BaseGrandValidator<ProductEmailAFrie
             if (product is not { Published: true } || !catalogSettings.EmailAFriendEnabled)
                 context.AddFailure("Product is disabled");
 
-            if (await groupService.IsGuest(contextAccessor.WorkContext.CurrentCustomer) &&
+            if (await groupService.IsGuest(workContext.CurrentCustomer) &&
                 !catalogSettings.AllowAnonymousUsersToEmailAFriend)
                 context.AddFailure(translationService.GetResource("Products.EmailAFriend.OnlyRegisteredUsers"));
         });

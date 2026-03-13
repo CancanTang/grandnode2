@@ -28,6 +28,11 @@ public interface IWorkContext
     Vendor CurrentVendor { get; }
 
     /// <summary>
+    ///     Gets the current host
+    /// </summary>
+    DomainHost CurrentHost { get; }
+
+    /// <summary>
     ///     Get or set current user working language
     /// </summary>
     Language WorkingLanguage { get; }
@@ -38,21 +43,47 @@ public interface IWorkContext
     Currency WorkingCurrency { get; }
 
     /// <summary>
-    ///     Get the store manager
-    /// </summary>
-    Store StoreManager { get; }
-
-    /// <summary>
     ///     Get current tax display type
     /// </summary>
     TaxDisplayType TaxDisplayType { get; }
+
+    /// <summary>
+    ///     Gets or sets the current store
+    /// </summary>
+    Store CurrentStore { get; }
 }
 
 public interface IWorkContextSetter
 {
     /// <summary>
-    ///    Initialize the work context
+    ///     Set the current customer by Middleware
     /// </summary>
     /// <returns></returns>
-    Task<IWorkContext> InitializeWorkContext(string storeId = null);
+    Task<Customer> SetCurrentCustomer();
+
+    /// <summary>
+    ///     Set the current customer
+    /// </summary>
+    /// <returns></returns>
+    Task<Customer> SetCurrentCustomer(Customer customer);
+
+    /// <summary>
+    ///     Set the current vendor (logged-in manager)
+    /// </summary>
+    Task<Vendor> SetCurrentVendor(Customer customer);
+
+    /// <summary>
+    ///     Set current user working language by Middleware
+    /// </summary>
+    Task<Language> SetWorkingLanguage(Customer customer);
+
+    /// <summary>
+    ///     Set current user working currency by Middleware
+    /// </summary>
+    Task<Currency> SetWorkingCurrency(Customer customer);
+
+    /// <summary>
+    ///     Set current tax display type by Middleware
+    /// </summary>
+    Task<TaxDisplayType> SetTaxDisplayType(Customer customer);
 }

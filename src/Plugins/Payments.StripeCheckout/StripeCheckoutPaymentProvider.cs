@@ -79,10 +79,11 @@ public class StripeCheckoutPaymentProvider : IPaymentProvider
     ///     Post process payment (used by payment gateways that require redirecting to a third-party URL)
     /// </summary>
     /// <param name="paymentTransaction"></param>
-    public async Task<string> PostRedirectPayment(PaymentTransaction paymentTransaction)
+    public async Task PostRedirectPayment(PaymentTransaction paymentTransaction)
     {
         var order = await _orderService.GetOrderByGuid(paymentTransaction.OrderGuid);
-        return await _stripeCheckoutService.CreateRedirectUrl(order);
+        var url = await _stripeCheckoutService.CreateRedirectUrl(order);
+        _httpContextAccessor.HttpContext?.Response.Redirect(url);
     }
 
     /// <summary>

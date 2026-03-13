@@ -30,21 +30,21 @@ public class StartupApplication : IStartupApplication
         RegisterCustomer(services);
     }
 
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
     }
 
     public int Priority => 100;
     public bool BeforeConfigure => false;
 
-    private static void RegisterCustomer(IServiceCollection serviceCollection)
+    private void RegisterCustomer(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ICustomerTagService, CustomerTagService>();
         serviceCollection.AddScoped<ICustomerProductService, CustomerProductService>();
         serviceCollection.AddScoped<ICustomerCoordinatesService, CustomerCoordinatesService>();
     }
 
-    private static void RegisterCommon(IServiceCollection serviceCollection)
+    private void RegisterCommon(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IContactAttributeParser, ContactAttributeParser>();
         serviceCollection.AddScoped<IContactAttributeService, ContactAttributeService>();
@@ -56,7 +56,7 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddHttpClient<IPushNotificationsService, PushNotificationsService>();
     }
 
-    private static void RegisterCoursesService(IServiceCollection serviceCollection)
+    private void RegisterCoursesService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<ICourseActionService, CourseActionService>();
         serviceCollection.AddScoped<ICourseLessonService, CourseLessonService>();
@@ -65,7 +65,7 @@ public class StartupApplication : IStartupApplication
         serviceCollection.AddScoped<ICourseSubjectService, CourseSubjectService>();
     }
 
-    private static void RegisterDocumentsService(IServiceCollection serviceCollection)
+    private void RegisterDocumentsService(IServiceCollection serviceCollection)
     {
         serviceCollection.AddScoped<IDocumentTypeService, DocumentTypeService>();
         serviceCollection.AddScoped<IDocumentService, DocumentService>();

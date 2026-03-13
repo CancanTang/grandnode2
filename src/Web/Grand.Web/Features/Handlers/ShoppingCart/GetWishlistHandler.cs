@@ -7,19 +7,19 @@ using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Business.Core.Interfaces.Storage;
 using Grand.Business.Core.Utilities.Checkout;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
 using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Media;
 using Grand.Domain.Orders;
-using Grand.Web.Common.Localization;
 using Grand.Web.Extensions;
 using Grand.Web.Features.Models.ShoppingCart;
 using Grand.Web.Models.Media;
 using Grand.Web.Models.ShoppingCart;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Routing;
 
 namespace Grand.Web.Features.Handlers.ShoppingCart;
 
@@ -38,7 +38,7 @@ public class GetWishlistHandler : IRequestHandler<GetWishlist, WishlistModel>
     private readonly IShoppingCartValidator _shoppingCartValidator;
     private readonly ITaxService _taxService;
     private readonly ITranslationService _translationService;
-    private readonly IEnumTranslationService _enumTranslationService;
+
     public GetWishlistHandler(
         IPermissionService permissionService,
         IProductService productService,
@@ -52,8 +52,7 @@ public class GetWishlistHandler : IRequestHandler<GetWishlist, WishlistModel>
         LinkGenerator linkGenerator,
         ShoppingCartSettings shoppingCartSettings,
         CatalogSettings catalogSettings,
-        MediaSettings mediaSettings, 
-        IEnumTranslationService enumTranslationService)
+        MediaSettings mediaSettings)
     {
         _permissionService = permissionService;
         _productService = productService;
@@ -68,7 +67,6 @@ public class GetWishlistHandler : IRequestHandler<GetWishlist, WishlistModel>
         _shoppingCartSettings = shoppingCartSettings;
         _catalogSettings = catalogSettings;
         _mediaSettings = mediaSettings;
-        _enumTranslationService = enumTranslationService;
     }
 
     public async Task<WishlistModel> Handle(GetWishlist request, CancellationToken cancellationToken)
@@ -131,7 +129,7 @@ public class GetWishlistHandler : IRequestHandler<GetWishlist, WishlistModel>
                 cartItemModel.RecurringInfo = string.Format(
                     _translationService.GetResource("ShoppingCart.RecurringPeriod"),
                     product.RecurringCycleLength,
-                    _enumTranslationService.GetTranslationEnum(product.RecurringCyclePeriodId),
+                    product.RecurringCyclePeriodId.GetTranslationEnum(_translationService, request.Language.Id),
                     product.RecurringTotalCycles);
 
             //unit prices

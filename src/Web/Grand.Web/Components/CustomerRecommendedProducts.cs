@@ -14,11 +14,11 @@ public class CustomerRecommendedProductsViewComponent : BaseViewComponent
     #region Constructors
 
     public CustomerRecommendedProductsViewComponent(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IMediator mediator,
         CatalogSettings catalogSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _mediator = mediator;
         _catalogSettings = catalogSettings;
     }
@@ -33,8 +33,8 @@ public class CustomerRecommendedProductsViewComponent : BaseViewComponent
             return Content("");
 
         var products = await _mediator.Send(new GetRecommendedProductsQuery {
-            CustomerGroupIds = _contextAccessor.WorkContext.CurrentCustomer.GetCustomerGroupIds(),
-            StoreId = _contextAccessor.StoreContext.CurrentStore.Id
+            CustomerGroupIds = _workContext.CurrentCustomer.GetCustomerGroupIds(),
+            StoreId = _workContext.CurrentStore.Id
         });
 
         if (!products.Any())
@@ -54,7 +54,7 @@ public class CustomerRecommendedProductsViewComponent : BaseViewComponent
 
     #region Fields
 
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IMediator _mediator;
     private readonly CatalogSettings _catalogSettings;
 

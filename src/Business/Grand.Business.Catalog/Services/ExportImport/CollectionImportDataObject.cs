@@ -1,11 +1,14 @@
 ﻿using Grand.Business.Catalog.Extensions;
 using Grand.Business.Core.Dto;
+using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Collections;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Seo;
 using Grand.Business.Core.Interfaces.ExportImport;
 using Grand.Business.Core.Interfaces.Storage;
 using Grand.Domain.Catalog;
 using Grand.Domain.Media;
+using Grand.Domain.Seo;
 using Grand.Infrastructure.Mapper;
 
 namespace Grand.Business.Catalog.Services.ExportImport;
@@ -14,22 +17,27 @@ public class CollectionImportDataObject : IImportDataObject<CollectionDto>
 {
     private readonly ICollectionLayoutService _collectionLayoutService;
     private readonly ICollectionService _collectionService;
+    private readonly ILanguageService _languageService;
     private readonly IPictureService _pictureService;
+
+    private readonly SeoSettings _seoSetting;
     private readonly ISlugService _slugService;
-    private readonly ISeNameService _seNameService;
+
     public CollectionImportDataObject(
         ICollectionService collectionService,
         IPictureService pictureService,
         ICollectionLayoutService collectionLayoutService,
         ISlugService slugService,
-        ISeNameService seNameService)
+        ILanguageService languageService,
+        SeoSettings seoSetting)
     {
         _collectionService = collectionService;
         _pictureService = pictureService;
         _collectionLayoutService = collectionLayoutService;
         _slugService = slugService;
+        _languageService = languageService;
 
-        _seNameService = seNameService;
+        _seoSetting = seoSetting;
     }
 
     public async Task Execute(IEnumerable<CollectionDto> data)
@@ -76,14 +84,15 @@ public class CollectionImportDataObject : IImportDataObject<CollectionDto>
         }
 
         var sename = collection.SeName ?? collection.Name;
-        sename = await _seNameService.ValidateSeName(collection, sename, collection.Name, true);
+        sename = await collection.ValidateSeName(sename, collection.Name, true, _seoSetting, _slugService,
+            _languageService);
         collection.SeName = sename;
 
         await _collectionService.UpdateCollection(collection);
         await _slugService.SaveSlug(collection, sename, "");
     }
 
-    private static bool ValidCollection(Collection collection)
+    private bool ValidCollection(Collection collection)
     {
         return !string.IsNullOrEmpty(collection.Name);
     }

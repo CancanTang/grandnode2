@@ -38,7 +38,7 @@ public class DeliveryDateServiceTests
     [TestMethod]
     public void InsertDeliveryDate_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.InsertDeliveryDate(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.InsertDeliveryDate(null));
     }
 
     [TestMethod]
@@ -53,7 +53,7 @@ public class DeliveryDateServiceTests
     [TestMethod]
     public void UpdateDeliveryDate_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.UpdateDeliveryDate(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.UpdateDeliveryDate(null));
     }
 
     [TestMethod]
@@ -68,6 +68,6 @@ public class DeliveryDateServiceTests
     [TestMethod]
     public void DeleteDeliveryDate_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.DeleteDeliveryDate(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.DeleteDeliveryDate(null));
     }
 }

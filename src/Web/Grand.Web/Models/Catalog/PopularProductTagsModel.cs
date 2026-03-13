@@ -8,7 +8,9 @@ public class PopularProductTagsModel : BaseModel
 
     public virtual int GetFontSize(ProductTagModel productTag)
     {
-        var itemWeights = Tags.Select(tag => tag.ProductCount).Select(dummy => (double)dummy).ToList();
+        var itemWeights = new List<double>();
+        foreach (var tag in Tags)
+            itemWeights.Add(tag.ProductCount);
         var stdDev = StdDev(itemWeights, out var mean);
 
         return GetFontSize(productTag.ProductCount, mean, stdDev);

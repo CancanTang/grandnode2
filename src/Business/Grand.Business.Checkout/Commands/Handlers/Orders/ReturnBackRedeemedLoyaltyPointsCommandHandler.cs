@@ -21,7 +21,8 @@ public class
 
     public async Task<bool> Handle(ReturnBackRedeemedLoyaltyPointsCommand request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request.Order);
+        if (request.Order == null)
+            throw new ArgumentNullException(nameof(request.Order));
 
         //were some points redeemed when placing an order?
         if (request.Order.RedeemedLoyaltyPoints == 0)

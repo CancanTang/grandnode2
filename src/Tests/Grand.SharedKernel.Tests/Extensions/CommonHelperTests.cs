@@ -13,7 +13,7 @@ public class CommonHelperTests
     [DataRow("email@email@email.pl")]
     public void EnsureSubscriberEmailOrThrowTest_ThrowException(string email)
     {
-        Assert.ThrowsExactly<GrandException>(() => CommonHelper.EnsureSubscriberEmailOrThrow(email));
+        Assert.ThrowsException<GrandException>(() => CommonHelper.EnsureSubscriberEmailOrThrow(email));
     }
 
     [TestMethod]
@@ -21,7 +21,7 @@ public class CommonHelperTests
     [DataRow("sample.email@sample.com")]
     public void EnsureSubscriberEmailOrThrowTest_Success(string email)
     {
-        Assert.AreEqual(email, CommonHelper.EnsureSubscriberEmailOrThrow(email));
+        Assert.IsTrue(CommonHelper.EnsureSubscriberEmailOrThrow(email) == email);
     }
 
     [TestMethod]
@@ -49,7 +49,7 @@ public class CommonHelperTests
         var result = CommonHelper.GenerateRandomDigitCode(length);
 
         Assert.IsNotNull(result);
-        Assert.AreEqual(length, result.Length);
+        Assert.IsTrue(result.Length == length);
     }
 
     [TestMethod]
@@ -59,15 +59,15 @@ public class CommonHelperTests
     {
         var result = CommonHelper.GenerateRandomInteger(min, max);
 
-        Assert.IsGreaterThanOrEqualTo(min, result);
-        Assert.IsLessThanOrEqualTo(max, result);
+        Assert.IsTrue(result >= min);
+        Assert.IsTrue(result <= max);
     }
 
     [TestMethod]
     [DataRow(10, 1)]
     public void GenerateRandomIntegerTest_ThrowException(int min, int max)
     {
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => CommonHelper.GenerateRandomInteger(min, max));
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => CommonHelper.GenerateRandomInteger(min, max));
     }
 
     [TestMethod]
@@ -76,7 +76,7 @@ public class CommonHelperTests
         var str = "value";
         var max = 3;
         string post = null;
-        Assert.AreEqual("val", CommonHelper.EnsureMaximumLength(str, max, post));
+        Assert.IsTrue(CommonHelper.EnsureMaximumLength(str, max, post) == "val");
     }
 
     [TestMethod]
@@ -85,7 +85,7 @@ public class CommonHelperTests
         var str = "value";
         var max = 10;
         string post = null;
-        Assert.AreEqual("value", CommonHelper.EnsureMaximumLength(str, max, post));
+        Assert.IsTrue(CommonHelper.EnsureMaximumLength(str, max, post) == "value");
     }
 
     [TestMethod]
@@ -94,14 +94,14 @@ public class CommonHelperTests
         var str = "0123456789000";
         var max = 10;
         var post = "...";
-        Assert.AreEqual("0123456...", CommonHelper.EnsureMaximumLength(str, max, post));
+        Assert.IsTrue(CommonHelper.EnsureMaximumLength(str, max, post) == "0123456...");
     }
 
     [TestMethod]
     [DataRow("value", 1, "...")]
     public void EnsureMaximumLengthTest_ThrowException(string str, int max, string post)
     {
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => CommonHelper.EnsureMaximumLength(str, max, post));
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => CommonHelper.EnsureMaximumLength(str, max, post));
     }
 
     [TestMethod]
@@ -120,43 +120,43 @@ public class CommonHelperTests
     public void ToTest_True()
     {
         object obj = "sample";
-        Assert.AreEqual(obj, CommonHelper.To(obj, typeof(string)));
+        Assert.IsTrue(obj == CommonHelper.To(obj, typeof(string)));
     }
 
     [TestMethod]
     public void ToTest_ThrowException()
     {
         object obj = "sample";
-        Assert.ThrowsExactly<ArgumentException>(() => CommonHelper.To(obj, typeof(decimal)));
+        Assert.ThrowsException<ArgumentException>(() => CommonHelper.To(obj, typeof(decimal)));
     }
 
     [TestMethod]
     public void ConvertEnumTest()
     {
         var value = SampleEnum.Test0;
-        Assert.AreEqual("Test0", CommonHelper.ConvertEnum(value));
+        Assert.IsTrue(CommonHelper.ConvertEnum(value) == "Test0");
     }
 
     [TestMethod]
     public void GetDifferenceInYearsTest()
     {
-        Assert.AreEqual(10, CommonHelper.GetDifferenceInYears(new DateTime(2010, 01, 01), new DateTime(2020, 01, 01)));
-        Assert.AreEqual(9, CommonHelper.GetDifferenceInYears(new DateTime(2010, 02, 01), new DateTime(2020, 01, 01)));
-        Assert.AreEqual(8, CommonHelper.GetDifferenceInYears(new DateTime(2011, 01, 02), new DateTime(2020, 01, 01)));
+        Assert.IsTrue(CommonHelper.GetDifferenceInYears(new DateTime(2010, 01, 01), new DateTime(2020, 01, 01)) == 10);
+        Assert.IsTrue(CommonHelper.GetDifferenceInYears(new DateTime(2010, 02, 01), new DateTime(2020, 01, 01)) == 9);
+        Assert.IsTrue(CommonHelper.GetDifferenceInYears(new DateTime(2011, 01, 02), new DateTime(2020, 01, 01)) == 8);
     }
 
     [TestMethod]
     public void ToTest_T()
     {
         object obj = "sample";
-        Assert.AreEqual(obj.ToString(), CommonHelper.To<string>(obj));
+        Assert.IsTrue(obj.ToString() == CommonHelper.To<string>(obj));
     }
 
     [TestMethod]
     public void ToCultureInfoTest()
     {
         object obj = "sample";
-        Assert.AreEqual(obj, CommonHelper.To(obj, typeof(string), CultureInfo.InvariantCulture));
+        Assert.IsTrue(obj == CommonHelper.To(obj, typeof(string), CultureInfo.InvariantCulture));
     }
 
     [TestMethod]

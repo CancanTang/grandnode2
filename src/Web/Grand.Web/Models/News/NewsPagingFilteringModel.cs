@@ -2,4 +2,6 @@
 
 namespace Grand.Web.Models.News;
 
-public class NewsPagingFilteringModel : BasePageableModel;
+public class NewsPagingFilteringModel : BasePageableModel
+{
+}

@@ -1,8 +1,8 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Domain.Localization;
 using Grand.Infrastructure.Mapper;
-using Grand.Infrastructure.Models;
 using Grand.Web.Common.Extensions;
+using Grand.Web.Common.Models;
 using System.Reflection;
 using Widgets.Slider.Domain;
 using Widgets.Slider.Models;

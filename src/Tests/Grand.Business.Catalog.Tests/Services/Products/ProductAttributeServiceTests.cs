@@ -5,6 +5,7 @@ using Grand.Domain.Catalog;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Tests.Caching;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -23,6 +24,8 @@ public class ProductAttributeServiceTests
     [TestInitialize]
     public void Init()
     {
+        CommonPath.BaseDirectory = "";
+
         _repository = new MongoDBRepositoryTest<Product>();
         _repositoryproductAttribute = new MongoDBRepositoryTest<ProductAttribute>();
         _mediatorMock = new Mock<IMediator>();
@@ -48,7 +51,7 @@ public class ProductAttributeServiceTests
         var result = await _productAttributeService.GetAllProductAttributes();
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]
@@ -92,7 +95,7 @@ public class ProductAttributeServiceTests
         //Act
         await _productAttributeService.UpdateProductAttribute(pa1);
         //Assert
-        Assert.AreEqual("test", _repositoryproductAttribute.Table.FirstOrDefault().Name);
+        Assert.IsTrue(_repositoryproductAttribute.Table.FirstOrDefault().Name == "test");
     }
 
     [TestMethod]
@@ -125,7 +128,7 @@ public class ProductAttributeServiceTests
         //Act
         await _productAttributeService.DeleteProductAttributeMapping(pm1, product.Id);
         //Assert
-        Assert.HasCount(2, _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings);
+        Assert.AreEqual(2, _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings.Count);
     }
 
     [TestMethod]
@@ -139,7 +142,7 @@ public class ProductAttributeServiceTests
         //Act
         await _productAttributeService.InsertProductAttributeMapping(pm1, product.Id);
         //Assert
-        Assert.HasCount(1, _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings);
+        Assert.AreEqual(1, _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings.Count);
     }
 
     [TestMethod]
@@ -154,8 +157,8 @@ public class ProductAttributeServiceTests
         pm1.TextPrompt = "test";
         await _productAttributeService.UpdateProductAttributeMapping(pm1, product.Id);
         //Assert
-        Assert.AreEqual("test", _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings
-            .FirstOrDefault(x => x.Id == pm1.Id).TextPrompt);
+        Assert.IsTrue(_repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings
+            .FirstOrDefault(x => x.Id == pm1.Id).TextPrompt == "test");
     }
 
     [TestMethod]
@@ -174,9 +177,9 @@ public class ProductAttributeServiceTests
         //Act
         await _productAttributeService.DeleteProductAttributeValue(pav1, product.Id, pm1.Id);
         //Assert
-        Assert.HasCount(1,
+        Assert.AreEqual(1,
             _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings
-                .FirstOrDefault(x => x.Id == pm1.Id).ProductAttributeValues);
+                .FirstOrDefault(x => x.Id == pm1.Id).ProductAttributeValues.Count);
     }
 
     [TestMethod]
@@ -192,9 +195,9 @@ public class ProductAttributeServiceTests
         //Act
         await _productAttributeService.InsertProductAttributeValue(pav1, product.Id, pm1.Id);
         //Assert
-        Assert.HasCount(1,
+        Assert.AreEqual(1,
             _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings
-                .FirstOrDefault(x => x.Id == pm1.Id).ProductAttributeValues);
+                .FirstOrDefault(x => x.Id == pm1.Id).ProductAttributeValues.Count);
     }
 
     [TestMethod]
@@ -213,8 +216,8 @@ public class ProductAttributeServiceTests
         await _productAttributeService.UpdateProductAttributeValue(pav1, product.Id, pm1.Id);
 
         //Assert
-        Assert.AreEqual("test", _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings
-            .FirstOrDefault(x => x.Id == pm1.Id).ProductAttributeValues.FirstOrDefault().Name);
+        Assert.IsTrue(_repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeMappings
+            .FirstOrDefault(x => x.Id == pm1.Id).ProductAttributeValues.FirstOrDefault().Name == "test");
     }
 
 
@@ -234,8 +237,8 @@ public class ProductAttributeServiceTests
         //Act
         await _productAttributeService.DeleteProductAttributeCombination(pac1, product.Id);
         //Assert
-        Assert.HasCount(2,
-            _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeCombinations);
+        Assert.AreEqual(2,
+            _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeCombinations.Count);
     }
 
     [TestMethod]
@@ -248,8 +251,8 @@ public class ProductAttributeServiceTests
         //Act
         await _productAttributeService.InsertProductAttributeCombination(pac1, product.Id);
         //Assert
-        Assert.HasCount(1,
-            _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeCombinations);
+        Assert.AreEqual(1,
+            _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeCombinations.Count);
     }
 
     [TestMethod]
@@ -264,7 +267,7 @@ public class ProductAttributeServiceTests
         pac1.Text = "test";
         await _productAttributeService.UpdateProductAttributeCombination(pac1, product.Id);
         //Assert
-        Assert.AreEqual("test", _repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeCombinations
-            .FirstOrDefault(x => x.Id == pac1.Id).Text);
+        Assert.IsTrue(_repository.Table.FirstOrDefault(x => x.Id == product.Id).ProductAttributeCombinations
+            .FirstOrDefault(x => x.Id == pac1.Id).Text == "test");
     }
 }

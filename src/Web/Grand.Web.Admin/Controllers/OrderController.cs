@@ -7,14 +7,14 @@ using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Pdf;
 using Grand.Business.Core.Interfaces.ExportImport;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Catalog;
 using Grand.Domain.Common;
 using Grand.Domain.Orders;
-using Grand.Domain.Permissions;
 using Grand.Infrastructure;
-using Grand.Web.AdminShared.Extensions;
-using Grand.Web.AdminShared.Interfaces;
-using Grand.Web.AdminShared.Models.Orders;
+using Grand.Web.Admin.Extensions;
+using Grand.Web.Admin.Interfaces;
+using Grand.Web.Admin.Models.Orders;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Security.Authorization;
 using MediatR;
@@ -28,7 +28,7 @@ public class OrderController(
     IOrderService orderService,
     IOrderStatusService orderStatusService,
     ITranslationService translationService,
-    IContextAccessor contextAccessor,
+    IWorkContext workContext,
     IPdfService pdfService,
     IGroupService groupService,
     IExportManager<Order> exportManager,
@@ -39,9 +39,17 @@ public class OrderController(
 
     protected virtual async Task<bool> CheckSalesManager(Order order)
     {
-        return await groupService.IsSalesManager(contextAccessor.WorkContext.CurrentCustomer)
-               && contextAccessor.WorkContext.CurrentCustomer.SeId != order.SeId;
+        return await groupService.IsSalesManager(workContext.CurrentCustomer)
+               && workContext.CurrentCustomer.SeId != order.SeId;
     }
+
+    #endregion
+
+    #region Fields
+
+    #endregion
+
+    #region Ctor
 
     #endregion
 
@@ -55,7 +63,8 @@ public class OrderController(
     public async Task<IActionResult> List(int? orderStatusId = null,
         int? paymentStatusId = null, int? shippingStatusId = null, DateTime? startDate = null, string code = null)
     {
-        var model = await orderViewModelService.PrepareOrderListModel(orderStatusId, paymentStatusId, shippingStatusId, startDate, "", code);
+        var model = await orderViewModelService.PrepareOrderListModel(orderStatusId, paymentStatusId, shippingStatusId,
+            startDate, workContext.CurrentCustomer.StaffStoreId, code);
         return View(model);
     }
 
@@ -66,19 +75,23 @@ public class OrderController(
         if (string.IsNullOrWhiteSpace(term) || term.Length < searchTermMinimumLength)
             return Content("");
 
+        var storeId = string.Empty;
+        if (await groupService.IsStaff(workContext.CurrentCustomer))
+            storeId = workContext.CurrentCustomer.StaffStoreId;
+
         //products
         const int productNumber = 15;
         var products = (await productService.SearchProducts(
+            storeId: storeId,
             keywords: term,
             pageSize: productNumber,
             showHidden: true)).products;
 
         var result = (from p in products
-                      select new
-                      {
-                          label = p.Name,
-                          productid = p.Id
-                      })
+                select new {
+                    label = p.Name,
+                    productid = p.Id
+                })
             .ToList();
         return Json(result);
     }
@@ -87,6 +100,9 @@ public class OrderController(
     [HttpPost]
     public async Task<IActionResult> OrderList(DataSourceRequest command, OrderListModel model)
     {
+        if (await groupService.IsStaff(workContext.CurrentCustomer))
+            model.StoreId = workContext.CurrentCustomer.StaffStoreId;
+
         var (orderModels, totalCount) =
             await orderViewModelService.PrepareOrderModel(model, command.Page, command.PageSize);
 
@@ -117,6 +133,9 @@ public class OrderController(
         if (order == null || await CheckSalesManager(order))
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
+
         return RedirectToAction("Edit", "Order", new { id = order.Id });
     }
 
@@ -128,6 +147,9 @@ public class OrderController(
     [HttpPost]
     public async Task<IActionResult> ExportExcelAll(OrderListModel model)
     {
+        if (await groupService.IsStaff(workContext.CurrentCustomer))
+            model.StoreId = workContext.CurrentCustomer.StaffStoreId;
+
         //load orders
         var orders = await orderViewModelService.PrepareOrders(model);
         try
@@ -150,12 +172,14 @@ public class OrderController(
         if (selectedIds != null)
         {
             var ids = selectedIds
-                .Split([','], StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => x)
                 .ToArray();
             orders.AddRange(await orderService.GetOrdersByIds(ids));
         }
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer))
+            orders = orders.Where(x => x.StoreId == workContext.CurrentCustomer.StaffStoreId).ToList();
         var bytes = await exportManager.Export(orders);
         return File(bytes, "text/xls", "orders.xlsx");
     }
@@ -175,6 +199,8 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
         try
         {
             await mediator.Send(new CancelOrderCommand { Order = order, NotifyCustomer = true });
@@ -198,6 +224,9 @@ public class OrderController(
         if (order == null || await CheckSalesManager(order))
             //No order found with the specified id
             return RedirectToAction("List");
+
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
 
         try
         {
@@ -224,17 +253,21 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
+
         try
         {
             var status = await orderStatusService.GetByStatusId(model.OrderStatusId);
-            ArgumentNullException.ThrowIfNull(status);
+            if (status == null)
+                throw new ArgumentNullException(nameof(status));
 
             order.OrderStatusId = model.OrderStatusId;
             await orderService.UpdateOrder(order);
 
             //add a note
             await orderService.InsertOrderNote(new OrderNote {
-                Note = $"Order status has been edited. New status: {status.Name}",
+                Note = $"Order status has been edited. New status: {status?.Name}",
                 DisplayToCustomer = false,
                 OrderId = order.Id
             });
@@ -261,6 +294,9 @@ public class OrderController(
         if (order == null || order.Deleted || await CheckSalesManager(order))
             //No order found with the specified id
             return RedirectToAction("List");
+
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
 
         var model = new OrderModel();
         await orderViewModelService.PrepareOrderDetailsModel(model, order);
@@ -294,6 +330,9 @@ public class OrderController(
         ICollection<string> selectedIds,
         [FromServices] IShipmentService shipmentService)
     {
+        if (await groupService.IsStaff(workContext.CurrentCustomer))
+            return RedirectToAction("List", "Order");
+
         if (selectedIds != null)
         {
             var orders = new List<Order>();
@@ -315,7 +354,9 @@ public class OrderController(
     public async Task<IActionResult> PdfInvoice(string orderId)
     {
         var order = await orderService.GetOrderById(orderId);
-        if (await CheckSalesManager(order)) return RedirectToAction("List");
+        if ((await groupService.IsStaff(workContext.CurrentCustomer) &&
+             order.StoreId != workContext.CurrentCustomer.StaffStoreId) ||
+            await CheckSalesManager(order)) return RedirectToAction("List");
 
         var orders = new List<Order> {
             order
@@ -323,7 +364,7 @@ public class OrderController(
         byte[] bytes;
         using (var stream = new MemoryStream())
         {
-            await pdfService.PrintOrdersToPdf(stream, orders, contextAccessor.WorkContext.WorkingLanguage.Id);
+            await pdfService.PrintOrdersToPdf(stream, orders, workContext.WorkingLanguage.Id);
             bytes = stream.ToArray();
         }
 
@@ -336,11 +377,13 @@ public class OrderController(
     {
         //load orders
         var orders = await orderViewModelService.PrepareOrders(model);
+        if (await groupService.IsStaff(workContext.CurrentCustomer))
+            orders = orders.Where(x => x.StoreId == workContext.CurrentCustomer.StaffStoreId).ToList();
 
         byte[] bytes;
         using (var stream = new MemoryStream())
         {
-            await pdfService.PrintOrdersToPdf(stream, orders, contextAccessor.WorkContext.WorkingLanguage.Id, model.VendorId);
+            await pdfService.PrintOrdersToPdf(stream, orders, workContext.WorkingLanguage.Id, model.VendorId);
             bytes = stream.ToArray();
         }
 
@@ -355,11 +398,14 @@ public class OrderController(
         if (selectedIds != null)
         {
             var ids = selectedIds
-                .Split([','], StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => x)
                 .ToArray();
             orders.AddRange(await orderService.GetOrdersByIds(ids));
         }
+
+        if (await groupService.IsStaff(workContext.CurrentCustomer))
+            orders = orders.Where(x => x.StoreId == workContext.CurrentCustomer.StaffStoreId).ToList();
 
         //ensure that we at least one order selected
         if (orders.Count == 0)
@@ -371,7 +417,7 @@ public class OrderController(
         byte[] bytes;
         using (var stream = new MemoryStream())
         {
-            await pdfService.PrintOrdersToPdf(stream, orders, contextAccessor.WorkContext.WorkingLanguage.Id);
+            await pdfService.PrintOrdersToPdf(stream, orders, workContext.WorkingLanguage.Id);
             bytes = stream.ToArray();
         }
 
@@ -386,6 +432,10 @@ public class OrderController(
         if (order == null || await CheckSalesManager(order))
             //No order found with the specified id
             return RedirectToAction("List");
+
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
 
         order.OrderSubtotalInclTax = model.OrderSubtotalInclTaxValue;
         order.OrderSubtotalExclTax = model.OrderSubtotalExclTaxValue;
@@ -421,6 +471,10 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
+
         order.ShippingMethod = model.ShippingMethod;
         await orderService.UpdateOrder(order);
 
@@ -446,6 +500,10 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
+
         order.UserFields = model.UserFields;
 
         await orderService.UpdateOrder(order);
@@ -467,15 +525,20 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
         if (order.OrderStatusId == (int)OrderStatusSystem.Cancelled)
         {
             Error("You can't edit position when order is canceled");
             return RedirectToAction("Edit", "Order", new { id });
         }
 
-        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == model.OrderItemId) ?? throw new ArgumentException("No order item found with the specified id");
-        var itemModel = model.Items.FirstOrDefault(x => x.Id == model.OrderItemId) ?? throw new ArgumentException("No order item model found with the specified id");
+        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == model.OrderItemId);
+        if (orderItem == null)
+            throw new ArgumentException("No order item found with the specified id");
 
+        var itemModel = model.Items.FirstOrDefault(x => x.Id == model.OrderItemId);
         if (itemModel.Quantity == 0 || (orderItem.OpenQty != orderItem.Quantity && orderItem.IsShipEnabled))
         {
             Error("You can't change quantity");
@@ -528,7 +591,14 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
-        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId) ?? throw new ArgumentException("No order item found with the specified id");
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
+
+        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId);
+        if (orderItem == null)
+            throw new ArgumentException("No order item found with the specified id");
+
         var result = await mediator.Send(new DeleteOrderItemCommand { Order = order, OrderItem = orderItem });
         if (result.error)
             Error(result.message);
@@ -548,7 +618,15 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
-        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId) ?? throw new ArgumentException("No order item found with the specified id");
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
+
+        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId);
+        if (orderItem == null)
+            throw new ArgumentException("No order item found with the specified id");
+
+
         var result = await mediator.Send(new CancelOrderItemCommand { Order = order, OrderItem = orderItem });
         if (result.error)
             Error(result.message);
@@ -570,7 +648,14 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
-        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId) ?? throw new ArgumentException("No order item found with the specified id");
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
+
+        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId);
+        if (orderItem == null)
+            throw new ArgumentException("No order item found with the specified id");
+
         orderItem.DownloadCount = 0;
         await orderService.UpdateOrder(order);
         var model = new OrderModel();
@@ -591,7 +676,14 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
-        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId) ?? throw new ArgumentException("No order item found with the specified id");
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
+
+        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId);
+        if (orderItem == null)
+            throw new ArgumentException("No order item found with the specified id");
+
         orderItem.IsDownloadActivated = !orderItem.IsDownloadActivated;
         await orderService.UpdateOrder(order);
         var model = new OrderModel();
@@ -612,7 +704,14 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
-        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId) ?? throw new ArgumentException("No order item found with the specified id");
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id });
+
+        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == orderItemId);
+        if (orderItem == null)
+            throw new ArgumentException("No order item found with the specified id");
+
         var product = await productService.GetProductByIdIncludeArch(orderItem.ProductId);
 
         if (!product.IsDownload)
@@ -635,7 +734,13 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
-        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == model.OrderItemId) ?? throw new ArgumentException("No order item found with the specified id");
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id = order.Id });
+
+        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == model.OrderItemId);
+        if (orderItem == null)
+            throw new ArgumentException("No order item found with the specified id");
 
         //attach license
         orderItem.LicenseDownloadId = !string.IsNullOrEmpty(model.LicenseDownloadId) ? model.LicenseDownloadId : null;
@@ -656,7 +761,13 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
-        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == model.OrderItemId) ?? throw new ArgumentException("No order item found with the specified id");
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId)
+            return RedirectToAction("Edit", "Order", new { id = model.OrderId });
+
+        var orderItem = order.OrderItems.FirstOrDefault(x => x.Id == model.OrderItemId);
+        if (orderItem == null)
+            throw new ArgumentException("No order item found with the specified id");
 
         //attach license
         orderItem.LicenseDownloadId = null;
@@ -689,8 +800,12 @@ public class OrderController(
         if (!string.IsNullOrEmpty(model.SearchCategoryId))
             categoryIds.Add(model.SearchCategoryId);
 
+        var storeId = string.Empty;
+        if (await groupService.IsStaff(workContext.CurrentCustomer)) storeId = workContext.CurrentCustomer.StaffStoreId;
+
         var gridModel = new DataSourceResult();
         var products = (await productService.SearchProducts(categoryIds: categoryIds,
+            storeId: storeId,
             brandId: model.SearchBrandId,
             collectionId: model.SearchCollectionId,
             productType: model.SearchProductTypeId > 0 ? (ProductType?)model.SearchProductTypeId : null,
@@ -720,6 +835,9 @@ public class OrderController(
         if (order == null || await CheckSalesManager(order))
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
+
         var model = await orderViewModelService.PrepareAddProductToOrderModel(order, productId);
         return View(model);
     }
@@ -731,6 +849,9 @@ public class OrderController(
         var order = await orderService.GetOrderById(model.OrderId);
         if (order == null || await CheckSalesManager(order))
             return RedirectToAction("List");
+
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
 
         var warnings = await orderViewModelService.AddProductToOrderDetails(model);
         if (!warnings.Any())
@@ -757,21 +878,24 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
+
         var address = new Address();
         switch (billingAddress)
         {
             case true when order.BillingAddress != null:
-                {
-                    if (order.BillingAddress.Id == addressId)
-                        address = order.BillingAddress;
-                    break;
-                }
+            {
+                if (order.BillingAddress.Id == addressId)
+                    address = order.BillingAddress;
+                break;
+            }
             case false when order.ShippingAddress != null:
-                {
-                    if (order.ShippingAddress.Id == addressId)
-                        address = order.ShippingAddress;
-                    break;
-                }
+            {
+                if (order.ShippingAddress.Id == addressId)
+                    address = order.ShippingAddress;
+                break;
+            }
         }
 
         if (address == null)
@@ -793,21 +917,24 @@ public class OrderController(
             //No order found with the specified id
             return RedirectToAction("List");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return RedirectToAction("List");
+
         var address = new Address();
         switch (model.BillingAddress)
         {
             case true when order.BillingAddress != null:
-                {
-                    if (order.BillingAddress.Id == model.Address.Id)
-                        address = order.BillingAddress;
-                    break;
-                }
+            {
+                if (order.BillingAddress.Id == model.Address.Id)
+                    address = order.BillingAddress;
+                break;
+            }
             case false when order.ShippingAddress != null:
-                {
-                    if (order.ShippingAddress.Id == model.Address.Id)
-                        address = order.ShippingAddress;
-                    break;
-                }
+            {
+                if (order.ShippingAddress.Id == model.Address.Id)
+                    address = order.ShippingAddress;
+                break;
+            }
         }
 
         if (ModelState.IsValid)
@@ -821,6 +948,7 @@ public class OrderController(
 
         //If we got this far, something failed, redisplay form
         model = await orderViewModelService.PrepareOrderAddressModel(order, address);
+        model.BillingAddress = model.BillingAddress;
         return View(model);
     }
 
@@ -836,6 +964,8 @@ public class OrderController(
         if (order == null || await CheckSalesManager(order))
             throw new ArgumentException("No order found with the specified id");
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return Content("");
         //order notes
         var orderNoteModels = await orderViewModelService.PrepareOrderNotes(order);
         var gridModel = new DataSourceResult {
@@ -853,6 +983,8 @@ public class OrderController(
         if (order == null || await CheckSalesManager(order))
             return Json(new { Result = false });
 
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return Json(new { Result = false });
         await orderViewModelService.InsertOrderNote(order, downloadId, displayToCustomer, message);
 
         return Json(new { Result = true });
@@ -865,6 +997,9 @@ public class OrderController(
         var order = await orderService.GetOrderById(orderId);
         if (order == null || await CheckSalesManager(order))
             throw new ArgumentException("No order found with the specified id");
+
+        if (await groupService.IsStaff(workContext.CurrentCustomer) &&
+            order.StoreId != workContext.CurrentCustomer.StaffStoreId) return Json(new { Result = false });
 
         await orderViewModelService.DeleteOrderNote(order, id);
 

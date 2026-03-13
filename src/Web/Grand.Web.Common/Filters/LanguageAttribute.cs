@@ -29,10 +29,29 @@ public class LanguageAttribute : TypeFilterAttribute
     /// <summary>
     ///     Represents a filter that checks SEO friendly URLs for multiple languages and properly redirect if necessary
     /// </summary>
-    private class LanguageSeoCodeFilter(
-        IContextAccessor contextAccessor, ILanguageService languageService,
-        AppConfig config) : IAsyncActionFilter
+    private class LanguageSeoCodeFilter : IAsyncActionFilter
     {
+        #region Ctor
+
+        public LanguageSeoCodeFilter(
+            IWorkContext workContext, ILanguageService languageService,
+            AppConfig config)
+        {
+            _workContext = workContext;
+            _languageService = languageService;
+            _config = config;
+        }
+
+        #endregion
+
+        #region Fields
+
+        private readonly IWorkContext _workContext;
+        private readonly ILanguageService _languageService;
+        private readonly AppConfig _config;
+
+        #endregion
+
         #region Methods
 
         /// <summary>
@@ -56,7 +75,7 @@ public class LanguageAttribute : TypeFilterAttribute
             }
 
             //whether SEO friendly URLs are enabled
-            if (!config.SeoFriendlyUrlsForLanguagesEnabled)
+            if (!_config.SeoFriendlyUrlsForLanguagesEnabled)
             {
                 await next();
                 return;
@@ -77,7 +96,7 @@ public class LanguageAttribute : TypeFilterAttribute
                 return;
             }
 
-            pageUrl = AddLanguageSeo(pageUrl, contextAccessor.WorkContext.WorkingLanguage);
+            pageUrl = AddLanguageSeo(pageUrl, _workContext.WorkingLanguage);
             context.Result = new RedirectResult(pageUrl, false);
         }
 
@@ -86,13 +105,13 @@ public class LanguageAttribute : TypeFilterAttribute
             _ = new PathString(url).StartsWithSegments(pathBase, out var result);
             url = WebUtility.UrlDecode(result);
 
-            var firstSegment = url.Split(['/'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ??
+            var firstSegment = url.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ??
                                string.Empty;
             if (string.IsNullOrEmpty(firstSegment))
                 return false;
 
             //suppose that the first segment is the language code and try to get language
-            var language = (await languageService.GetAllLanguages())
+            var language = (await _languageService.GetAllLanguages())
                 .FirstOrDefault(urlLanguage =>
                     urlLanguage.UniqueSeoCode.Equals(firstSegment, StringComparison.OrdinalIgnoreCase));
 
@@ -107,7 +126,7 @@ public class LanguageAttribute : TypeFilterAttribute
             if (!string.IsNullOrEmpty(url)) url = Url.EncodeIllegalCharacters(url);
 
             //add language code
-            url = $"/{language.UniqueSeoCode}/{url?.TrimStart('/')}";
+            url = $"/{language.UniqueSeoCode}/{url.TrimStart('/')}";
 
             return url;
         }

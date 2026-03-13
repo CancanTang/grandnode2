@@ -1,6 +1,5 @@
 ﻿using Grand.Domain.Media;
 using Grand.SharedKernel;
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Bson.Serialization.Options;
@@ -17,13 +16,14 @@ public class MongoDBStartupBase : IStartupBase
     /// </summary>
     public void Execute()
     {
-        BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.CSharpLegacy));
+        BsonSerializer.RegisterSerializer(typeof(DateTime), new BsonUtcDateTimeSerializer());
+
         BsonSerializer.RegisterSerializer(typeof(Dictionary<int, int>),
             new DictionaryInterfaceImplementerSerializer<Dictionary<int, int>>(DictionaryRepresentation.ArrayOfArrays));
 
         //global set an equivalent of [BsonIgnoreExtraElements] for every Domain Model
         var cp = new ConventionPack {
-            new IgnoreExtraElementsConvention(true),
+            new IgnoreExtraElementsConvention(true)
         };
         ConventionRegistry.Register("ApplicationConventions", cp, t => true);
 

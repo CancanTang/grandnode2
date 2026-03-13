@@ -22,13 +22,13 @@ public class
     private readonly OrderSettings _orderSettings;
     private readonly IPriceFormatter _priceFormatter;
     private readonly IProductService _productService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public GetMerchandiseReturnDetailsHandler(
         IProductService productService,
         IMerchandiseReturnService merchandiseReturnService,
         IPriceFormatter priceFormatter,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IMediator mediator,
         IDateTimeService dateTimeService,
         OrderSettings orderSettings)
@@ -36,7 +36,7 @@ public class
         _productService = productService;
         _merchandiseReturnService = merchandiseReturnService;
         _priceFormatter = priceFormatter;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _mediator = mediator;
         _dateTimeService = dateTimeService;
         _orderSettings = orderSettings;
@@ -84,8 +84,8 @@ public class
                 Quantity = item.Quantity,
                 ReasonForReturn = item.ReasonForReturn,
                 RequestedAction = item.RequestedAction,
-                ProductName = product.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id),
-                ProductSeName = product.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id),
+                ProductName = product.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id),
+                ProductSeName = product.GetSeName(_workContext.WorkingLanguage.Id),
                 ProductPrice = unitPrice
             });
         }

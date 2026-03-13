@@ -43,7 +43,7 @@ public class TaxCategoryServiceTests
         var result = await _taxCategoryService.GetAllTaxCategories();
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]
@@ -68,7 +68,7 @@ public class TaxCategoryServiceTests
         //Act
         await _taxCategoryService.InsertTaxCategory(new TaxCategory());
         //Assert
-        Assert.IsNotEmpty(_repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
     }
 
     [TestMethod]
@@ -102,6 +102,6 @@ public class TaxCategoryServiceTests
 
         //Assert
         Assert.IsNull(_repository.Table.FirstOrDefault(x => x.Name == "test"));
-        Assert.HasCount(1, _repository.Table);
+        Assert.AreEqual(1, _repository.Table.Count());
     }
 }

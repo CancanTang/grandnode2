@@ -1,7 +1,8 @@
-﻿using Grand.Business.Core.Interfaces.Authentication;
-using Grand.Domain.Stores;
+﻿using Grand.Domain.Stores;
+using Grand.Infrastructure.Configuration;
 using Grand.Web.Admin.Extensions;
 using Grand.Web.Common.Themes;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Admin.Infrastructure;
 
@@ -11,8 +12,11 @@ public class AdminThemeContext : ThemeContextBase
     private readonly StoreInformationSettings _storeInformationSettings;
     private string _themeName;
 
-    public AdminThemeContext(IHttpContextAccessor contextAccessor, ICookieOptionsFactory cookieOptionsFactory,StoreInformationSettings storeInformationSettings) : 
-        base(contextAccessor, cookieOptionsFactory)
+    public AdminThemeContext(
+        IHttpContextAccessor contextAccessor,
+        SecurityConfig securityConfig,
+        StoreInformationSettings storeInformationSettings) :
+        base(contextAccessor, securityConfig)
     {
         _storeInformationSettings = storeInformationSettings;
         _contextAccessor = contextAccessor;

@@ -5,6 +5,7 @@ using Grand.Domain.Catalog;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Tests.Caching;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -23,6 +24,8 @@ public class ProductTagServiceTests
     [TestInitialize]
     public void InitializeTests()
     {
+        CommonPath.BaseDirectory = "";
+
         _repositoryProductTag = new MongoDBRepositoryTest<ProductTag>();
         _productRepository = new MongoDBRepositoryTest<Product>();
         _mediatorMock = new Mock<IMediator>();
@@ -44,7 +47,7 @@ public class ProductTagServiceTests
         var result = await _productTagService.GetAllProductTags();
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]

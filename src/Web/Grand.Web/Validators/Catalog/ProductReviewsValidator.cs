@@ -4,14 +4,14 @@ using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Domain.Catalog;
-using Grand.Domain.Common;
 using Grand.Domain.Orders;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.Catalog;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.Catalog;
 
@@ -40,8 +40,8 @@ public class ProductReviewsValidator : BaseGrandValidator<ProductReviewsModel>
         IOrderService orderService,
         IProductReviewService productReviewService,
         CaptchaSettings captchaSettings, CatalogSettings catalogSettings,
-        IContextAccessor contextAccessor,
-        IHttpContextAccessor httpcontextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator,
+        IWorkContext workContext,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         ITranslationService translationService)
         : base(validators)
     {
@@ -56,7 +56,7 @@ public class ProductReviewsValidator : BaseGrandValidator<ProductReviewsModel>
         {
             RuleFor(x => x.Captcha).NotNull().WithMessage(translationService.GetResource("Account.Captcha.Required"));
             RuleFor(x => x.Captcha)
-                .SetValidator(new CaptchaValidator(validatorsCaptcha, httpcontextAccessor, googleReCaptchaValidator));
+                .SetValidator(new CaptchaValidator(validatorsCaptcha, contextAccessor, googleReCaptchaValidator));
         }
 
         RuleFor(x => x).CustomAsync(async (x, context, _) =>
@@ -65,18 +65,18 @@ public class ProductReviewsValidator : BaseGrandValidator<ProductReviewsModel>
             if (product is not { Published: true } || !product.AllowCustomerReviews)
                 context.AddFailure("Product is disabled");
 
-            if (await groupService.IsGuest(contextAccessor.WorkContext.CurrentCustomer) &&
+            if (await groupService.IsGuest(workContext.CurrentCustomer) &&
                 !catalogSettings.AllowAnonymousUsersToReviewProduct)
                 context.AddFailure(translationService.GetResource("Reviews.OnlyRegisteredUsersCanWriteReviews"));
 
             if (catalogSettings.ProductReviewPossibleOnlyAfterPurchasing &&
-                !(await orderService.SearchOrders(customerId: contextAccessor.WorkContext.CurrentCustomer.Id, productId: x.ProductId,
+                !(await orderService.SearchOrders(customerId: workContext.CurrentCustomer.Id, productId: x.ProductId,
                     os: (int)OrderStatusSystem.Complete)).Any())
                 context.AddFailure(translationService.GetResource("Reviews.ProductReviewPossibleOnlyAfterPurchasing"));
 
             if (catalogSettings.ProductReviewPossibleOnlyOnce)
             {
-                var reviews = await productReviewService.GetAllProductReviews(contextAccessor.WorkContext.CurrentCustomer.Id,
+                var reviews = await productReviewService.GetAllProductReviews(workContext.CurrentCustomer.Id,
                     productId: x.ProductId,
                     pageSize: 1);
                 if (reviews.Any())

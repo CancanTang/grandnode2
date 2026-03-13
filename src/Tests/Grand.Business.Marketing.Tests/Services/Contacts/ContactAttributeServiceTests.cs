@@ -21,16 +21,16 @@ public class ContactAttributeServiceTests
     private ContactAttributeService _contactAttributeService;
     private Mock<IMediator> _mediatorMock;
     private IRepository<ContactAttribute> _repository;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
     {
         _repository = new MongoDBRepositoryTest<ContactAttribute>();
         _mediatorMock = new Mock<IMediator>();
-        _workContextMock = new Mock<IContextAccessor>();
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer());
+        _workContextMock = new Mock<IWorkContext>();
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         var accessControlConfig = new AccessControlConfig();
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
             new CacheConfig { DefaultCacheTimeMinutes = 1 });
@@ -52,7 +52,7 @@ public class ContactAttributeServiceTests
 
         //Assert
         Assert.IsNull(_repository.Table.FirstOrDefault(x => x.Name == "test"));
-        Assert.IsEmpty(_repository.Table);
+        Assert.AreEqual(0, _repository.Table.Count());
     }
 
     [TestMethod]
@@ -67,7 +67,7 @@ public class ContactAttributeServiceTests
         var result = await _contactAttributeService.GetAllContactAttributes();
 
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 
     [TestMethod]
@@ -97,7 +97,7 @@ public class ContactAttributeServiceTests
         await _contactAttributeService.InsertContactAttribute(contactAttribute);
 
         //Assert
-        Assert.IsNotEmpty(_repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
     }
 
     [TestMethod]

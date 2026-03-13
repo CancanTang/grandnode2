@@ -15,16 +15,16 @@ public class StripeCheckoutService : IStripeCheckoutService
     private readonly IMediator _mediator;
     private readonly IPaymentTransactionService _paymentTransactionService;
     private readonly StripeCheckoutPaymentSettings _stripeCheckoutPaymentSettings;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public StripeCheckoutService(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         StripeCheckoutPaymentSettings stripeCheckoutPaymentSettings,
         ILogger<StripeCheckoutService> logger,
         IMediator mediator,
         IPaymentTransactionService paymentTransactionService)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _stripeCheckoutPaymentSettings = stripeCheckoutPaymentSettings;
         _logger = logger;
         _mediator = mediator;
@@ -44,7 +44,7 @@ public class StripeCheckoutService : IStripeCheckoutService
             var stripeEvent = EventUtility.ConstructEvent(json, stripeSignature,
                 _stripeCheckoutPaymentSettings.WebhookEndpointSecret);
             // Handle the event
-            if (stripeEvent.Type == EventTypes.PaymentIntentSucceeded)
+            if (stripeEvent.Type == Events.PaymentIntentSucceeded)
             {
                 var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
                 await CreatePaymentTransaction(paymentIntent);
@@ -95,7 +95,7 @@ public class StripeCheckoutService : IStripeCheckoutService
     {
         StripeConfiguration.ApiKey = _stripeCheckoutPaymentSettings.ApiKey;
 
-        var storeLocation = _contextAccessor.StoreContext.CurrentHost.Url.TrimEnd('/');
+        var storeLocation = _workContext.CurrentHost.Url.TrimEnd('/');
 
         var options = new SessionCreateOptions {
             LineItems = [

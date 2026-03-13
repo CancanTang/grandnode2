@@ -4,6 +4,7 @@ using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Domain.Directory;
 using Grand.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Grand.Web.Vendor.Controllers;
 
@@ -12,11 +13,11 @@ public class HomeController : BaseVendorController
     #region Ctor
 
     public HomeController(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ILogger<HomeController> logger,
         IGrandAuthenticationService authenticationService)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _logger = logger;
         _authenticationService = authenticationService;
     }
@@ -25,7 +26,7 @@ public class HomeController : BaseVendorController
 
     #region Fields
 
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly ILogger<HomeController> _logger;
     private readonly IGrandAuthenticationService _authenticationService;
 
@@ -43,9 +44,10 @@ public class HomeController : BaseVendorController
         return View();
     }
 
-    public IActionResult AccessDenied()
+    public IActionResult AccessDenied(string pageUrl)
     {
-        _logger.LogInformation("Access denied");
+        _logger.LogInformation("Access denied to user #{CurrentCustomerEmail} on {PageUrl}",
+            _workContext.CurrentCustomer.Email, pageUrl);
         return View();
     }
 

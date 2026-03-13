@@ -22,16 +22,16 @@ public class ProductAttributeFormatter : IProductAttributeFormatter
     private readonly IProductAttributeService _productAttributeService;
     private readonly IProductService _productService;
     private readonly ITaxService _taxService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
-    public ProductAttributeFormatter(IContextAccessor contextAccessor,
+    public ProductAttributeFormatter(IWorkContext workContext,
         IProductAttributeService productAttributeService,
         ITaxService taxService,
         IPriceFormatter priceFormatter,
         IPricingService priceCalculationService,
         IProductService productService)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _productAttributeService = productAttributeService;
         _taxService = taxService;
         _priceFormatter = priceFormatter;
@@ -47,7 +47,7 @@ public class ProductAttributeFormatter : IProductAttributeFormatter
     /// <returns>Attributes</returns>
     public virtual Task<string> FormatAttributes(Product product, IList<CustomAttribute> customAttributes)
     {
-        var customer = _contextAccessor.WorkContext.CurrentCustomer;
+        var customer = _workContext.CurrentCustomer;
         return FormatAttributes(product, customAttributes, customer);
     }
 
@@ -75,8 +75,8 @@ public class ProductAttributeFormatter : IProductAttributeFormatter
         if (customAttributes == null || !customAttributes.Any())
             return result.ToString();
 
-        var langId = _contextAccessor.WorkContext.WorkingLanguage != null
-            ? _contextAccessor.WorkContext.WorkingLanguage.Id
+        var langId = _workContext.WorkingLanguage != null
+            ? _workContext.WorkingLanguage.Id
             : customer?.GetUserFieldFromEntity<string>(SystemCustomerFieldNames.LanguageId);
 
         if (string.IsNullOrEmpty(langId))
@@ -195,7 +195,7 @@ public class ProductAttributeFormatter : IProductAttributeFormatter
                                 if (allowHyperlinks)
                                 {
                                     var downloadLink =
-                                        $"{_contextAccessor.StoreContext.CurrentHost.Url.TrimEnd('/')}/download/getfileupload/?downloadId={downloadGuid}";
+                                        $"{_workContext.CurrentHost.Url.TrimEnd('/')}/download/getfileupload/?downloadId={downloadGuid}";
                                     attributeText =
                                         $"<a href=\"{downloadLink}\" class=\"fileuploadattribute\">{attribute.GetTranslation(a => a.TextPrompt, langId)}</a>";
                                 }
@@ -222,9 +222,9 @@ public class ProductAttributeFormatter : IProductAttributeFormatter
                     //attributes with values
                     if (product.ProductAttributeMappings.FirstOrDefault(x => x.Id == attributes[i].Id) != null)
                     {
-                        var attributeMapping = product.ProductAttributeMappings.FirstOrDefault(x => x.Id == attributes[i].Id);
-                        var attributeValue = attributeMapping?.ProductAttributeValues.FirstOrDefault(x => x.Id == valueStr);
-
+                        var attributeValue = product.ProductAttributeMappings
+                            .FirstOrDefault(x => x.Id == attributes[i].Id).ProductAttributeValues
+                            .FirstOrDefault(x => x.Id == valueStr);
                         if (attributeValue != null)
                         {
                             formattedAttribute =
@@ -235,20 +235,20 @@ public class ProductAttributeFormatter : IProductAttributeFormatter
                                 var attributeValuePriceAdjustment =
                                     await _pricingService.GetProductAttributeValuePriceAdjustment(attributeValue);
                                 var (priceAdjustmentBase, _) = await _taxService.GetProductPrice(product,
-                                    attributeValuePriceAdjustment, _contextAccessor.WorkContext.CurrentCustomer);
+                                    attributeValuePriceAdjustment, _workContext.CurrentCustomer);
                                 switch (priceAdjustmentBase)
                                 {
                                     case > 0:
                                     {
                                         var priceAdjustmentStr = _priceFormatter.FormatPrice(priceAdjustmentBase,
-                                            _contextAccessor.WorkContext.WorkingCurrency);
+                                            _workContext.WorkingCurrency);
                                         formattedAttribute += $" [+{priceAdjustmentStr}]";
                                         break;
                                     }
                                     case < 0:
                                     {
                                         var priceAdjustmentStr = _priceFormatter.FormatPrice(-priceAdjustmentBase,
-                                            _contextAccessor.WorkContext.WorkingCurrency);
+                                            _workContext.WorkingCurrency);
                                         formattedAttribute += $" [-{priceAdjustmentStr}]";
                                         break;
                                     }

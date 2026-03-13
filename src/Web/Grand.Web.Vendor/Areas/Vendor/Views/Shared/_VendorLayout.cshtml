@@ -4,13 +4,13 @@
 @using Grand.Web.Vendor.Components
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @using Constants = Grand.SharedUIResources.Constants
-@inject IContextAccessor contextAccessor
+@inject IWorkContext workContext
 @inject LanguageSettings languageSettings
 @inject VendorSettings vendorSettings
 @{
-    var currentCustomer = contextAccessor.WorkContext.CurrentCustomer;
+    var currentCustomer = workContext.CurrentCustomer;
     var currentVersion = GrandVersion.FullVersion;
-    var supportRtl = contextAccessor.WorkContext.WorkingLanguage.Rtl &&
+    var supportRtl = workContext.WorkingLanguage.Rtl &&
                      !languageSettings.IgnoreRtlPropertyForAdminArea;
 
     //page title

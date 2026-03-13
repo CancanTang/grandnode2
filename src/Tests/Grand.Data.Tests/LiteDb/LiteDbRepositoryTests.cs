@@ -1,4 +1,5 @@
 ﻿using Grand.Domain.Common;
+using Grand.SharedKernel.Extensions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Grand.Data.Tests.LiteDb;
@@ -9,7 +10,7 @@ public class LiteDbRepositoryTests
     [TestInitialize]
     public void Init()
     {
-
+        CommonPath.BaseDirectory = "";
     }
 
     [TestMethod]
@@ -23,7 +24,7 @@ public class LiteDbRepositoryTests
         myRepository.Insert(product);
         //Assert
         Assert.AreEqual(1, myRepository.Table.Count());
-        Assert.AreEqual("user", myRepository.Table.FirstOrDefault(x => x.Id == "1")!.CreatedBy);
+        Assert.IsTrue(myRepository.Table.FirstOrDefault(x => x.Id == "1")!.CreatedBy == "user");
     }
 
     [TestMethod]
@@ -38,7 +39,7 @@ public class LiteDbRepositoryTests
         //Assert
         Assert.IsNotNull(p);
         Assert.AreEqual(1, myRepository.Table.Count());
-        Assert.AreEqual("user", p.CreatedBy);
+        Assert.IsTrue(p.CreatedBy == "user");
     }
 
     [TestMethod]
@@ -98,7 +99,7 @@ public class LiteDbRepositoryTests
 
         await myRepository.ClearAsync();
 
-        Assert.IsEmpty(myRepository.Table);
+        Assert.IsTrue(myRepository.Table.Count() == 0);
     }
 
     [TestMethod]
@@ -118,9 +119,9 @@ public class LiteDbRepositoryTests
         var p = myRepository.GetById("1");
 
         //Assert
-        Assert.HasCount(2, p.UserFields);
+        Assert.IsTrue(p.UserFields.Count == 2);
         Assert.IsTrue(p.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p.UpdatedBy);
+        Assert.IsTrue(p.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -162,7 +163,7 @@ public class LiteDbRepositoryTests
 
         await myRepository.DeleteManyAsync(x => x.Name == "Test");
 
-        Assert.AreEqual(1, myRepository.Table.Count());
+        Assert.IsTrue(myRepository.Table.Count() == 1);
     }
 
     [TestMethod]
@@ -173,11 +174,11 @@ public class LiteDbRepositoryTests
         var products = new List<SampleCollection> {
             new() {
                 Id = "1", Name = "Test",
-                Phones = ["Phone1", "Phone2", "Phone3"]
+                Phones = new[] { "Phone1", "Phone2", "Phone3" }
             },
             new() {
                 Id = "2", Name = "Test2",
-                Phones = ["Phone1", "Phone2", "Phone3"]
+                Phones = new[] { "Phone1", "Phone2", "Phone3" }
             },
             new() { Id = "3", Name = "Test3" }
         };
@@ -187,9 +188,9 @@ public class LiteDbRepositoryTests
         var p = myRepository.GetById("1");
 
         //Assert
-        Assert.HasCount(2, p.Phones);
+        Assert.IsTrue(p.Phones.Count == 2);
         Assert.IsTrue(p.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p.UpdatedBy);
+        Assert.IsTrue(p.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -200,11 +201,11 @@ public class LiteDbRepositoryTests
         var products = new List<SampleCollection> {
             new() {
                 Id = "1", Name = "Test",
-                Phones = ["Phone1", "Phone2", "Phone3"]
+                Phones = new[] { "Phone1", "Phone2", "Phone3" }
             },
             new() {
                 Id = "2", Name = "Test2",
-                Phones = ["Phone1", "Phone2", "Phone3"]
+                Phones = new[] { "Phone1", "Phone2", "Phone3" }
             },
             new() { Id = "3", Name = "Test3" }
         };
@@ -218,11 +219,9 @@ public class LiteDbRepositoryTests
         var p3 = myRepository.GetById("3");
 
         //Assert
-        Assert.HasCount(2, p1.Phones);
-        Assert.HasCount(2, p2.Phones);
-        Assert.IsEmpty(p3.Phones);
+        Assert.IsTrue(p1.Phones.Count == 2 && p2.Phones.Count == 2 && p3.Phones.Count == 0);
         Assert.IsTrue(p1.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p1.UpdatedBy);
+        Assert.IsTrue(p1.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -249,9 +248,9 @@ public class LiteDbRepositoryTests
         var p1 = myRepository.GetById("1");
 
         //Assert
-        Assert.HasCount(2, p1.UserFields);
+        Assert.IsTrue(p1.UserFields.Count == 2);
         Assert.IsTrue(p1.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p1.UpdatedBy);
+        Assert.IsTrue(p1.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -279,9 +278,9 @@ public class LiteDbRepositoryTests
         var p1 = myRepository.GetById("1");
 
         //Assert
-        Assert.HasCount(1, p1.UserFields);
+        Assert.IsTrue(p1.UserFields.Count == 1);
         Assert.IsTrue(p1.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p1.UpdatedBy);
+        Assert.IsTrue(p1.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -317,10 +316,9 @@ public class LiteDbRepositoryTests
         var p2 = myRepository.GetById("2");
 
         //Assert
-        Assert.HasCount(1, p1.UserFields);
-        Assert.HasCount(2, p2.UserFields);
+        Assert.IsTrue(p1.UserFields.Count == 1 && p2.UserFields.Count == 2);
         Assert.IsTrue(p1.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p1.UpdatedBy);
+        Assert.IsTrue(p1.UpdatedBy == "user");
     }
 
 
@@ -352,9 +350,9 @@ public class LiteDbRepositoryTests
         var p1 = myRepository.GetById("1");
 
         //Assert
-        Assert.AreEqual("update", p1.Name);
+        Assert.IsTrue(p1.Name == "update");
         Assert.IsTrue(p1.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p1.UpdatedBy);
+        Assert.IsTrue(p1.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -383,9 +381,9 @@ public class LiteDbRepositoryTests
 
         var p1 = myRepository.GetById("1");
         //Assert
-        Assert.AreEqual("update", p1.Name);
+        Assert.IsTrue(p1.Name == "update");
         Assert.IsTrue(p1.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p1.UpdatedBy);
+        Assert.IsTrue(p1.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -412,9 +410,9 @@ public class LiteDbRepositoryTests
         var p1 = myRepository.GetById("1");
 
         //Assert
-        Assert.AreEqual("update", p1.Name);
+        Assert.IsTrue(p1.Name == "update");
         Assert.IsTrue(p1.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p1.UpdatedBy);
+        Assert.IsTrue(p1.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -430,7 +428,7 @@ public class LiteDbRepositoryTests
 
         var p1 = myRepository.GetById("1");
 
-        Assert.AreEqual(3, p1.Count);
+        Assert.IsTrue(p1.Count == 3);
     }
 
     [TestMethod]
@@ -459,9 +457,9 @@ public class LiteDbRepositoryTests
         var pUpdated = myRepository.Table.Where(x => x.Name == "UpdateTest");
 
         //Asser 
-        Assert.AreEqual(2, pUpdated.Count());
+        Assert.IsTrue(pUpdated.Count() == 2);
         Assert.IsTrue(pUpdated.FirstOrDefault()!.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", pUpdated.FirstOrDefault()!.UpdatedBy);
+        Assert.IsTrue(pUpdated.FirstOrDefault()!.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -489,9 +487,9 @@ public class LiteDbRepositoryTests
         var pUpdated = myRepository.Table.Where(x => x.Name == "UpdateTest");
 
         //Assert
-        Assert.AreEqual(1, pUpdated.Count());
+        Assert.IsTrue(pUpdated.Count() == 1);
         Assert.IsTrue(pUpdated.FirstOrDefault()!.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", pUpdated.FirstOrDefault()!.UpdatedBy);
+        Assert.IsTrue(pUpdated.FirstOrDefault()!.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -519,9 +517,9 @@ public class LiteDbRepositoryTests
         var p = myRepository.GetById("1");
 
         //Assert
-        Assert.AreEqual("update", p.UserFields!.FirstOrDefault(x => x.Key == "key")!.Value);
+        Assert.IsTrue(p.UserFields!.FirstOrDefault(x => x.Key == "key")!.Value == "update");
         Assert.IsTrue(p.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p.UpdatedBy);
+        Assert.IsTrue(p.UpdatedBy == "user");
     }
 
     [TestMethod]
@@ -549,8 +547,8 @@ public class LiteDbRepositoryTests
         var p = myRepository.GetById("1");
 
         //Assert
-        Assert.AreEqual("update", p.UserFields!.FirstOrDefault(x => x.Key == "key")!.Value);
+        Assert.IsTrue(p.UserFields!.FirstOrDefault(x => x.Key == "key")!.Value == "update");
         Assert.IsTrue(p.UpdatedOnUtc.HasValue);
-        Assert.AreEqual("user", p.UpdatedBy);
+        Assert.IsTrue(p.UpdatedBy == "user");
     }
 }

@@ -1,7 +1,6 @@
 ﻿using Grand.Business.Core.Interfaces.Catalog.Products;
 using Grand.Business.Core.Interfaces.Checkout.Orders;
 using Grand.Business.Core.Interfaces.Checkout.Shipping;
-using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Customers;
 using Grand.Business.Core.Interfaces.Marketing.Documents;
@@ -10,7 +9,6 @@ using Grand.Domain.Catalog;
 using Grand.Domain.Customers;
 using Grand.Domain.Orders;
 using Grand.Infrastructure;
-using Grand.SharedKernel.Attributes;
 using Grand.Web.Common.Controllers;
 using Grand.Web.Common.Filters;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +19,6 @@ using OperatingSystem = Grand.Infrastructure.OperatingSystem;
 namespace Grand.Web.Controllers;
 
 [DenySystemAccount]
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class DownloadController : BasePublicController
 {
     private readonly CustomerSettings _customerSettings;
@@ -30,13 +27,13 @@ public class DownloadController : BasePublicController
     private readonly IOrderService _orderService;
     private readonly IProductService _productService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public DownloadController(IDownloadService downloadService,
         IProductService productService,
         IOrderService orderService,
         IMerchandiseReturnService merchandiseReturnService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         ITranslationService translationService,
         CustomerSettings customerSettings)
     {
@@ -44,7 +41,7 @@ public class DownloadController : BasePublicController
         _productService = productService;
         _orderService = orderService;
         _merchandiseReturnService = merchandiseReturnService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _translationService = translationService;
         _customerSettings = customerSettings;
     }
@@ -54,7 +51,7 @@ public class DownloadController : BasePublicController
     {
         var product = await _productService.GetProductById(productId);
         if (product == null)
-            return NotFound();
+            return InvokeHttp404();
 
         if (!product.HasSampleDownload)
             return Content("Product doesn't have a sample download.");
@@ -82,7 +79,7 @@ public class DownloadController : BasePublicController
     {
         var orderItem = await _orderService.GetOrderItemByGuid(orderItemId);
         if (orderItem == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var order = await _orderService.GetOrderByOrderItemId(orderItem.Id);
         var product = await _productService.GetProductById(orderItem.ProductId);
@@ -91,10 +88,10 @@ public class DownloadController : BasePublicController
 
         if (_customerSettings.DownloadableProductsValidateUser)
         {
-            if (_contextAccessor.WorkContext.CurrentCustomer == null)
+            if (_workContext.CurrentCustomer == null)
                 return Challenge();
 
-            if (order.CustomerId != _contextAccessor.WorkContext.CurrentCustomer.Id && order.OwnerId != _contextAccessor.WorkContext.CurrentCustomer.Id)
+            if (order.CustomerId != _workContext.CurrentCustomer.Id && order.OwnerId != _workContext.CurrentCustomer.Id)
                 return Content("This is not your order");
         }
 
@@ -179,7 +176,7 @@ public class DownloadController : BasePublicController
         }
 
         return File(memoryStream.ToArray(), "application/zip",
-            $"{Regex.Replace(product.Name, "[^A-Za-z0-9 _]", "", RegexOptions.Compiled, TimeSpan.FromSeconds(1))}.zip");
+            $"{Regex.Replace(product.Name, "[^A-Za-z0-9 _]", "")}.zip");
     }
 
     [HttpGet]
@@ -187,7 +184,7 @@ public class DownloadController : BasePublicController
     {
         var orderItem = await _orderService.GetOrderItemByGuid(orderItemId);
         if (orderItem == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var order = await _orderService.GetOrderByOrderItemId(orderItem.Id);
         var product = await _productService.GetProductById(orderItem.ProductId);
@@ -195,7 +192,7 @@ public class DownloadController : BasePublicController
             return Content("Downloads are not allowed");
 
         if (_customerSettings.DownloadableProductsValidateUser)
-            if (order.CustomerId != _contextAccessor.WorkContext.CurrentCustomer.Id && order.OwnerId != _contextAccessor.WorkContext.CurrentCustomer.Id)
+            if (order.CustomerId != _workContext.CurrentCustomer.Id && order.OwnerId != _workContext.CurrentCustomer.Id)
                 return Challenge();
 
         var download = await _downloadService.GetDownloadById(!string.IsNullOrEmpty(orderItem.LicenseDownloadId)
@@ -221,15 +218,13 @@ public class DownloadController : BasePublicController
     }
 
     [HttpGet]
-    public virtual async Task<IActionResult> GetFileUpload(Guid downloadId, [FromServices] IGroupService groupService)
+    public virtual async Task<IActionResult> GetFileUpload(Guid downloadId)
     {
         var download = await _downloadService.GetDownloadByGuid(downloadId);
         if (download == null)
             return Content("Download is not available any more.");
 
-        if (_contextAccessor.WorkContext.CurrentCustomer == null ||
-            (!await groupService.IsAdmin(_contextAccessor.WorkContext.CurrentCustomer)
-            && download.CustomerId != _contextAccessor.WorkContext.CurrentCustomer.Id))
+        if (_workContext.CurrentCustomer == null || download.CustomerId != _workContext.CurrentCustomer.Id)
             return Challenge();
 
         if (download.UseDownloadUrl)
@@ -253,14 +248,14 @@ public class DownloadController : BasePublicController
     {
         var orderNote = await _orderService.GetOrderNote(orderNoteId);
         if (orderNote == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var order = await _orderService.GetOrderById(orderNote.OrderId);
         if (order == null)
-            return NotFound();
+            return InvokeHttp404();
 
-        if (_contextAccessor.WorkContext.CurrentCustomer == null || (order.CustomerId != _contextAccessor.WorkContext.CurrentCustomer.Id &&
-                                                     order.OwnerId != _contextAccessor.WorkContext.CurrentCustomer.Id))
+        if (_workContext.CurrentCustomer == null || (order.CustomerId != _workContext.CurrentCustomer.Id &&
+                                                     order.OwnerId != _workContext.CurrentCustomer.Id))
             return Challenge();
 
         var download = await _downloadService.GetDownloadById(orderNote.DownloadId);
@@ -289,18 +284,18 @@ public class DownloadController : BasePublicController
     {
         var shipmentNote = await shipmentService.GetShipmentNote(shipmentNoteId);
         if (shipmentNote == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var shipment = await shipmentService.GetShipmentById(shipmentNote.ShipmentId);
         if (shipment == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var order = await _orderService.GetOrderById(shipment.OrderId);
         if (order == null)
-            return NotFound();
+            return InvokeHttp404();
 
-        if (_contextAccessor.WorkContext.CurrentCustomer == null || (order.CustomerId != _contextAccessor.WorkContext.CurrentCustomer.Id &&
-                                                     order.OwnerId != _contextAccessor.WorkContext.CurrentCustomer.Id))
+        if (_workContext.CurrentCustomer == null || (order.CustomerId != _workContext.CurrentCustomer.Id &&
+                                                     order.OwnerId != _workContext.CurrentCustomer.Id))
             return Challenge();
 
         var download = await _downloadService.GetDownloadById(shipmentNote.DownloadId);
@@ -332,9 +327,9 @@ public class DownloadController : BasePublicController
 
         var customerNote = await customerNoteService.GetCustomerNote(customerNoteId);
         if (customerNote == null)
-            return NotFound();
+            return InvokeHttp404();
 
-        if (_contextAccessor.WorkContext.CurrentCustomer == null || customerNote.CustomerId != _contextAccessor.WorkContext.CurrentCustomer.Id)
+        if (_workContext.CurrentCustomer == null || customerNote.CustomerId != _workContext.CurrentCustomer.Id)
             return Challenge();
 
         var download = await _downloadService.GetDownloadById(customerNote.DownloadId);
@@ -362,14 +357,14 @@ public class DownloadController : BasePublicController
     {
         var merchandiseReturnNote = await _merchandiseReturnService.GetMerchandiseReturnNote(merchandiseReturnNoteId);
         if (merchandiseReturnNote == null)
-            return NotFound();
+            return InvokeHttp404();
 
         var merchandiseReturn =
             await _merchandiseReturnService.GetMerchandiseReturnById(merchandiseReturnNote.MerchandiseReturnId);
         if (merchandiseReturn == null)
-            return NotFound();
+            return InvokeHttp404();
 
-        if (_contextAccessor.WorkContext.CurrentCustomer == null || merchandiseReturn.CustomerId != _contextAccessor.WorkContext.CurrentCustomer.Id)
+        if (_workContext.CurrentCustomer == null || merchandiseReturn.CustomerId != _workContext.CurrentCustomer.Id)
             return Challenge();
 
         var download = await _downloadService.GetDownloadById(merchandiseReturnNote.DownloadId);
@@ -401,9 +396,9 @@ public class DownloadController : BasePublicController
 
         var document = await documentService.GetById(documentId);
         if (document is not { Published: true })
-            return NotFound();
+            return InvokeHttp404();
 
-        if (_contextAccessor.WorkContext.CurrentCustomer == null || document.CustomerId != _contextAccessor.WorkContext.CurrentCustomer.Id)
+        if (_workContext.CurrentCustomer == null || document.CustomerId != _workContext.CurrentCustomer.Id)
             return Challenge();
 
         var download = await _downloadService.GetDownloadById(document.DownloadId);

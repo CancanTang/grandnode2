@@ -4,13 +4,13 @@ using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Security;
 using Grand.Domain.Blogs;
-using Grand.Domain.Common;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.Blogs;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.Blogs;
 
@@ -19,10 +19,10 @@ public class AddBlogCommentValidator : BaseGrandValidator<AddBlogCommentModel>
     public AddBlogCommentValidator(
         IEnumerable<IValidatorConsumer<AddBlogCommentModel>> validators,
         IEnumerable<IValidatorConsumer<ICaptchaValidModel>> validatorsCaptcha,
-        CaptchaSettings captchaSettings, IHttpContextAccessor httpcontextAccessor,
-        IGoogleReCaptchaValidator googleReCaptchaValidator,
+        CaptchaSettings captchaSettings, IHttpContextAccessor contextAccessor,
+        GoogleReCaptchaValidator googleReCaptchaValidator,
         BlogSettings blogSettings,
-        IGroupService groupService, IContextAccessor contextAccessor, IBlogService blogService, IAclService aclService,
+        IGroupService groupService, IWorkContext workContext, IBlogService blogService, IAclService aclService,
         ITranslationService translationService)
         : base(validators)
     {
@@ -31,7 +31,7 @@ public class AddBlogCommentValidator : BaseGrandValidator<AddBlogCommentModel>
 
         RuleFor(x => x).CustomAsync(async (x, context, _) =>
         {
-            if (await groupService.IsGuest(contextAccessor.WorkContext.CurrentCustomer) &&
+            if (await groupService.IsGuest(workContext.CurrentCustomer) &&
                 !blogSettings.AllowNotRegisteredUsersToLeaveComments)
                 context.AddFailure(
                     translationService.GetResource("Blog.Comments.OnlyRegisteredUsersLeaveComments"));
@@ -44,7 +44,7 @@ public class AddBlogCommentValidator : BaseGrandValidator<AddBlogCommentModel>
             if (blogPost is not { AllowComments: true })
                 context.AddFailure(translationService.GetResource("Blog.Comments.NotAllowed"));
 
-            if (!aclService.Authorize(blogPost, contextAccessor.StoreContext.CurrentStore.Id))
+            if (!aclService.Authorize(blogPost, workContext.CurrentStore.Id))
                 context.AddFailure(translationService.GetResource("Blog.Comments.NotAllowed"));
 
             if (blogPost == null ||
@@ -57,7 +57,7 @@ public class AddBlogCommentValidator : BaseGrandValidator<AddBlogCommentModel>
         {
             RuleFor(x => x.Captcha).NotNull().WithMessage(translationService.GetResource("Account.Captcha.Required"));
             RuleFor(x => x.Captcha)
-                .SetValidator(new CaptchaValidator(validatorsCaptcha, httpcontextAccessor, googleReCaptchaValidator));
+                .SetValidator(new CaptchaValidator(validatorsCaptcha, contextAccessor, googleReCaptchaValidator));
         }
     }
 }

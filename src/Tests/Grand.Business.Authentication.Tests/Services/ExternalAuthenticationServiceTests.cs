@@ -6,7 +6,6 @@ using Grand.Business.Core.Utilities.Authentication;
 using Grand.Data;
 using Grand.Data.Tests.MongoDb;
 using Grand.Domain.Customers;
-using Grand.Domain.Stores;
 using Grand.Infrastructure;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -26,7 +25,7 @@ public class ExternalAuthenticationServiceTests
     private ExternalAuthenticationService _externalAuthenticationService;
     private Mock<IGroupService> _groupServiceMock;
     private Mock<IMediator> _mediatorMock;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
@@ -37,9 +36,7 @@ public class ExternalAuthenticationServiceTests
         _customerManagerServiceMock = new Mock<ICustomerManagerService>();
         _mediatorMock = new Mock<IMediator>();
         _externalAuthenticationRecordRepository = new MongoDBRepositoryTest<ExternalAuthentication>();
-        _workContextMock = new Mock<IContextAccessor>();
-        _workContextMock.Setup(s => s.WorkContext.CurrentCustomer).Returns(new Customer());
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock = new Mock<IWorkContext>();
         _externalAuthenticationProviders = new List<IExternalAuthenticationProvider>
             { new ExternalAuthenticationProviderTest() };
 

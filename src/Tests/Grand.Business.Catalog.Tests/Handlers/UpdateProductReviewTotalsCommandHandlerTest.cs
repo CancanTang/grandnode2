@@ -6,6 +6,7 @@ using Grand.Data.Tests.MongoDb;
 using Grand.Domain;
 using Grand.Domain.Catalog;
 using Grand.Infrastructure.Caching;
+using Grand.SharedKernel.Extensions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MongoDB.Driver;
 using Moq;
@@ -25,6 +26,8 @@ public class UpdateProductReviewTotalsCommandHandlerTest
     [TestInitialize]
     public void Init()
     {
+        CommonPath.BaseDirectory = "";
+
         var reviews = new List<ProductReview> {
             new() { Id = "1", ReplyText = "text1" },
             new() { Id = "2", ReplyText = "text2" }
@@ -61,7 +64,7 @@ public class UpdateProductReviewTotalsCommandHandlerTest
     {
         var request = new UpdateProductReviewTotalsCommand();
 
-        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+        await Assert.ThrowsExceptionAsync<ArgumentNullException>(
             async () => await _updateProductReviewTotalsCommandHandler.Handle(request, default));
     }
 

@@ -1,17 +1,16 @@
 ﻿@using Grand.Business.Core.Interfaces.Common.Directory
 @using Grand.Business.Core.Interfaces.Common.Security
-@using Grand.Domain.Permissions
+@using Grand.Business.Core.Utilities.Common.Security
 @inject IGroupService groupService
-@inject IContextAccessor contextAccessor
+@inject IWorkContext workContext
 @inject IPageHeadBuilder pagebuilder
 @inject IPermissionService permissionService
 @{
     var registerUrl = Url.RouteUrl("Register", new { returnUrl = Context.Request.Query["returnUrl"] });
-    var isAuthenticated = await groupService.IsRegistered(contextAccessor.WorkContext.CurrentCustomer);
-    var isCustomerImpersonated = contextAccessor.WorkContext.OriginalCustomerIfImpersonated != null;
+    var isAuthenticated = await groupService.IsRegistered(workContext.CurrentCustomer);
+    var isCustomerImpersonated = workContext.OriginalCustomerIfImpersonated != null;
     var isAdminAccess = await permissionService.Authorize(StandardPermission.ManageAccessAdminPanel);
-    var isVendor = contextAccessor.WorkContext.CurrentVendor != null;
-    var isStaffStore = contextAccessor.WorkContext.CurrentCustomer.StaffStoreId != null;
+    var isVendor = workContext.CurrentVendor != null;
 }
 
 @await Component.InvokeAsync("Widget", new { widgetZone = "header_links_before" })
@@ -20,7 +19,7 @@
     {
         <a class="btn btn-outline-secondary w-100 mb-2" href="@Url.RouteUrl("Logout")" title="@Loc["Account.ImpersonatedAs.Finish.Hint"]">
             <b-icon icon="door-closed"></b-icon>
-            <span class="text text-uppercase ml-3">@string.Format(Loc["Account.ImpersonatedAs"], contextAccessor.WorkContext.CurrentCustomer.Email ?? "GUEST")</span>
+            <span class="text text-uppercase ml-3">@string.Format(Loc["Account.ImpersonatedAs"], workContext.CurrentCustomer.Email ?? "GUEST")</span>
         </a>
     }
     @if (isAuthenticated)
@@ -40,13 +39,7 @@
                 <span class="text text-uppercase ml-3">@Loc["vendor.portal"]</span>
             </a>
         }
-        @if (isStaffStore)
-        {
-            <a class="btn btn-outline-secondary w-100 mb-2" href="@Url.Content("~/Store")">
-                <b-icon icon="gear"></b-icon>
-                <span class="text text-uppercase ml-3">@Loc["store.portal"]</span>
-            </a>
-        }
+
         @if (!string.IsNullOrEmpty(pagebuilder.EditPageUrl))
         {
             <a target="_blank" class="btn btn-outline-secondary w-100 mb-2" href="@pagebuilder.EditPageUrl">

@@ -23,7 +23,6 @@ public class PageLayoutServiceTests
 
     private IRepository<PageLayout> _repository;
     private Mock<IWorkContext> _workContextMock;
-    private Mock<IStoreContext> _storeContextMock;
 
     [TestInitialize]
     public void Init()
@@ -32,11 +31,11 @@ public class PageLayoutServiceTests
 
         _mediatorMock = new Mock<IMediator>();
         _workContextMock = new Mock<IWorkContext>();
-        _storeContextMock = new Mock<IStoreContext>();
+
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
             new CacheConfig { DefaultCacheTimeMinutes = 1 });
 
-        _storeContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "", Name = "test store" });
         _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
 
         _pageLayoutService = new PageLayoutService(_repository, _cacheBase, _mediatorMock.Object);
@@ -87,7 +86,7 @@ public class PageLayoutServiceTests
         pageLayout.Name = "test";
         await _pageLayoutService.UpdatePageLayout(pageLayout);
         //Assert
-        Assert.AreEqual("test", _repository.Table.FirstOrDefault(x => x.Id == pageLayout.Id).Name);
+        Assert.IsTrue(_repository.Table.FirstOrDefault(x => x.Id == pageLayout.Id).Name == "test");
     }
 
     [TestMethod]

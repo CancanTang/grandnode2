@@ -1,5 +1,5 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Security;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Data;
 using Grand.Domain.Stores;
 using Microsoft.AspNetCore.Mvc;
@@ -30,9 +30,19 @@ public class PublicStoreAttribute : TypeFilterAttribute
     /// <summary>
     ///     Represents a filter that confirms access to public store
     /// </summary>
-    private class AccessPublicStoreFilter(bool ignoreFilter, IPermissionService permissionService,
-        StoreInformationSettings storeInformationSettings) : IAsyncAuthorizationFilter
+    private class AccessPublicStoreFilter : IAsyncAuthorizationFilter
     {
+        #region Ctor
+
+        public AccessPublicStoreFilter(bool ignoreFilter, IPermissionService permissionService,
+            StoreInformationSettings storeInformationSettings)
+        {
+            _ignoreFilter = ignoreFilter;
+            _permissionService = permissionService;
+            _storeInformationSettings = storeInformationSettings;
+        }
+
+        #endregion
 
         #region Methods
 
@@ -52,22 +62,30 @@ public class PublicStoreAttribute : TypeFilterAttribute
 
 
             //ignore filter (the action is available even if navigation is not allowed)
-            if (actionFilter?.IgnoreFilter ?? ignoreFilter)
+            if (actionFilter?.IgnoreFilter ?? _ignoreFilter)
                 return;
 
             if (!DataSettingsManager.DatabaseIsInstalled())
                 return;
 
             //check whether current customer has access to a public store
-            if (await permissionService.Authorize(StandardPermission.PublicStoreAllowNavigation))
+            if (await _permissionService.Authorize(StandardPermission.PublicStoreAllowNavigation))
                 return;
 
-            filterContext.Result = storeInformationSettings.StoreClosed
+            filterContext.Result = _storeInformationSettings.StoreClosed
                 ? new RedirectToRouteResult("StoreClosed", new RouteValueDictionary())
                 :
                 //customer has not access to a public store
                 new RedirectToRouteResult("Login", new RouteValueDictionary());
         }
+
+        #endregion
+
+        #region Fields
+
+        private readonly bool _ignoreFilter;
+        private readonly IPermissionService _permissionService;
+        private readonly StoreInformationSettings _storeInformationSettings;
 
         #endregion
     }

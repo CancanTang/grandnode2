@@ -25,10 +25,10 @@ public class GetHomePageBlogHandler : IRequestHandler<GetHomePageBlog, HomePageB
     private readonly MediaSettings _mediaSettings;
     private readonly IPictureService _pictureService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public GetHomePageBlogHandler(IBlogService blogService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IPictureService pictureService,
         ITranslationService translationService,
         IDateTimeService dateTimeService,
@@ -37,7 +37,7 @@ public class GetHomePageBlogHandler : IRequestHandler<GetHomePageBlog, HomePageB
         MediaSettings mediaSettings)
     {
         _blogService = blogService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _pictureService = pictureService;
         _translationService = translationService;
         _dateTimeService = dateTimeService;
@@ -50,21 +50,21 @@ public class GetHomePageBlogHandler : IRequestHandler<GetHomePageBlog, HomePageB
     public async Task<HomePageBlogItemsModel> Handle(GetHomePageBlog request, CancellationToken cancellationToken)
     {
         var cacheKey = string.Format(CacheKeyConst.BLOG_HOMEPAGE_MODEL_KEY,
-            _contextAccessor.WorkContext.WorkingLanguage.Id,
-            _contextAccessor.StoreContext.CurrentStore.Id);
+            _workContext.WorkingLanguage.Id,
+            _workContext.CurrentStore.Id);
         var cachedModel = await _cacheBase.GetAsync(cacheKey, async () =>
         {
             var model = new HomePageBlogItemsModel();
 
-            var blogPosts = await _blogService.GetAllBlogPosts(_contextAccessor.StoreContext.CurrentStore.Id,
+            var blogPosts = await _blogService.GetAllBlogPosts(_workContext.CurrentStore.Id,
                 null, null, 0, _blogSettings.HomePageBlogCount);
 
             foreach (var post in blogPosts)
             {
                 var item = new HomePageBlogItemsModel.BlogItemModel();
-                var description = post.GetTranslation(x => x.BodyOverview, _contextAccessor.WorkContext.WorkingLanguage.Id);
-                item.SeName = post.GetSeName(_contextAccessor.WorkContext.WorkingLanguage.Id);
-                item.Title = post.GetTranslation(x => x.Title, _contextAccessor.WorkContext.WorkingLanguage.Id);
+                var description = post.GetTranslation(x => x.BodyOverview, _workContext.WorkingLanguage.Id);
+                item.SeName = post.GetSeName(_workContext.WorkingLanguage.Id);
+                item.Title = post.GetTranslation(x => x.Title, _workContext.WorkingLanguage.Id);
                 item.Short = description?.Length > _blogSettings.MaxTextSizeHomePage
                     ? description[.._blogSettings.MaxTextSizeHomePage]
                     : description;
@@ -72,7 +72,7 @@ public class GetHomePageBlogHandler : IRequestHandler<GetHomePageBlog, HomePageB
                     _dateTimeService.ConvertToUserTime(post.StartDateUtc ?? post.CreatedOnUtc, DateTimeKind.Utc);
                 item.UserFields = post.UserFields;
                 item.Category = (await _blogService.GetBlogCategoryByPostId(post.Id)).FirstOrDefault()
-                    ?.GetTranslation(x => x.Name, _contextAccessor.WorkContext.WorkingLanguage.Id);
+                    ?.GetTranslation(x => x.Name, _workContext.WorkingLanguage.Id);
 
                 //prepare picture model
                 if (!string.IsNullOrEmpty(post.PictureId))
@@ -95,16 +95,16 @@ public class GetHomePageBlogHandler : IRequestHandler<GetHomePageBlog, HomePageB
                     //"title" attribute
                     pictureModel.Title =
                         picture != null && !string.IsNullOrEmpty(picture.GetTranslation(x => x.TitleAttribute,
-                            _contextAccessor.WorkContext.WorkingLanguage.Id))
-                            ? picture.GetTranslation(x => x.TitleAttribute, _contextAccessor.WorkContext.WorkingLanguage.Id)
+                            _workContext.WorkingLanguage.Id))
+                            ? picture.GetTranslation(x => x.TitleAttribute, _workContext.WorkingLanguage.Id)
                             : string.Format(_translationService.GetResource("Media.Blog.ImageLinkTitleFormat"),
                                 post.Title);
                     //"alt" attribute
                     pictureModel.AlternateText =
                         picture != null &&
                         !string.IsNullOrEmpty(picture.GetTranslation(x => x.AltAttribute,
-                            _contextAccessor.WorkContext.WorkingLanguage.Id))
-                            ? picture.GetTranslation(x => x.AltAttribute, _contextAccessor.WorkContext.WorkingLanguage.Id)
+                            _workContext.WorkingLanguage.Id))
+                            ? picture.GetTranslation(x => x.AltAttribute, _workContext.WorkingLanguage.Id)
                             : string.Format(_translationService.GetResource("Media.Blog.ImageAlternateTextFormat"),
                                 post.Title);
 

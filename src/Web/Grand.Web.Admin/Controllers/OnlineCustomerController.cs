@@ -1,10 +1,10 @@
 ﻿using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Customers;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Customers;
 using Grand.Infrastructure;
-using Grand.Web.AdminShared.Models.Customers;
+using Grand.Web.Admin.Models.Customers;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,13 +20,13 @@ public class OnlineCustomerController : BaseAdminController
         IDateTimeService dateTimeService,
         CustomerSettings customerSettings,
         ITranslationService translationService,
-        IContextAccessor contextAccessor)
+        IWorkContext workContext)
     {
         _customerService = customerService;
         _dateTimeService = dateTimeService;
         _customerSettings = customerSettings;
         _translationService = translationService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
     }
 
     #endregion
@@ -37,7 +37,7 @@ public class OnlineCustomerController : BaseAdminController
     private readonly IDateTimeService _dateTimeService;
     private readonly CustomerSettings _customerSettings;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     #endregion
 
@@ -54,7 +54,7 @@ public class OnlineCustomerController : BaseAdminController
     {
         var customers = await _customerService.GetOnlineCustomers(
             DateTime.UtcNow.AddMinutes(-_customerSettings.OnlineCustomerMinutes),
-            null, _contextAccessor.WorkContext.CurrentCustomer.StaffStoreId, _contextAccessor.WorkContext.CurrentCustomer.SeId, command.Page - 1,
+            null, _workContext.CurrentCustomer.StaffStoreId, _workContext.CurrentCustomer.SeId, command.Page - 1,
             command.PageSize);
         var items = new List<OnlineCustomerModel>();
         foreach (var x in customers)

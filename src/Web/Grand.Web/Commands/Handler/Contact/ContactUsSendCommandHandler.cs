@@ -2,6 +2,7 @@
 using Grand.Business.Core.Interfaces.Marketing.Contacts;
 using Grand.Business.Core.Interfaces.Messages;
 using Grand.Domain.Common;
+using Grand.Domain.Stores;
 using Grand.Infrastructure;
 using Grand.SharedKernel.Extensions;
 using Grand.Web.Commands.Models.Contact;
@@ -16,15 +17,15 @@ public class ContactUsSendCommandHandler : IRequestHandler<ContactUsSendCommand,
     private readonly IContactAttributeParser _contactAttributeParser;
     private readonly IMessageProviderService _messageProviderService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
-    public ContactUsSendCommandHandler(IContextAccessor contextAccessor,
+    public ContactUsSendCommandHandler(IWorkContext workContext,
         IContactAttributeParser contactAttributeParser,
         ITranslationService translationService,
         IMessageProviderService messageProviderService,
         CommonSettings commonSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _contactAttributeParser = contactAttributeParser;
         _translationService = translationService;
         _messageProviderService = messageProviderService;
@@ -38,20 +39,20 @@ public class ContactUsSendCommandHandler : IRequestHandler<ContactUsSendCommand,
 
         request.Model.ContactAttribute = attributes;
         request.Model.ContactAttributeInfo =
-            await _contactAttributeParser.FormatAttributes(_contextAccessor.WorkContext.WorkingLanguage, attributes,
-                _contextAccessor.WorkContext.CurrentCustomer);
-        request.Model = await SendContactUs(request, _contextAccessor.StoreContext.CurrentStore);
+            await _contactAttributeParser.FormatAttributes(_workContext.WorkingLanguage, attributes,
+                _workContext.CurrentCustomer);
+        request.Model = await SendContactUs(request, _workContext.CurrentStore);
 
         return request.Model;
     }
 
-    private async Task<ContactUsModel> SendContactUs(ContactUsSendCommand request, Domain.Stores.Store store)
+    private async Task<ContactUsModel> SendContactUs(ContactUsSendCommand request, Store store)
     {
         var subject = _commonSettings.SubjectFieldOnContactUsForm ? request.Model.Subject : null;
         var body = FormatText.ConvertText(request.Model.Enquiry);
 
         await _messageProviderService.SendContactUsMessage
-        (_contextAccessor.WorkContext.CurrentCustomer, store, _contextAccessor.WorkContext.WorkingLanguage.Id, request.Model.Email.Trim(),
+        (_workContext.CurrentCustomer, store, _workContext.WorkingLanguage.Id, request.Model.Email.Trim(),
             request.Model.FullName, subject,
             body, request.Model.ContactAttributeInfo, request.Model.ContactAttribute, request.IpAddress);
 

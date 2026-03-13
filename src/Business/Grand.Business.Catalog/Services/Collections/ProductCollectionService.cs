@@ -19,12 +19,12 @@ public class ProductCollectionService : IProductCollectionService
 
     public ProductCollectionService(ICacheBase cacheBase,
         IRepository<Product> productRepository,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IMediator mediator, AccessControlConfig accessControlConfig)
     {
         _cacheBase = cacheBase;
         _productRepository = productRepository;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _mediator = mediator;
         _accessControlConfig = accessControlConfig;
     }
@@ -45,7 +45,7 @@ public class ProductCollectionService : IProductCollectionService
         int pageIndex = 0, int pageSize = int.MaxValue, bool showHidden = false)
     {
         var key = string.Format(CacheKey.PRODUCTCOLLECTIONS_ALLBYCOLLECTIONID_KEY, showHidden, collectionId, pageIndex,
-            pageSize, _contextAccessor.WorkContext.CurrentCustomer.Id, storeId);
+            pageSize, _workContext.CurrentCustomer.Id, storeId);
         return await _cacheBase.GetAsync(key, () =>
         {
             var query = _productRepository.Table.Where(x =>
@@ -56,7 +56,7 @@ public class ProductCollectionService : IProductCollectionService
                 if (!_accessControlConfig.IgnoreAcl)
                 {
                     //ACL (access control list)
-                    var allowedCustomerGroupsIds = _contextAccessor.WorkContext.CurrentCustomer.GetCustomerGroupIds();
+                    var allowedCustomerGroupsIds = _workContext.CurrentCustomer.GetCustomerGroupIds();
                     query = from p in query
                         where !p.LimitedToGroups || allowedCustomerGroupsIds.Any(x => p.CustomerGroups.Contains(x))
                         select p;
@@ -149,7 +149,7 @@ public class ProductCollectionService : IProductCollectionService
     #region Fields
 
     private readonly IRepository<Product> _productRepository;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IMediator _mediator;
     private readonly ICacheBase _cacheBase;
     private readonly AccessControlConfig _accessControlConfig;

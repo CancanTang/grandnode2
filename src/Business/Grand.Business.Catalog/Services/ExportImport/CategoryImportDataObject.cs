@@ -1,11 +1,14 @@
 ﻿using Grand.Business.Catalog.Extensions;
 using Grand.Business.Core.Dto;
+using Grand.Business.Core.Extensions;
 using Grand.Business.Core.Interfaces.Catalog.Categories;
+using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Seo;
 using Grand.Business.Core.Interfaces.ExportImport;
 using Grand.Business.Core.Interfaces.Storage;
 using Grand.Domain.Catalog;
 using Grand.Domain.Media;
+using Grand.Domain.Seo;
 using Grand.Infrastructure.Mapper;
 
 namespace Grand.Business.Catalog.Services.ExportImport;
@@ -14,22 +17,27 @@ public class CategoryImportDataObject : IImportDataObject<CategoryDto>
 {
     private readonly ICategoryLayoutService _categoryLayoutService;
     private readonly ICategoryService _categoryService;
+    private readonly ILanguageService _languageService;
     private readonly IPictureService _pictureService;
+
+    private readonly SeoSettings _seoSetting;
     private readonly ISlugService _slugService;
-    private readonly ISeNameService _seNameService;
-    
+
     public CategoryImportDataObject(
         ICategoryService categoryService,
         IPictureService pictureService,
         ICategoryLayoutService categoryLayoutService,
         ISlugService slugService,
-        ISeNameService seNameService)
+        ILanguageService languageService,
+        SeoSettings seoSetting)
     {
         _categoryService = categoryService;
         _pictureService = pictureService;
         _categoryLayoutService = categoryLayoutService;
         _slugService = slugService;
-        _seNameService = seNameService;
+        _languageService = languageService;
+
+        _seoSetting = seoSetting;
     }
 
     public async Task Execute(IEnumerable<CategoryDto> data)
@@ -79,14 +87,15 @@ public class CategoryImportDataObject : IImportDataObject<CategoryDto>
                 category.PictureId = picture.Id;
         }
 
-        var seName = category.SeName ?? category.Name;
-        seName = await _seNameService.ValidateSeName(category, seName, category.Name, true);
-        category.SeName = seName;
+        var sename = category.SeName ?? category.Name;
+        sename = await category.ValidateSeName(sename, category.Name, true, _seoSetting, _slugService,
+            _languageService);
+        category.SeName = sename;
         await _categoryService.UpdateCategory(category);
-        await _slugService.SaveSlug(category, seName, "");
+        await _slugService.SaveSlug(category, sename, "");
     }
 
-    private static bool ValidCategory(Category category)
+    private bool ValidCategory(Category category)
     {
         return !string.IsNullOrEmpty(category.Name);
     }

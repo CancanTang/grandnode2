@@ -1,12 +1,12 @@
 ﻿using FluentValidation;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Customers;
-using Grand.Domain.Common;
 using Grand.Infrastructure.Models;
 using Grand.Infrastructure.Validators;
-using Grand.SharedKernel.Captcha;
+using Grand.Web.Common.Security.Captcha;
 using Grand.Web.Common.Validators;
 using Grand.Web.Models.Customer;
+using Microsoft.AspNetCore.Http;
 
 namespace Grand.Web.Validators.Customer;
 
@@ -16,7 +16,7 @@ public class PasswordRecoveryValidator : BaseGrandValidator<PasswordRecoveryMode
         IEnumerable<IValidatorConsumer<PasswordRecoveryModel>> validators,
         IEnumerable<IValidatorConsumer<ICaptchaValidModel>> validatorsCaptcha,
         ICustomerService customerService, CaptchaSettings captchaSettings,
-        IHttpContextAccessor contextAccessor, IGoogleReCaptchaValidator googleReCaptchaValidator,
+        IHttpContextAccessor contextAccessor, GoogleReCaptchaValidator googleReCaptchaValidator,
         ITranslationService translationService)
         : base(validators)
     {

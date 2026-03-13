@@ -106,11 +106,11 @@ public class PageNavigationTagHelper : TagHelper
 
         if (string.IsNullOrEmpty(links)) return Task.CompletedTask;
         var sb = new StringBuilder();
-        sb.Append("<nav aria-label=\"Page navigation\">");
+        sb.AppendFormat("<nav aria-label=\"Page navigation\">");
         sb.Append(Environment.NewLine);
         sb.AppendFormat(links);
         sb.Append(Environment.NewLine);
-        sb.Append("</nav>");
+        sb.AppendFormat("</nav>");
         sb.Append(Environment.NewLine);
         output.Content.SetHtmlContent(sb.ToString());
         return Task.CompletedTask;

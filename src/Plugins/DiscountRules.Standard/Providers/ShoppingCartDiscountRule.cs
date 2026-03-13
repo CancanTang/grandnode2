@@ -14,15 +14,15 @@ public class ShoppingCartDiscountRule : IDiscountRule
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IProductService _productService;
     private readonly ShoppingCartSettings _shoppingCartSettings;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     public ShoppingCartDiscountRule(
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IProductService productService,
         IHttpContextAccessor httpContextAccessor,
         ShoppingCartSettings shoppingCartSettings)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _productService = productService;
         _httpContextAccessor = httpContextAccessor;
         _shoppingCartSettings = shoppingCartSettings;
@@ -50,7 +50,7 @@ public class ShoppingCartDiscountRule : IDiscountRule
             return result;
         }
 
-        var cart = _contextAccessor.WorkContext.CurrentCustomer.ShoppingCartItems
+        var cart = _workContext.CurrentCustomer.ShoppingCartItems
             .Where(sci => sci.ShoppingCartTypeId == ShoppingCartType.ShoppingCart)
             .LimitPerStore(_shoppingCartSettings.SharedCartBetweenStores, request.Store.Id)
             .ToList();

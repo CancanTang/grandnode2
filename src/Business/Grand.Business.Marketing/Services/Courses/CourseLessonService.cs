@@ -29,7 +29,8 @@ public class CourseLessonService : ICourseLessonService
 
     public virtual async Task<IList<CourseLesson>> GetByCourseId(string courseId)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(courseId);
+        if (string.IsNullOrEmpty(courseId))
+            throw new ArgumentNullException(nameof(courseId));
 
         var query = from c in _courseLessonRepository.Table
             where c.CourseId == courseId

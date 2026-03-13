@@ -10,7 +10,6 @@ using Grand.Domain.Orders;
 using Grand.Domain.Payments;
 using Grand.Domain.Shipping;
 using Grand.Infrastructure;
-using Grand.SharedKernel.Attributes;
 using Grand.Web.Commands.Models.Orders;
 using Grand.Web.Common.Controllers;
 using Grand.Web.Common.Filters;
@@ -26,13 +25,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace Grand.Web.Controllers;
 
 [DenySystemAccount]
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class OrderController : BasePublicController
 {
     #region Constructors
 
     public OrderController(IOrderService orderService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IPaymentService paymentService,
         IPaymentTransactionService paymentTransactionService,
         ITranslationService translationService,
@@ -41,7 +39,7 @@ public class OrderController : BasePublicController
         OrderSettings orderSettings)
     {
         _orderService = orderService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _paymentService = paymentService;
         _paymentTransactionService = paymentTransactionService;
         _translationService = translationService;
@@ -55,7 +53,7 @@ public class OrderController : BasePublicController
     #region Fields
 
     private readonly IOrderService _orderService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IPaymentService _paymentService;
     private readonly IPaymentTransactionService _paymentTransactionService;
     private readonly ITranslationService _translationService;
@@ -65,17 +63,34 @@ public class OrderController : BasePublicController
 
     #endregion
 
+    #region Utilities
+
+    protected virtual bool IsRequestBeingRedirected {
+        get {
+            var response = HttpContext.Response;
+            return new List<int> { 301, 302 }.Contains(response.StatusCode);
+        }
+    }
+
+    protected virtual bool IsPostBeingDone {
+        get => HttpContext.Items["grand.IsPOSTBeingDone"] != null &&
+               Convert.ToBoolean(HttpContext.Items["grand.IsPOSTBeingDone"]);
+        set => HttpContext.Items["grand.IsPOSTBeingDone"] = value;
+    }
+
+    #endregion
+
     #region Methods
 
     //My account / Orders
     [HttpGet]
     [CustomerGroupAuthorize(SystemCustomerGroupNames.Registered)]
-    public virtual async Task<ActionResult<OrderPagingModel>> CustomerOrders(OrderPagingModel command)
+    public virtual async Task<IActionResult> CustomerOrders(OrderPagingModel command)
     {
         var model = await _mediator.Send(new GetCustomerOrderList {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore,
             Command = command
         });
         return View(model);
@@ -83,14 +98,14 @@ public class OrderController : BasePublicController
 
     //My account / Order details page
     [HttpGet]
-    public virtual async Task<ActionResult<OrderDetailsModel>> Details(string orderId)
+    public virtual async Task<IActionResult> Details(string orderId)
     {
         var order = await _orderService.GetOrderById(orderId);
-        if (!await order.Access(_contextAccessor.WorkContext.CurrentCustomer, _groupService))
+        if (!await order.Access(_workContext.CurrentCustomer, _groupService))
             return Challenge();
 
         var model = await _mediator.Send(new GetOrderDetails
-            { Order = order, Language = _contextAccessor.WorkContext.WorkingLanguage });
+            { Order = order, Language = _workContext.WorkingLanguage });
 
         return View(model);
     }
@@ -100,7 +115,7 @@ public class OrderController : BasePublicController
     public virtual async Task<IActionResult> CancelOrder(string orderId)
     {
         var order = await _orderService.GetOrderById(orderId);
-        if (!await order.Access(_contextAccessor.WorkContext.CurrentCustomer, _groupService)
+        if (!await order.Access(_workContext.CurrentCustomer, _groupService)
             || order.PaymentStatusId != PaymentStatus.Pending
             || (order.ShippingStatusId != ShippingStatus.ShippingNotRequired &&
                 order.ShippingStatusId != ShippingStatus.Pending)
@@ -119,14 +134,14 @@ public class OrderController : BasePublicController
     public virtual async Task<IActionResult> GetPdfInvoice(string orderId, [FromServices] IPdfService pdfService)
     {
         var order = await _orderService.GetOrderById(orderId);
-        if (!await order.Access(_contextAccessor.WorkContext.CurrentCustomer, _groupService))
+        if (!await order.Access(_workContext.CurrentCustomer, _groupService))
             return Challenge();
 
         var orders = new List<Order> { order };
         byte[] bytes;
         using (var stream = new MemoryStream())
         {
-            await pdfService.PrintOrdersToPdf(stream, orders, _contextAccessor.WorkContext.WorkingLanguage.Id);
+            await pdfService.PrintOrdersToPdf(stream, orders, _workContext.WorkingLanguage.Id);
             bytes = stream.ToArray();
         }
 
@@ -136,7 +151,7 @@ public class OrderController : BasePublicController
     //My account / Order details page / Add order note        
     [HttpPost]
     [AutoValidateAntiforgeryToken]
-    public virtual async Task<ActionResult<AddOrderNoteModel>> AddOrderNote(AddOrderNoteModel model)
+    public virtual async Task<IActionResult> AddOrderNote(AddOrderNoteModel model)
     {
         if (!_orderSettings.AllowCustomerToAddOrderNote)
             return RedirectToRoute("HomePage");
@@ -144,11 +159,11 @@ public class OrderController : BasePublicController
         if (!ModelState.IsValid) return View("AddOrderNote", model);
 
         var order = await _orderService.GetOrderById(model.OrderId);
-        if (!await order.Access(_contextAccessor.WorkContext.CurrentCustomer, _groupService))
+        if (!await order.Access(_workContext.CurrentCustomer, _groupService))
             return Challenge();
 
         await _mediator.Send(new InsertOrderNoteCommand
-            { Order = order, OrderNote = model, Language = _contextAccessor.WorkContext.WorkingLanguage });
+            { Order = order, OrderNote = model, Language = _workContext.WorkingLanguage });
 
         //notification
         await _mediator.Publish(new OrderNoteEvent(order, model));
@@ -162,7 +177,7 @@ public class OrderController : BasePublicController
     public virtual async Task<IActionResult> ReOrder(string orderId)
     {
         var order = await _orderService.GetOrderById(orderId);
-        if (!await order.Access(_contextAccessor.WorkContext.CurrentCustomer, _groupService))
+        if (!await order.Access(_workContext.CurrentCustomer, _groupService))
             return Challenge();
 
         var warnings = await _mediator.Send(new ReOrderCommand { Order = order });
@@ -178,7 +193,7 @@ public class OrderController : BasePublicController
     public virtual async Task<IActionResult> RePostPayment(string orderId)
     {
         var order = await _orderService.GetOrderById(orderId);
-        if (!await order.Access(_contextAccessor.WorkContext.CurrentCustomer, _groupService))
+        if (!await order.Access(_workContext.CurrentCustomer, _groupService))
             return Challenge();
 
         var paymentTransaction = await _paymentTransactionService.GetOrderByGuid(order.OrderGuid);
@@ -186,16 +201,20 @@ public class OrderController : BasePublicController
         if (paymentTransaction == null || !await _paymentService.CanRePostRedirectPayment(paymentTransaction))
             return RedirectToRoute("OrderDetails", new { orderId });
 
-        var redirectUrl = await _paymentService.PostRedirectPayment(paymentTransaction);
-        if (!string.IsNullOrEmpty(redirectUrl))
-            return Redirect(redirectUrl);
-        
+        await _paymentService.PostRedirectPayment(paymentTransaction);
+
+        if (IsRequestBeingRedirected || IsPostBeingDone)
+            //redirection or POST has been done in PostProcessPayment
+            return Content("Redirected");
+
+        //if no redirection has been done (to a third-party payment page)
+        //theoretically it's not possible
         return RedirectToRoute("OrderDetails", new { orderId });
     }
 
     //My account / Order details page / Shipment details page
     [HttpGet]
-    public virtual async Task<ActionResult<ShipmentDetailsModel>> ShipmentDetails(string shipmentId,
+    public virtual async Task<IActionResult> ShipmentDetails(string shipmentId,
         [FromServices] IShipmentService shipmentService)
     {
         var shipment = await shipmentService.GetShipmentById(shipmentId);
@@ -203,12 +222,12 @@ public class OrderController : BasePublicController
             return Challenge();
 
         var order = await _orderService.GetOrderById(shipment.OrderId);
-        if (!await order.Access(_contextAccessor.WorkContext.CurrentCustomer, _groupService))
+        if (!await order.Access(_workContext.CurrentCustomer, _groupService))
             return Challenge();
 
         var model = await _mediator.Send(new GetShipmentDetails {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
             Order = order,
             Shipment = shipment
         });
@@ -219,16 +238,16 @@ public class OrderController : BasePublicController
     //My account / Loyalty points
     [HttpGet]
     [CustomerGroupAuthorize(SystemCustomerGroupNames.Registered)]
-    public virtual async Task<ActionResult<CustomerLoyaltyPointsModel>> CustomerLoyaltyPoints(
+    public virtual async Task<IActionResult> CustomerLoyaltyPoints(
         [FromServices] LoyaltyPointsSettings loyaltyPointsSettings)
     {
         if (!loyaltyPointsSettings.Enabled)
             return RedirectToRoute("CustomerInfo");
 
         var model = await _mediator.Send(new GetCustomerLoyaltyPoints {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Store = _contextAccessor.StoreContext.CurrentStore,
-            Currency = _contextAccessor.WorkContext.WorkingCurrency
+            Customer = _workContext.CurrentCustomer,
+            Store = _workContext.CurrentStore,
+            Currency = _workContext.WorkingCurrency
         });
         return View(model);
     }

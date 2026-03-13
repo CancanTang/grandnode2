@@ -9,6 +9,7 @@ using Grand.Infrastructure;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Tests.Caching;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -24,16 +25,16 @@ public class AuctionServiceTests
     private IRepository<Product> _productrepository;
     private IRepository<Bid> _repository;
     private Mock<IWorkContext> _workContextMock;
-    private Mock<IStoreContext> _storeContextMock;
 
     [TestInitialize]
     public void InitializeTests()
     {
+        CommonPath.BaseDirectory = "";
+
         _repository = new MongoDBRepositoryTest<Bid>();
         _productrepository = new MongoDBRepositoryTest<Product>();
         _workContextMock = new Mock<IWorkContext>();
-        _storeContextMock = new Mock<IStoreContext>();
-        _storeContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
         _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         _mediatorMock = new Mock<IMediator>();
         _cacheBase = new MemoryCacheBase(MemoryCacheTest.Get(), _mediatorMock.Object,
@@ -105,7 +106,7 @@ public class AuctionServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(2, result);
+        Assert.AreEqual(2, result.Count);
     }
 
     [TestMethod]
@@ -132,7 +133,7 @@ public class AuctionServiceTests
 
         //Assert
         Assert.IsNotNull(result);
-        Assert.HasCount(1, result);
+        Assert.AreEqual(1, result.Count);
     }
 
     [TestMethod]
@@ -148,8 +149,8 @@ public class AuctionServiceTests
         await _auctionService.InsertBid(bid1);
 
         //Assert
-        Assert.IsNotEmpty(_repository.Table);
-        Assert.HasCount(1, _repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
+        Assert.AreEqual(1, _repository.Table.Count());
     }
 
     [TestMethod]
@@ -184,7 +185,7 @@ public class AuctionServiceTests
         //Act
         await _auctionService.DeleteBid(bid1);
         //Assert
-        Assert.IsEmpty(_repository.Table);
+        Assert.AreEqual(0, _repository.Table.Count());
     }
 
     [TestMethod]
@@ -220,7 +221,7 @@ public class AuctionServiceTests
         var result = await _auctionService.GetAuctionsToEnd();
 
         //Assert
-        Assert.HasCount(1, result);
+        Assert.AreEqual(1, result.Count);
     }
 
     [TestMethod]
@@ -237,7 +238,7 @@ public class AuctionServiceTests
         await _auctionService.UpdateAuctionEnded(product1, true, true);
 
         //Assert
-        Assert.IsTrue(_productrepository.Table.FirstOrDefault(x => x.Id == product1.Id).AuctionEnded);
+        Assert.AreEqual(true, _productrepository.Table.FirstOrDefault(x => x.Id == product1.Id).AuctionEnded);
     }
 
     [TestMethod]

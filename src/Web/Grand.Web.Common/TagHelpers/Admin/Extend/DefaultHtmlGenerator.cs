@@ -404,7 +404,7 @@ public class DefaultHtmlGenerator : IHtmlGenerator
                 (htmlAttributeDictionary == null || !htmlAttributeDictionary.ContainsKey("checked")))
             {
                 // Note value may be null if isChecked is non-null.
-                ArgumentNullException.ThrowIfNull(value);
+                if (value == null) throw new ArgumentNullException(nameof(value));
 
                 // isChecked not provided nor found in the given attributes; fall back to view data.
                 var valueString = Convert.ToString(value, CultureInfo.CurrentCulture);
@@ -1330,7 +1330,7 @@ public class DefaultHtmlGenerator : IHtmlGenerator
         return listItemBuilder;
     }
 
-    private static IHtmlContent GenerateOption(SelectListItem item, ICollection<string> currentValues)
+    private IHtmlContent GenerateOption(SelectListItem item, ICollection<string> currentValues)
     {
         var selected = item.Selected;
         if (currentValues != null)

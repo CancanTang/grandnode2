@@ -10,6 +10,7 @@ using Grand.Infrastructure;
 using Grand.Infrastructure.Caching;
 using Grand.Infrastructure.Configuration;
 using Grand.Infrastructure.Tests.Caching;
+using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -28,17 +29,19 @@ public class InventoryManageServiceTests
     private StockQuantityService _stockQuantityService;
     private Mock<ITranslationService> _translationService;
     private Mock<IWorkContext> _workContextMock;
-    private Mock<IStoreContext> _storeContextMock;
 
     [TestInitialize]
     public void Init()
     {
+        CommonPath.BaseDirectory = "";
+
+        CommonPath.BaseDirectory = "";
+
         _repository = new MongoDBRepositoryTest<Product>();
         _repositoryInventoryJournal = new MongoDBRepositoryTest<InventoryJournal>();
         _workContextMock = new Mock<IWorkContext>();
-        _storeContextMock = new Mock<IStoreContext>();
         _translationService = new Mock<ITranslationService>();
-        _storeContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
         _workContextMock.Setup(c => c.CurrentCustomer).Returns(() => new Customer());
         _mediatorMock = new Mock<IMediator>();
         _settings = new CatalogSettings();

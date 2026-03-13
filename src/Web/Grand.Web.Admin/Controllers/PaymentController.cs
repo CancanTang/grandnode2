@@ -4,19 +4,18 @@ using Grand.Business.Core.Interfaces.Checkout.Shipping;
 using Grand.Business.Core.Interfaces.Common.Configuration;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Domain.Payments;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Plugins;
 using Grand.Web.Admin.Extensions;
-using Grand.Web.AdminShared.Extensions.Mapping;
-using Grand.Web.AdminShared.Extensions.Mapping.Settings;
-using Grand.Web.AdminShared.Models.Payments;
-using Grand.Web.AdminShared.Models.Shipping;
+using Grand.Web.Admin.Extensions.Mapping;
+using Grand.Web.Admin.Extensions.Mapping.Settings;
+using Grand.Web.Admin.Models.Payments;
+using Grand.Web.Admin.Models.Shipping;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Grand.Web.AdminShared.Extensions;
 
 namespace Grand.Web.Admin.Controllers;
 
@@ -31,7 +30,7 @@ public class PaymentController : BaseAdminController
         IShippingMethodService shippingMethodService,
         ITranslationService translationService,
         IServiceProvider serviceProvider,
-        IContextAccessor contextAccessor)
+        IWorkContext workContext)
     {
         _paymentService = paymentService;
         _settingService = settingService;
@@ -39,7 +38,7 @@ public class PaymentController : BaseAdminController
         _shippingMethodService = shippingMethodService;
         _translationService = translationService;
         _serviceProvider = serviceProvider;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
     }
 
     #endregion
@@ -52,7 +51,7 @@ public class PaymentController : BaseAdminController
     private readonly IShippingMethodService _shippingMethodService;
     private readonly ITranslationService _translationService;
     private readonly IServiceProvider _serviceProvider;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
 
     #endregion
 
@@ -68,10 +67,10 @@ public class PaymentController : BaseAdminController
     {
         var storeScope = await GetActiveStore();
 
-        var _paymentSettings = await _settingService.LoadSetting<PaymentSettings>(storeScope);
+        var _paymentSettings = _settingService.LoadSetting<PaymentSettings>(storeScope);
 
         var paymentMethodsModel = new List<PaymentMethodModel>();
-        var paymentMethods = await _paymentService.LoadAllPaymentMethods();
+        var paymentMethods = _paymentService.LoadAllPaymentMethods();
         foreach (var paymentMethod in paymentMethods)
         {
             var tmp = await paymentMethod.ToModel();
@@ -84,7 +83,7 @@ public class PaymentController : BaseAdminController
                 if (plugin != null)
                 {
                     tmp.ConfigurationUrl = plugin.ConfigurationUrl();
-                    tmp.LogoUrl = pluginInfo.GetLogoUrl(_contextAccessor.StoreContext.CurrentHost.Url);
+                    tmp.LogoUrl = pluginInfo.GetLogoUrl(_workContext);
                 }
             }
 
@@ -104,7 +103,7 @@ public class PaymentController : BaseAdminController
     public async Task<IActionResult> MethodUpdate(PaymentMethodModel model)
     {
         var storeScope = await GetActiveStore();
-        var _paymentSettings = await _settingService.LoadSetting<PaymentSettings>(storeScope);
+        var _paymentSettings = _settingService.LoadSetting<PaymentSettings>(storeScope);
 
         var pm = _paymentService.LoadPaymentMethodBySystemName(model.SystemName);
         if (pm.IsPaymentMethodActive(_paymentSettings))
@@ -148,7 +147,7 @@ public class PaymentController : BaseAdminController
     public async Task<IActionResult> MethodRestrictions()
     {
         var model = new PaymentMethodRestrictionModel();
-        var paymentMethods = await _paymentService.LoadAllPaymentMethods();
+        var paymentMethods = _paymentService.LoadAllPaymentMethods();
         var countries = await _countryService.GetAllCountries(showHidden: true);
         var shippings = await _shippingMethodService.GetAllShippingMethods();
 
@@ -162,7 +161,7 @@ public class PaymentController : BaseAdminController
 
         foreach (var pm in paymentMethods)
         {
-            var restictedCountries = await _paymentService.GetRestrictedCountryIds(pm);
+            var restictedCountries = _paymentService.GetRestrictedCountryIds(pm);
             foreach (var c in countries)
             {
                 var resticted = restictedCountries.Contains(c.Id);
@@ -171,7 +170,7 @@ public class PaymentController : BaseAdminController
                 model.Resticted[pm.SystemName][c.Id] = resticted;
             }
 
-            var restictedShipping = await _paymentService.GetRestrictedShippingIds(pm);
+            var restictedShipping = _paymentService.GetRestrictedShippingIds(pm);
             foreach (var s in shippings)
             {
                 var resticted = restictedShipping.Contains(s.Name);
@@ -189,7 +188,7 @@ public class PaymentController : BaseAdminController
     [RequestFormLimits(ValueCountLimit = 2048)]
     public async Task<IActionResult> MethodRestrictionsSave(IDictionary<string, string[]> model)
     {
-        var paymentMethods = await _paymentService.LoadAllPaymentMethods();
+        var paymentMethods = _paymentService.LoadAllPaymentMethods();
         var countries = await _countryService.GetAllCountries(showHidden: true);
         var shippings = await _shippingMethodService.GetAllShippingMethods();
 
@@ -231,7 +230,7 @@ public class PaymentController : BaseAdminController
     {
         var storeScope = await GetActiveStore();
 
-        var paymentSettings = await _settingService.LoadSetting<PaymentSettings>(storeScope);
+        var paymentSettings = _settingService.LoadSetting<PaymentSettings>(storeScope);
         var model = paymentSettings.ToModel();
 
         return View(model);
@@ -242,7 +241,7 @@ public class PaymentController : BaseAdminController
     {
         var storeScope = await GetActiveStore();
 
-        var paymentSettings = await _settingService.LoadSetting<PaymentSettings>(storeScope);
+        var paymentSettings = _settingService.LoadSetting<PaymentSettings>(storeScope);
         paymentSettings = model.ToEntity(paymentSettings);
 
         await _settingService.SaveSetting(paymentSettings, storeScope);

@@ -34,7 +34,7 @@ public class AuthenticationStartup : IStartupApplication
     /// </summary>
     /// <param name="application">Builder for configuring an application's request pipeline</param>
     /// <param name="webHostEnvironment">WebHostEnvironment</param>
-    public void Configure(WebApplication application, IWebHostEnvironment webHostEnvironment)
+    public void Configure(IApplicationBuilder application, IWebHostEnvironment webHostEnvironment)
     {
         //check whether database is installed
         if (!DataSettingsManager.DatabaseIsInstalled())
@@ -44,7 +44,7 @@ public class AuthenticationStartup : IStartupApplication
         application.UseGrandAuthentication();
 
         //set work context
-        application.UseMiddleware<ContextMiddleware>();
+        application.UseMiddleware<WorkContextMiddleware>();
         //set culture
         application.UseMiddleware<CultureSettingMiddleware>();
     }

@@ -18,14 +18,14 @@ public class ContactAttributeParserTests
     private List<ContactAttribute> _contactAtr;
     private Mock<IContactAttributeService> _contactAttributeServiceMock;
     private ContactAttributeParser _parser;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
     private List<CustomAttribute> customAtr;
 
     [TestInitialize]
     public void Init()
     {
         _contactAttributeServiceMock = new Mock<IContactAttributeService>();
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
         var _translationServiceMock = new Mock<ITranslationService>();
         {
             _translationServiceMock.Setup(x => x.GetResource(It.IsAny<string>())).Returns("Warning{0}");
@@ -56,7 +56,7 @@ public class ContactAttributeParserTests
         _contactAttributeServiceMock.Setup(c => c.GetContactAttributeById(It.IsAny<string>())).Returns((string w) =>
             Task.FromResult(_contactAtr.FirstOrDefault(a => a.Id.Equals(w))));
         var result = await _parser.ParseContactAttributes(customAtr);
-        Assert.HasCount(4, result);
+        Assert.IsTrue(result.Count == 4);
         Assert.IsTrue(result.Any(c => c.Id.Equals("key1")));
         Assert.IsTrue(result.Any(c => c.Id.Equals("key2")));
         Assert.IsTrue(result.Any(c => c.Id.Equals("key3")));
@@ -70,7 +70,7 @@ public class ContactAttributeParserTests
         _contactAttributeServiceMock.Setup(c => c.GetContactAttributeById(It.IsAny<string>())).Returns((string w) =>
             Task.FromResult(_contactAtr.FirstOrDefault(a => a.Id.Equals(w))));
         var result = await _parser.ParseContactAttributeValues(customAtr);
-        Assert.HasCount(3, result);
+        Assert.IsTrue(result.Count == 3);
         Assert.IsTrue(result.Any(c => c.Id.Equals("value2")));
         Assert.IsTrue(result.Any(c => c.Id.Equals("value3")));
         Assert.IsTrue(result.Any(c => c.Id.Equals("value4")));
@@ -81,7 +81,7 @@ public class ContactAttributeParserTests
     public void AddContactAttributeTest()
     {
         var result = _parser.AddContactAttribute(customAtr, new ContactAttribute { Id = "key7" }, "value7");
-        Assert.HasCount(5, result);
+        Assert.IsTrue(result.Count == 5);
         Assert.IsTrue(result.Any(c => c.Key.Equals("key7")));
     }
 
@@ -113,7 +113,7 @@ public class ContactAttributeParserTests
     public void RemoveContactAttributeTest()
     {
         var result = _parser.RemoveContactAttribute(customAtr, new ContactAttribute { Id = "key1" });
-        Assert.HasCount(3, result);
+        Assert.IsTrue(result.Count == 3);
         Assert.IsFalse(result.Any(c => c.Key.Equals("key1")));
     }
 
@@ -128,6 +128,6 @@ public class ContactAttributeParserTests
             new List<CustomAttribute> {
                 new() { Key = "key1", Value = "value1" }
             }, new Customer());
-        Assert.AreEqual("name1: value1", result);
+        Assert.IsTrue(result == "name1: value1");
     }
 }

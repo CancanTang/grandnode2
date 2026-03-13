@@ -59,7 +59,7 @@ public class CategoryLayoutServiceDbTest
         var layouts = await _categoryLayoutService.GetAllCategoryLayouts();
 
         //Assert
-        Assert.HasCount(3, layouts);
+        Assert.AreEqual(3, layouts.Count);
     }
 
     [TestMethod]
@@ -80,7 +80,7 @@ public class CategoryLayoutServiceDbTest
 
         //Assert
         Assert.IsNull(_repository.Table.FirstOrDefault(x => x.Name == "test1"));
-        Assert.HasCount(1, _repository.Table);
+        Assert.AreEqual(1, _repository.Table.Count());
     }
 
 
@@ -90,7 +90,7 @@ public class CategoryLayoutServiceDbTest
         //Act
         await _categoryLayoutService.InsertCategoryLayout(new CategoryLayout());
         //Assert
-        Assert.IsNotEmpty(_repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
     }
 
     [TestMethod]

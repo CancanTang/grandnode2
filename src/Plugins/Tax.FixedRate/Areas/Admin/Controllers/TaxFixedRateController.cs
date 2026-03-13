@@ -1,6 +1,6 @@
 ﻿using Grand.Business.Core.Interfaces.Catalog.Tax;
 using Grand.Business.Core.Interfaces.Common.Configuration;
-using Grand.Domain.Permissions;
+using Grand.Business.Core.Utilities.Common.Security;
 using Grand.Web.Common.Controllers;
 using Grand.Web.Common.DataSource;
 using Grand.Web.Common.Security.Authorization;
@@ -35,7 +35,7 @@ public class TaxFixedRateController : BaseAdminPluginController
             taxRateModels.Add(new FixedTaxRateModel {
                 TaxCategoryId = taxCategory.Id,
                 TaxCategoryName = taxCategory.Name,
-                Rate = await GetTaxRate(taxCategory.Id)
+                Rate = GetTaxRate(taxCategory.Id)
             });
 
         var gridModel = new DataSourceResult {
@@ -58,9 +58,10 @@ public class TaxFixedRateController : BaseAdminPluginController
     }
 
     [NonAction]
-    private async Task<double> GetTaxRate(string taxCategoryId)
+    private double GetTaxRate(string taxCategoryId)
     {
-        var rate = (await _settingService.GetSettingByKey<FixedTaxRate>($"Tax.TaxProvider.FixedRate.TaxCategoryId{taxCategoryId}"))?.Rate;
+        var rate = _settingService.GetSettingByKey<FixedTaxRate>(
+            $"Tax.TaxProvider.FixedRate.TaxCategoryId{taxCategoryId}")?.Rate;
         return rate ?? 0;
     }
 }

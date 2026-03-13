@@ -1,10 +1,8 @@
-﻿using Grand.Business.Core.Interfaces.Authentication;
-using Grand.Business.Core.Interfaces.Cms;
+﻿using Grand.Business.Core.Interfaces.Cms;
 using Grand.Business.Core.Interfaces.Common.Directory;
 using Grand.Business.Core.Interfaces.Common.Localization;
 using Grand.Business.Core.Interfaces.Common.Stores;
 using Grand.Business.Core.Interfaces.Customers;
-using Grand.Business.Core.Interfaces.Messages;
 using Grand.Domain.Common;
 using Grand.Domain.Customers;
 using Grand.Domain.Localization;
@@ -13,7 +11,6 @@ using Grand.Domain.Tax;
 using Grand.Infrastructure;
 using Grand.Infrastructure.Configuration;
 using Grand.SharedKernel.Attributes;
-using Grand.SharedKernel.Extensions;
 using Grand.Web.Commands.Models.Customers;
 using Grand.Web.Common.Controllers;
 using Grand.Web.Common.Filters;
@@ -22,22 +19,21 @@ using Grand.Web.Events;
 using Grand.Web.Features.Models.Common;
 using Grand.Web.Models.Common;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 
 namespace Grand.Web.Controllers;
 
-[ApiGroup(SharedKernel.Extensions.ApiConstants.ApiGroupNameV2)]
 public class CommonController : BasePublicController
 {
     #region Constructors
 
-    public CommonController(IContextAccessor contextAccessor,
+    public CommonController(IWorkContext workContext,
         ILanguageService languageService,
         IMediator mediator)
     {
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _languageService = languageService;
         _mediator = mediator;
     }
@@ -47,14 +43,14 @@ public class CommonController : BasePublicController
     #region Fields
 
     private readonly ILanguageService _languageService;
-    private readonly IContextAccessor _contextAccessor;
+    private readonly IWorkContext _workContext;
     private readonly IMediator _mediator;
 
     #endregion
 
     #region Utilities
 
-    private static string RemoveLanguageSeoCode(string url, PathString pathBase)
+    private string RemoveLanguageSeoCode(string url, PathString pathBase)
     {
         if (string.IsNullOrEmpty(url))
             return url;
@@ -74,7 +70,7 @@ public class CommonController : BasePublicController
         _ = new PathString(url).StartsWithSegments(pathBase, out var result);
         url = WebUtility.UrlDecode(result);
 
-        var firstSegment = url.Split(['/'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ??
+        var firstSegment = url.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ??
                            string.Empty;
         if (string.IsNullOrEmpty(firstSegment))
             return false;
@@ -147,14 +143,15 @@ public class CommonController : BasePublicController
     public virtual async Task<IActionResult> SetLanguage(
         [FromServices] AppConfig config,
         [FromServices] ICustomerService customerService,
-        string langCode, string returnUrl = "")
+        string langCode, string returnUrl = default)
     {
         var language = await _languageService.GetLanguageByCode(langCode);
-        if (language == null)
-            return NotFound();
+        if (!language?.Published ?? false)
+            language = _workContext.WorkingLanguage;
 
-        if (!language.Published)
-            language = _contextAccessor.WorkContext.WorkingLanguage;
+        //home page
+        if (string.IsNullOrEmpty(returnUrl))
+            returnUrl = Url.RouteUrl("HomePage");
 
         //prevent open redirection attack
         if (!Url.IsLocalUrl(returnUrl))
@@ -168,10 +165,10 @@ public class CommonController : BasePublicController
 
             returnUrl = AddLanguageSeo(returnUrl, language);
         }
-        await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.LanguageId, language.Id, _contextAccessor.StoreContext.CurrentStore.Id);
+        await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.LanguageId, language.Id, _workContext.CurrentStore.Id);
 
         //notification
-        await _mediator.Publish(new ChangeLanguageEvent(_contextAccessor.WorkContext.CurrentCustomer, language));
+        await _mediator.Publish(new ChangeLanguageEvent(_workContext.CurrentCustomer, language));
 
         return Redirect(returnUrl);
     }
@@ -218,17 +215,21 @@ public class CommonController : BasePublicController
     {
         var currency = await currencyService.GetCurrencyByCode(currencyCode);
         if (currency != null)
-            await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.CurrencyId,
-                currency.Id, _contextAccessor.StoreContext.CurrentStore.Id);
+            await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.CurrencyId,
+                currency.Id, _workContext.CurrentStore.Id);
 
         //clear coupon code
-        await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.DiscountCoupons, "");
+        await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.DiscountCoupons, "");
 
         //clear gift card
-        await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.GiftVoucherCoupons, "");
+        await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.GiftVoucherCoupons, "");
 
         //notification
-        await _mediator.Publish(new ChangeCurrencyEvent(_contextAccessor.WorkContext.CurrentCustomer, currency));
+        await _mediator.Publish(new ChangeCurrencyEvent(_workContext.CurrentCustomer, currency));
+
+        //home page
+        if (string.IsNullOrEmpty(returnUrl))
+            returnUrl = Url.RouteUrl("HomePage");
 
         //prevent open redirection attack
         if (!Url.IsLocalUrl(returnUrl))
@@ -243,46 +244,37 @@ public class CommonController : BasePublicController
     [HttpGet]
     public virtual async Task<IActionResult> SetStore(
         [FromServices] IStoreService storeService,
+        [FromServices] IStoreHelper storeHelper,
         [FromServices] CommonSettings commonSettings,
-        [FromServices] ICookieOptionsFactory cookieOptionsFactory,
         string shortcut, string returnUrl = "")
     {
-        var currentstoreShortcut = _contextAccessor.StoreContext.CurrentStore.Shortcut;
+        var currentstoreShortcut = _workContext.CurrentStore.Shortcut;
         if (currentstoreShortcut != shortcut)
             if (commonSettings.AllowToSelectStore)
             {
-                var selectedstore = (await storeService.GetAllStores()).FirstOrDefault(x =>
+                var selectedstore = storeService.GetAll().FirstOrDefault(x =>
                     string.Equals(x.Shortcut, shortcut, StringComparison.InvariantCultureIgnoreCase));
                 if (selectedstore != null)
                 {
-                    SetStoreCookie(selectedstore);
+                    await storeHelper.SetStoreCookie(selectedstore.Id);
 
                     //notification
-                    await _mediator.Publish(new ChangeStoreEvent(_contextAccessor.WorkContext.CurrentCustomer, selectedstore));
+                    await _mediator.Publish(new ChangeStoreEvent(_workContext.CurrentCustomer, selectedstore));
 
-                    if (selectedstore.Url != _contextAccessor.StoreContext.CurrentStore.Url)
+                    if (selectedstore.Url != _workContext.CurrentStore.Url)
                         return Redirect(selectedstore.SslEnabled ? selectedstore.SecureUrl : selectedstore.Url);
                 }
             }
 
+        //home page
+        if (string.IsNullOrEmpty(returnUrl))
+            returnUrl = Url.RouteUrl("HomePage");
+
         //prevent open redirection attack
-        var redirectUrl = Url.RouteUrl("HomePage");
-        if (Url.IsLocalUrl(returnUrl))
-            redirectUrl = returnUrl;
+        if (!Url.IsLocalUrl(returnUrl))
+            returnUrl = Url.RouteUrl("HomePage");
 
-        return Redirect(redirectUrl);
-
-        void SetStoreCookie(Domain.Stores.Store store)
-        {
-            if (store == null)
-                return;
-
-            //remove current cookie
-            HttpContext.Response.Cookies.Delete(CommonHelper.StoreCookieName);
-            //set new cookie value
-            var options = cookieOptionsFactory.Create();
-            HttpContext.Response.Cookies.Append(CommonHelper.StoreCookieName, store.Id, options);
-        }
+        return Redirect(returnUrl);
     }
 
     [DenySystemAccount]
@@ -292,24 +284,28 @@ public class CommonController : BasePublicController
     public virtual async Task<IActionResult> SetTaxType(
         [FromServices] TaxSettings taxSettings,
         [FromServices] ICustomerService customerService,
-        int customerTaxType, string returnUrl = "")
+        int customerTaxType, string returnUrl = default)
     {
+        var taxDisplayType = (TaxDisplayType)Enum.ToObject(typeof(TaxDisplayType), customerTaxType);
+
+        //home page
+        if (string.IsNullOrEmpty(returnUrl))
+            returnUrl = Url.RouteUrl("HomePage");
+
         //prevent open redirection attack
         if (!Url.IsLocalUrl(returnUrl))
             returnUrl = Url.RouteUrl("HomePage");
-
-        var taxDisplayType = (TaxDisplayType)Enum.ToObject(typeof(TaxDisplayType), customerTaxType);
 
         //whether customers are allowed to select tax display type
         if (!taxSettings.AllowCustomersToSelectTaxDisplayType)
             return Redirect(returnUrl);
 
         //save passed value
-        await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer,
-            SystemCustomerFieldNames.TaxDisplayTypeId, (int)taxDisplayType, _contextAccessor.StoreContext.CurrentStore.Id);
+        await customerService.UpdateUserField(_workContext.CurrentCustomer,
+            SystemCustomerFieldNames.TaxDisplayTypeId, (int)taxDisplayType, _workContext.CurrentStore.Id);
 
         //notification
-        await _mediator.Publish(new ChangeTaxTypeEvent(_contextAccessor.WorkContext.CurrentCustomer, taxDisplayType));
+        await _mediator.Publish(new ChangeTaxTypeEvent(_workContext.CurrentCustomer, taxDisplayType));
 
         return Redirect(returnUrl);
     }
@@ -320,17 +316,21 @@ public class CommonController : BasePublicController
         [FromServices] StoreInformationSettings storeInformationSettings,
         [FromServices] IThemeContextFactory themeContextFactory, string themeName, string returnUrl = "")
     {
-        //prevent open redirection attack
-        if (!Url.IsLocalUrl(returnUrl))
-            returnUrl = Url.RouteUrl("HomePage");
-
         if (!storeInformationSettings.AllowCustomerToSelectTheme) return Redirect(returnUrl);
 
         var themeContext = themeContextFactory.GetThemeContext("");
         if (themeContext != null) await themeContext.SetTheme(themeName);
 
         //notification
-        await _mediator.Publish(new ChangeThemeEvent(_contextAccessor.WorkContext.CurrentCustomer, themeName));
+        await _mediator.Publish(new ChangeThemeEvent(_workContext.CurrentCustomer, themeName));
+
+        //home page
+        if (string.IsNullOrEmpty(returnUrl))
+            returnUrl = Url.RouteUrl("HomePage");
+
+        //prevent open redirection attack
+        if (!Url.IsLocalUrl(returnUrl))
+            returnUrl = Url.RouteUrl("HomePage");
 
         return Redirect(returnUrl);
     }
@@ -343,9 +343,9 @@ public class CommonController : BasePublicController
             return RedirectToRoute("HomePage");
 
         var model = await _mediator.Send(new GetSitemap {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Language = _contextAccessor.WorkContext.WorkingLanguage,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Customer = _workContext.CurrentCustomer,
+            Language = _workContext.WorkingLanguage,
+            Store = _workContext.CurrentStore
         });
         return View(model);
     }
@@ -364,18 +364,19 @@ public class CommonController : BasePublicController
             return Json(new { stored = false });
 
         //save consent cookies
-        await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.ConsentCookies, "",
-            _contextAccessor.StoreContext.CurrentStore.Id);
+        await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.ConsentCookies, "",
+            _workContext.CurrentStore.Id);
+        var dictionary = new Dictionary<string, bool>();
         var consentCookies = cookiePreference.GetConsentCookies();
-        var dictionary = consentCookies.Where(x => x.AllowToDisable).ToDictionary(item => item.SystemName, item => accept);
+        foreach (var item in consentCookies.Where(x => x.AllowToDisable)) dictionary.Add(item.SystemName, accept);
 
         if (dictionary.Any())
-            await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.ConsentCookies,
-                dictionary, _contextAccessor.StoreContext.CurrentStore.Id);
+            await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.ConsentCookies,
+                dictionary, _workContext.CurrentStore.Id);
 
         //save setting - CookieAccepted
-        await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.CookieAccepted,
-            true, _contextAccessor.StoreContext.CurrentStore.Id);
+        await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.CookieAccepted,
+            true, _workContext.CurrentStore.Id);
 
         return Json(new { stored = true });
     }
@@ -391,12 +392,11 @@ public class CommonController : BasePublicController
             return Json(new { html = "" });
 
         var model = await _mediator.Send(new GetPrivacyPreference {
-            Customer = _contextAccessor.WorkContext.CurrentCustomer,
-            Store = _contextAccessor.StoreContext.CurrentStore
+            Customer = _workContext.CurrentCustomer,
+            Store = _workContext.CurrentStore
         });
 
-        return Json(new
-        {
+        return Json(new {
             html = await this.RenderPartialViewToString("PrivacyPreference", model, true),
             model
         });
@@ -415,8 +415,8 @@ public class CommonController : BasePublicController
             return Json(new { success = false });
 
         const string consent = "ConsentCookies";
-        await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.ConsentCookies, "",
-            _contextAccessor.StoreContext.CurrentStore.Id);
+        await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.ConsentCookies, "",
+            _workContext.CurrentStore.Id);
         var selectedConsentCookies = new List<string>();
         foreach (var item in model)
             if (item.Key.StartsWith(consent))
@@ -428,7 +428,7 @@ public class CommonController : BasePublicController
             if (item.AllowToDisable)
                 dictionary.Add(item.SystemName, selectedConsentCookies.Contains(item.SystemName));
 
-        await customerService.UpdateUserField(_contextAccessor.WorkContext.CurrentCustomer, SystemCustomerFieldNames.ConsentCookies, dictionary, _contextAccessor.StoreContext.CurrentStore.Id);
+        await customerService.UpdateUserField(_workContext.CurrentCustomer, SystemCustomerFieldNames.ConsentCookies, dictionary, _workContext.CurrentStore.Id);
 
         return Json(new { success = true });
     }
@@ -439,7 +439,7 @@ public class CommonController : BasePublicController
     [HttpGet]
     public virtual async Task<IActionResult> RobotsTextFile()
     {
-        var sb = await _mediator.Send(new GetRobotsTextFile { StoreId = _contextAccessor.StoreContext.CurrentStore.Id });
+        var sb = await _mediator.Send(new GetRobotsTextFile { StoreId = _workContext.CurrentStore.Id });
         return Content(sb, "text/plain");
     }
 
@@ -448,7 +448,7 @@ public class CommonController : BasePublicController
     public virtual IActionResult GenericUrl()
     {
         //not found
-        return NotFound();
+        return InvokeHttp404();
     }
 
     [ClosedStore(true)]
@@ -471,47 +471,9 @@ public class CommonController : BasePublicController
         if (!customerSettings.GeoEnabled)
             return Content("");
 
-        await _mediator.Send(new CurrentPositionCommand { Customer = _contextAccessor.WorkContext.CurrentCustomer, Model = model });
+        await _mediator.Send(new CurrentPositionCommand { Customer = _workContext.CurrentCustomer, Model = model });
 
         return Content("");
-    }
-
-    [AllowAnonymous]
-    [IgnoreApi]
-    [HttpGet]
-    public virtual async Task<IActionResult> QueuedEmail([FromServices] IQueuedEmailService queuedEmailService, string emailId)
-    {
-        if (string.IsNullOrEmpty(emailId))
-        {
-            return GetTrackingPixel();
-        }
-
-        var isFromAdmin = Request.GetTypedHeaders().Referer?.ToString()?.Contains("admin/queuedemail/edit/",
-            StringComparison.OrdinalIgnoreCase) ?? false;
-
-        if (!isFromAdmin)
-        {
-            var queuedEmail = await queuedEmailService.GetQueuedEmailById(emailId);
-            if (queuedEmail != null && queuedEmail.ReadOnUtc == null)
-            {
-                queuedEmail.ReadOnUtc = DateTime.UtcNow;
-                await queuedEmailService.UpdateQueuedEmail(queuedEmail);
-            }
-        }
-
-        return GetTrackingPixel();
-
-        IActionResult GetTrackingPixel()
-        {
-
-            const string TRACKING_PIXEL = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-            return File(
-                Convert.FromBase64String(TRACKING_PIXEL),
-                "image/png",
-                "pixel.png"
-            );
-        }
-
     }
 
     #endregion

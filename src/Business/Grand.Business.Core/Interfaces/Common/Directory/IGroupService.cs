@@ -23,7 +23,7 @@ public interface IGroupService
     /// </summary>
     /// <param name="customer">Customer</param>
     /// <returns>Result</returns>
-    Task<bool> IsStoreManager(Customer customer);
+    Task<bool> IsStaff(Customer customer);
 
     /// <summary>
     ///     Gets a value indicating whether customer is administrator

@@ -17,19 +17,17 @@ namespace Grand.Web.Features.Handlers.Blogs;
 public class GetBlogPostListHandler : IRequestHandler<GetBlogPostList, BlogPostListModel>
 {
     private readonly IBlogService _blogService;
+
+    private readonly BlogSettings _blogSettings;
     private readonly IDateTimeService _dateTimeService;
+    private readonly MediaSettings _mediaSettings;
     private readonly IPictureService _pictureService;
     private readonly ITranslationService _translationService;
-    private readonly IContextAccessor _contextAccessor;
-    private readonly MediaSettings _mediaSettings;
-    private readonly BlogSettings _blogSettings;
-
-    private string WorkingLanguageId => _contextAccessor.WorkContext.WorkingLanguage.Id;
-    private string CurrentStoreId => _contextAccessor.StoreContext.CurrentStore.Id;
+    private readonly IWorkContext _workContext;
 
     public GetBlogPostListHandler(
         IBlogService blogService,
-        IContextAccessor contextAccessor,
+        IWorkContext workContext,
         IPictureService pictureService,
         ITranslationService translationService,
         IDateTimeService dateTimeService,
@@ -37,7 +35,7 @@ public class GetBlogPostListHandler : IRequestHandler<GetBlogPostList, BlogPostL
         MediaSettings mediaSettings)
     {
         _blogService = blogService;
-        _contextAccessor = contextAccessor;
+        _workContext = workContext;
         _pictureService = pictureService;
         _translationService = translationService;
         _dateTimeService = dateTimeService;
@@ -54,7 +52,7 @@ public class GetBlogPostListHandler : IRequestHandler<GetBlogPostList, BlogPostL
                 Month = request.Command.Month,
                 CategorySeName = request.Command.CategorySeName
             },
-            WorkingLanguageId = WorkingLanguageId,
+            WorkingLanguageId = _workContext.WorkingLanguage.Id,
             SearchKeyword = request.Command.SearchKeyword
         };
 
@@ -68,18 +66,18 @@ public class GetBlogPostListHandler : IRequestHandler<GetBlogPostList, BlogPostL
         if (string.IsNullOrEmpty(request.Command.CategorySeName))
         {
             if (string.IsNullOrEmpty(request.Command.Tag))
-                blogPosts = await _blogService.GetAllBlogPosts(CurrentStoreId,
+                blogPosts = await _blogService.GetAllBlogPosts(_workContext.CurrentStore.Id,
                     dateFrom, dateTo, request.Command.PageNumber - 1, request.Command.PageSize,
                     blogPostName: model.SearchKeyword);
             else
-                blogPosts = await _blogService.GetAllBlogPostsByTag(CurrentStoreId,
+                blogPosts = await _blogService.GetAllBlogPostsByTag(_workContext.CurrentStore.Id,
                     request.Command.Tag, request.Command.PageNumber - 1, request.Command.PageSize);
         }
         else
         {
             var categoryblog = await _blogService.GetBlogCategoryBySeName(request.Command.CategorySeName);
             var categoryId = categoryblog != null ? categoryblog.Id : "";
-            blogPosts = await _blogService.GetAllBlogPosts(CurrentStoreId,
+            blogPosts = await _blogService.GetAllBlogPosts(_workContext.CurrentStore.Id,
                 dateFrom, dateTo, request.Command.PageNumber - 1, request.Command.PageSize, categoryId: categoryId,
                 blogPostName: model.SearchKeyword);
         }
@@ -102,13 +100,13 @@ public class GetBlogPostListHandler : IRequestHandler<GetBlogPostList, BlogPostL
         ArgumentNullException.ThrowIfNull(model);
 
         model.Id = blogPost.Id;
-        model.MetaTitle = blogPost.GetTranslation(x => x.MetaTitle, WorkingLanguageId);
-        model.MetaDescription = blogPost.GetTranslation(x => x.MetaDescription, WorkingLanguageId);
-        model.MetaKeywords = blogPost.GetTranslation(x => x.MetaKeywords, WorkingLanguageId);
-        model.SeName = blogPost.GetSeName(WorkingLanguageId);
-        model.Title = blogPost.GetTranslation(x => x.Title, WorkingLanguageId);
-        model.Body = blogPost.GetTranslation(x => x.Body, WorkingLanguageId);
-        model.BodyOverview = blogPost.GetTranslation(x => x.BodyOverview, WorkingLanguageId);
+        model.MetaTitle = blogPost.GetTranslation(x => x.MetaTitle, _workContext.WorkingLanguage.Id);
+        model.MetaDescription = blogPost.GetTranslation(x => x.MetaDescription, _workContext.WorkingLanguage.Id);
+        model.MetaKeywords = blogPost.GetTranslation(x => x.MetaKeywords, _workContext.WorkingLanguage.Id);
+        model.SeName = blogPost.GetSeName(_workContext.WorkingLanguage.Id);
+        model.Title = blogPost.GetTranslation(x => x.Title, _workContext.WorkingLanguage.Id);
+        model.Body = blogPost.GetTranslation(x => x.Body, _workContext.WorkingLanguage.Id);
+        model.BodyOverview = blogPost.GetTranslation(x => x.BodyOverview, _workContext.WorkingLanguage.Id);
         model.AllowComments = blogPost.AllowComments;
         model.CreatedOn =
             _dateTimeService.ConvertToUserTime(blogPost.StartDateUtc ?? blogPost.CreatedOnUtc, DateTimeKind.Utc);
@@ -136,15 +134,15 @@ public class GetBlogPostListHandler : IRequestHandler<GetBlogPostList, BlogPostL
                 Title =
                     picture != null &&
                     !string.IsNullOrEmpty(
-                        picture.GetTranslation(x => x.TitleAttribute, WorkingLanguageId))
-                        ? picture.GetTranslation(x => x.TitleAttribute, WorkingLanguageId)
+                        picture.GetTranslation(x => x.TitleAttribute, _workContext.WorkingLanguage.Id))
+                        ? picture.GetTranslation(x => x.TitleAttribute, _workContext.WorkingLanguage.Id)
                         : string.Format(_translationService.GetResource("Media.Blog.ImageLinkTitleFormat"),
                             blogPost.Title),
                 //"alt" attribute
                 AlternateText =
                     picture != null &&
-                    !string.IsNullOrEmpty(picture.GetTranslation(x => x.AltAttribute, WorkingLanguageId))
-                        ? picture.GetTranslation(x => x.AltAttribute, WorkingLanguageId)
+                    !string.IsNullOrEmpty(picture.GetTranslation(x => x.AltAttribute, _workContext.WorkingLanguage.Id))
+                        ? picture.GetTranslation(x => x.AltAttribute, _workContext.WorkingLanguage.Id)
                         : string.Format(_translationService.GetResource("Media.Blog.ImageAlternateTextFormat"),
                             blogPost.Title)
             };

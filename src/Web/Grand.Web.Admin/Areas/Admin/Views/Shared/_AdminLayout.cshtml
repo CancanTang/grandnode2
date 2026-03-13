@@ -1,19 +1,19 @@
 ﻿@using System.Text.Encodings.Web
 @using Grand.Business.Core.Interfaces.Common.Directory
 @using Grand.Business.Core.Interfaces.Common.Security
-@using Grand.Domain.Permissions
+@using Grand.Business.Core.Utilities.Common.Security
 @using Grand.Domain.Customers
 @using Grand.Domain.Localization
-@inject IContextAccessor contextAccessor
+@inject IWorkContext workContext
 @inject IPermissionService permissionService
 @inject CustomerSettings customerSettings
 @inject LanguageSettings languageSettings
 @inject IGroupService groupService
 @{
-    var currentCustomer = contextAccessor.WorkContext.CurrentCustomer;
+    var currentCustomer = workContext.CurrentCustomer;
     var usernamesEnabled = customerSettings.UsernamesEnabled;
     var currentVersion = GrandVersion.FullVersion;
-    var supportRtl = contextAccessor.WorkContext.WorkingLanguage.Rtl &&
+    var supportRtl = workContext.WorkingLanguage.Rtl &&
                      !languageSettings.IgnoreRtlPropertyForAdminArea;
 
     //page title
@@ -176,7 +176,7 @@
                                     @if (await groupService.IsAdmin(currentCustomer))
                                     {
                                         <li>
-                                            <a href="@Url.Action("Edit", "Customer", new { currentCustomer!.Id, area = Constants.AreaAdmin })">
+                                            <a href="@Url.Action("Edit", "Customer", new { id = currentCustomer.Id, area = Constants.AreaAdmin })">
                                                 <i class="icon-user"></i> @Loc["Admin.Header.Profile"]
                                             </a>
                                         </li>

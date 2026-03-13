@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Html;
-using System.Net;
 using System.Text.Encodings.Web;
 
 namespace Grand.Web.Common.Extensions;
@@ -25,10 +24,6 @@ public static class HtmlExtensions
         using var writer = new StringWriter();
         tag.WriteTo(writer, HtmlEncoder.Default);
         return writer.ToString();
-    }
-    public static string HtmlEncodeSafe(string input)
-    {
-        return string.IsNullOrEmpty(input) ? string.Empty : WebUtility.HtmlEncode(input);
     }
 
     #endregion

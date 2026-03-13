@@ -6,14 +6,14 @@ namespace Grand.Data.Mongo;
 
 public class MongoStoreFilesContext : IStoreFilesContext
 {
-    private readonly IMongoDatabase _database;
+    protected IMongoDatabase _database;
 
     public MongoStoreFilesContext()
     {
-        var connectionString = DataSettingsManager.Instance.LoadSettings().ConnectionString;
+        var connectionString = DataSettingsManager.LoadSettings().ConnectionString;
 
-        var mongoUrl = new MongoUrl(connectionString);
-        var databaseName = mongoUrl.DatabaseName;
+        var mongourl = new MongoUrl(connectionString);
+        var databaseName = mongourl.DatabaseName;
         _database = new MongoClient(connectionString).GetDatabase(databaseName);
     }
 
@@ -25,7 +25,7 @@ public class MongoStoreFilesContext : IStoreFilesContext
     public async Task<byte[]> BucketDownload(string id)
     {
         var bucket = new GridFSBucket(_database);
-        var binary = await bucket.DownloadAsBytesAsync(new ObjectId(id), new GridFSDownloadOptions());
+        var binary = await bucket.DownloadAsBytesAsync(new ObjectId(id), new GridFSDownloadOptions { CheckMD5 = true });
         return binary;
     }
 

@@ -36,7 +36,7 @@ public class OrderServiceTests
     [TestMethod]
     public void UpdateOrder_NullArguments_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.UpdateOrder(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.UpdateOrder(null));
     }
 
     [TestMethod]
@@ -50,7 +50,7 @@ public class OrderServiceTests
     [TestMethod]
     public void InsertOrderNote_NullArguments_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.InsertOrderNote(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.InsertOrderNote(null));
     }
 
     [TestMethod]
@@ -64,6 +64,6 @@ public class OrderServiceTests
     [TestMethod]
     public void DeleteOrderNote_NullArguments_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _service.DeleteOrderNote(null));
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _service.DeleteOrderNote(null));
     }
 }

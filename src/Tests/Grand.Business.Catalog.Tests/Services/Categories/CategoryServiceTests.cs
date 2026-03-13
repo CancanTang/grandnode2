@@ -27,17 +27,17 @@ public class CategoryServiceTests
     private ProductCategoryService _productCategoryService;
     private Mock<MongoRepository<Product>> _productRepositoryMock;
     private CatalogSettings _settings;
-    private Mock<IContextAccessor> _workContextMock;
+    private Mock<IWorkContext> _workContextMock;
 
     [TestInitialize]
     public void Init()
     {
-        var settingsPath = Path.Combine("", CommonPath.AppData, CommonPath.SettingsFile);
-        DataSettingsManager.Initialize(settingsPath);
+        CommonPath.BaseDirectory = "";
+
         _casheManagerMock = new Mock<ICacheBase>();
         _categoryRepositoryMock = new Mock<IRepository<Category>>();
         _productRepositoryMock = new Mock<MongoRepository<Product>>(Mock.Of<IAuditInfoProvider>());
-        _workContextMock = new Mock<IContextAccessor>();
+        _workContextMock = new Mock<IWorkContext>();
         _mediatorMock = new Mock<IMediator>();
         _aclServiceMock = new Mock<IAclService>();
         _settings = new CatalogSettings();
@@ -51,7 +51,7 @@ public class CategoryServiceTests
     [TestMethod]
     public void InsertCategory_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _categoryService.InsertCategory(null),
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _categoryService.InsertCategory(null),
             "category");
     }
 
@@ -68,7 +68,7 @@ public class CategoryServiceTests
     [TestMethod]
     public void UpdateCategory_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await _categoryService.UpdateCategory(null),
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await _categoryService.UpdateCategory(null),
             "category");
     }
 
@@ -89,7 +89,7 @@ public class CategoryServiceTests
         _aclServiceMock.Setup(a => a.Authorize(It.IsAny<Category>(), It.IsAny<Customer>())).Returns(() => true);
         _aclServiceMock.Setup(a => a.Authorize(It.IsAny<Category>(), It.IsAny<string>())).Returns(() => true);
         var result = _categoryService.GetCategoryBreadCrumb(category, allCategory);
-        Assert.IsEmpty(result);
+        Assert.IsTrue(result.Count == 0);
     }
 
     [TestMethod]
@@ -97,12 +97,11 @@ public class CategoryServiceTests
     {
         var allCategory = GetMockCategoryList();
         var category = new Category { Id = "6", ParentCategoryId = "3", Published = true };
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer { Id = "" });
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
         _aclServiceMock.Setup(a => a.Authorize(It.IsAny<Category>(), It.IsAny<Customer>())).Returns(() => true);
         _aclServiceMock.Setup(a => a.Authorize(It.IsAny<Category>(), It.IsAny<string>())).Returns(() => true);
         var result = _categoryService.GetCategoryBreadCrumb(category, allCategory);
-        Assert.HasCount(2, result);
+        Assert.IsTrue(result.Count == 2);
         Assert.IsTrue(result.Any(c => c.Id.Equals("6")));
         Assert.IsTrue(result.Any(c => c.Id.Equals("3")));
     }
@@ -112,12 +111,11 @@ public class CategoryServiceTests
     {
         var allCategory = GetMockCategoryList();
         var category = new Category { Id = "6", ParentCategoryId = "1", Published = true };
-        _workContextMock.Setup(c => c.StoreContext.CurrentStore).Returns(() => new Store { Id = "" });
-        _workContextMock.Setup(c => c.WorkContext.CurrentCustomer).Returns(() => new Customer { Id = "" });
+        _workContextMock.Setup(c => c.CurrentStore).Returns(() => new Store { Id = "" });
         _aclServiceMock.Setup(a => a.Authorize(It.IsAny<Category>(), It.IsAny<Customer>())).Returns(() => true);
         _aclServiceMock.Setup(a => a.Authorize(It.IsAny<Category>(), It.IsAny<string>())).Returns(() => true);
         var result = _categoryService.GetCategoryBreadCrumb(category, allCategory);
-        Assert.HasCount(3, result);
+        Assert.IsTrue(result.Count == 3);
         Assert.IsTrue(result.Any(c => c.Id.Equals("6")));
         Assert.IsTrue(result.Any(c => c.Id.Equals("1")));
         Assert.IsTrue(result.Any(c => c.Id.Equals("5")));
@@ -161,7 +159,7 @@ public class CategoryServiceTests
     [TestMethod]
     public void DeleteProductCategory_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(
             async () => await _productCategoryService.DeleteProductCategory(null, "id"), "productCategory");
     }
 
@@ -180,7 +178,7 @@ public class CategoryServiceTests
     [TestMethod]
     public void InsertProductCategory_NullArgument_ThrowException()
     {
-        Assert.ThrowsExactlyAsync<ArgumentNullException>(
+        Assert.ThrowsExceptionAsync<ArgumentNullException>(
             async () => await _productCategoryService.InsertProductCategory(null, "id"), "productCategory");
     }
 

@@ -6,13 +6,31 @@ namespace Grand.Data.LiteDb;
 
 public class LiteDBContext : IDatabaseContext
 {
-    private readonly LiteDatabase _database;
+    protected LiteDatabase _database;
 
     public LiteDBContext(LiteDatabase database)
     {
         _database = database;
     }
-   
+
+    public void SetConnection(string connectionString)
+    {
+        if (string.IsNullOrEmpty(connectionString))
+            throw new ArgumentNullException(nameof(connectionString));
+    }
+
+    //Not supported by LiteDB
+    public bool InstallProcessCreateTable => false;
+    public bool InstallProcessCreateIndex => true;
+
+    public IQueryable<T> Table<T>(string collectionName)
+    {
+        if (string.IsNullOrEmpty(collectionName))
+            throw new ArgumentNullException(nameof(collectionName));
+
+        return _database.GetCollection<T>(collectionName).FindAll().AsQueryable();
+    }
+
     public async Task<bool> DatabaseExist()
     {
         return await Task.FromResult(_database.CollectionExists(nameof(GrandNodeVersion)));
@@ -26,7 +44,8 @@ public class LiteDBContext : IDatabaseContext
 
     public Task DeleteTable(string name)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(name);
+        if (string.IsNullOrEmpty(name))
+            throw new ArgumentNullException(nameof(name));
 
         _database.DropCollection(name);
 
@@ -36,10 +55,11 @@ public class LiteDBContext : IDatabaseContext
     public Task CreateIndex<T>(IRepository<T> repository, OrderBuilder<T> orderBuilder, string indexName,
         bool unique = false) where T : BaseEntity
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(indexName);
+        if (string.IsNullOrEmpty(indexName))
+            throw new ArgumentNullException(nameof(indexName));
         try
         {
-            foreach (var (selector, value, fieldName) in orderBuilder.Fields)
+            foreach (var (selector, value, fieldName) in orderBuilder?.Fields)
             {
                 var col = _database.GetCollection<T>();
                 if (selector != null)

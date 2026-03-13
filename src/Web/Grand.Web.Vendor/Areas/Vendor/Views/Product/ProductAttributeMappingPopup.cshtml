@@ -5,10 +5,10 @@
     ViewBag.Title = Loc["Vendor.Catalog.Products.ProductAttributes.Details"];
 }
 <form id="ProductAttributeMappingPopup" asp-area="@Constants.AreaVendor" asp-controller="Product" asp-action="ProductAttributeMappingPopup" enctype="multipart/form-data" method="post"
-      asp-route-ProductId="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["ProductId"])"
-      asp-route-productAttributeMappingId="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["ProductAttributeMappingId"])"
-      asp-route-btnId="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["btnId"])"
-      asp-route-formId="@HtmlExtensions.HtmlEncodeSafe(Context.Request.Query["formId"])">
+      asp-route-ProductId="@Context.Request.Query["ProductId"]"
+      asp-route-productAttributeMappingId="@Context.Request.Query["ProductAttributeMappingId"]"
+      asp-route-btnId="@Context.Request.Query["btnId"]"
+      asp-route-formId="@Context.Request.Query["formId"]">
 
 
     <div asp-validation-summary="All"></div>
@@ -71,7 +71,7 @@
                             <div class="form-group">
                                 <admin-label asp-for="AttributeControlType"/>
                                 <div class="col-md-9 col-sm-9">
-                                    <admin-select asp-for="AttributeControlTypeId" asp-items="EnumTranslationService.ToSelectList(Model.AttributeControlTypeId, valuesToExclude: [(int)AttributeControlType.Hidden])"/>
+                                    <admin-select asp-for="AttributeControlTypeId" asp-items="Model.AttributeControlTypeId.ToSelectList(Context, valuesToExclude: [(int)AttributeControlType.Hidden])"/>
                                     <span asp-validation-for="AttributeControlTypeId"></span>
                                 </div>
                             </div>

@@ -2,7 +2,6 @@
 using Grand.Data;
 using Grand.Data.Tests.MongoDb;
 using Grand.Domain.Orders;
-using Grand.SharedKernel.Extensions;
 using MediatR;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -19,12 +18,9 @@ public class LoyaltyPointsServiceTests
     [TestInitialize]
     public void Init()
     {
-
-        var settingsPath = Path.Combine("", CommonPath.AppData, CommonPath.SettingsFile);
-        DataSettingsManager.Initialize(settingsPath);
-
         _repository = new MongoDBRepositoryTest<LoyaltyPointsHistory>();
         _mediatorMock = new Mock<IMediator>();
+
         _loyaltyPointsService =
             new LoyaltyPointsService(_repository, new LoyaltyPointsSettings(), _mediatorMock.Object);
     }
@@ -53,7 +49,7 @@ public class LoyaltyPointsServiceTests
         //Assert
         Assert.IsNotNull(result);
         Assert.AreEqual(10, result.Points);
-        Assert.IsNotEmpty(_repository.Table);
+        Assert.IsTrue(_repository.Table.Any());
     }
 
     [TestMethod]
@@ -69,6 +65,6 @@ public class LoyaltyPointsServiceTests
         //Act
         var result = await _loyaltyPointsService.GetLoyaltyPointsHistory("1");
         //Assert
-        Assert.HasCount(3, result);
+        Assert.AreEqual(3, result.Count);
     }
 }
