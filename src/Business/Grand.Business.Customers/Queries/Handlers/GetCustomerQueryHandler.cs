@@ -37,7 +37,7 @@ public class GetCustomerQueryHandler : IRequestHandler<GetCustomerQuery, IQuerya
 
         query = query.Where(c => !c.Deleted);
         if (request.CustomerGroupIds is { Length: > 0 })
-            query = query.Where(c => c.Groups.Any(x => request.CustomerGroupIds.Contains(x)));
+            query = query.Where(c => c.Groups.Any(x => Enumerable.Contains(request.CustomerGroupIds, x)));
         if (request.CustomerTagIds is { Length: > 0 })
             foreach (var item in request.CustomerTagIds)
                 query = query.Where(c => c.CustomerTags.Contains(item));

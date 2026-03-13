@@ -7,6 +7,7 @@
         <UseAppHost>false</UseAppHost>
         <!--Set GenerateRuntimeConfigurationFiles as true when Vendor panel is supposed to works independent-->
         <GenerateRuntimeConfigurationFiles>false</GenerateRuntimeConfigurationFiles>
+	<StaticWebAssetBasePath>_content/$(MSBuildProjectName)</StaticWebAssetBasePath>
     </PropertyGroup>
     <ItemGroup>
         <Content Include="Areas\**" CopyToPublishDirectory="Never" />

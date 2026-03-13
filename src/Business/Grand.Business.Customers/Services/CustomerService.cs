@@ -198,8 +198,8 @@ public class CustomerService : ICustomerService
             return new List<Customer>();
 
         var query = from c in _customerRepository.Table
-            where customerIds.Contains(c.Id)
-            select c;
+            where Enumerable.Contains(customerIds, c.Id)
+                    select c;
         var customers = query.ToList();
         //sort by passed identifiers
         var sortedCustomers = customerIds.Select(id => customers.Find(x => x.Id == id))
